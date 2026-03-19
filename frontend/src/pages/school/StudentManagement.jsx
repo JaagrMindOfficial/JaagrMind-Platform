@@ -201,6 +201,10 @@ const StudentManagement = () => {
     };
 
     const handleExportIds = async () => {
+        if (students.length === 0) {
+            toast.error('No students registered. Export cannot be generated.');
+            return;
+        }
         try {
             const response = await api.post('/api/school/export-ids', {
                 studentIds: selectedStudents.length > 0 ? selectedStudents : undefined,
@@ -562,6 +566,7 @@ const StudentManagement = () => {
                             <motion.button
                                 className="btn btn-outline"
                                 onClick={handleExportIds}
+                                disabled={students.length === 0}
                                 whileHover={{ scale: 1.02 }}
                             >
                                 <FontAwesomeIcon icon={faFileExport} /> Export IDs

@@ -1276,10 +1276,6 @@ router.post('/export-ids', protect, isSchoolAdmin, async (req, res) => {
             .select('accessId name rollNo class section')
             .sort({ class: 1, section: 1, rollNo: 1 });
 
-        if (students.length === 0) {
-            return res.status(400).json({ message: 'No students found. Export cannot be generated.' });
-        }
-
         const workbook = await exportAccessIdsToExcel(students, req.school.name);
 
         res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');

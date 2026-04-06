@@ -2,13 +2,11 @@ import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, AreaChart, Area } from 'recharts';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faSchool, faUserGraduate, faClipboardList, faCheckCircle, faExclamationTriangle, faArrowRight } from '@fortawesome/free-solid-svg-icons';
+import { faSchool, faUserGraduate, faClipboardList, faCheckCircle, faPaperPlane, faHeartPulse, faBrain, faMobileScreenButton, faRobot, faArrowRight, faExclamationCircle } from '@fortawesome/free-solid-svg-icons';
 import Layout from '../../components/common/Layout';
 import Background3D from '../../components/common/Background3D';
 import api from '../../services/api';
 import './AdminDashboard.css';
-
-const COLORS = ['#10B981', '#F59E0B', '#EF4444', '#B993E9'];
 
 const AdminDashboard = () => {
     const [data, setData] = useState(null);
@@ -46,354 +44,316 @@ const AdminDashboard = () => {
         ? Object.entries(data.analytics.bucketDistribution).map(([name, value]) => ({
             name,
             value,
-            color: name.includes('Stable') ? '#10B981' :
-                name.includes('Emerging') ? '#F59E0B' : '#EF4444'
+            color: name.includes('Stable') ? '#34d399' :
+                name.includes('Emerging') ? '#fbbf24' : '#f87171'
         }))
         : [];
 
     const sectionData = data?.analytics?.sectionAverages
         ? [
-            { name: 'Focus & Attention', score: data.analytics.sectionAverages.A, fill: '#B993E9' },
-            { name: 'Self-Esteem', score: data.analytics.sectionAverages.B, fill: '#D4BFFF' },
-            { name: 'Social Confidence', score: data.analytics.sectionAverages.C, fill: '#9B6DD4' },
-            { name: 'Digital Hygiene', score: data.analytics.sectionAverages.D, fill: '#C7A6F5' }
+            { name: 'Focus', score: data.analytics.sectionAverages.A, fill: '#8B5CF6' },
+            { name: 'Esteem', score: data.analytics.sectionAverages.B, fill: '#6366f1' },
+            { name: 'Social', score: data.analytics.sectionAverages.C, fill: '#06b6d4' },
+            { name: 'Hygiene', score: data.analytics.sectionAverages.D, fill: '#f43f5e' }
         ]
         : [];
 
     const trendData = data?.wellnessTrends || [];
     const attentionData = data?.attentionNeeded || [];
 
+    const containerVariants = {
+        hidden: { opacity: 0 },
+        show: {
+            opacity: 1,
+            transition: { staggerChildren: 0.1 }
+        }
+    };
+
+    const itemVariants = {
+        hidden: { opacity: 0, y: 10 },
+        show: { opacity: 1, y: 0, transition: { duration: 0.6, ease: "easeOut" } }
+    };
+
     return (
-        <Layout title="Admin Dashboard" subtitle="Overview of all schools and check-ins">
+        <Layout title="Admin Platform" subtitle="Live tracking across all networks">
             <Background3D />
-            {/* Stats Cards */}
-            <div className="stats-grid">
-                <motion.div
-                    className="stat-card glass-panel"
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.1 }}
-                    whileHover={{ scale: 1.05, translateY: -5 }}
-                    onHoverStart={() => navigator.vibrate && navigator.vibrate(30)}
-                >
-                    <div className="stat-icon"><FontAwesomeIcon icon={faSchool} /></div>
-                    <div className="stat-info">
-                        <div className="stat-value">{data?.overview?.totalSchools || 0}</div>
-                        <div className="stat-label">Total Schools</div>
-                    </div>
-                </motion.div>
+            
+            <motion.div 
+                className="admin-dashboard-wrapper"
+                variants={containerVariants}
+                initial="hidden"
+                animate="show"
+            >
+                {/* Minimalist Hero Stats */}
+                <div className="hero-stats-row">
+                    <motion.div variants={itemVariants} className="stat-card aesthetic-card">
+                        <div className="stat-info">
+                            <div className="stat-value">{data?.overview?.totalSchools || 0}</div>
+                            <div className="stat-label">Active Schools</div>
+                        </div>
+                    </motion.div>
 
-                <motion.div
-                    className="stat-card glass-panel"
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.2 }}
-                    whileHover={{ scale: 1.05, translateY: -5 }}
-                    onHoverStart={() => navigator.vibrate && navigator.vibrate(30)}
-                >
-                    <div className="stat-icon"><FontAwesomeIcon icon={faUserGraduate} /></div>
-                    <div className="stat-info">
-                        <div className="stat-value">{data?.overview?.totalStudents || 0}</div>
-                        <div className="stat-label">Total Students</div>
-                    </div>
-                </motion.div>
+                    <motion.div variants={itemVariants} className="stat-card aesthetic-card">
+                        <div className="stat-info">
+                            <div className="stat-value">{data?.overview?.totalStudents || 0}</div>
+                            <div className="stat-label">Total Students</div>
+                        </div>
+                    </motion.div>
 
-                <motion.div
-                    className="stat-card glass-panel"
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.3 }}
-                    whileHover={{ scale: 1.05, translateY: -5 }}
-                    onHoverStart={() => navigator.vibrate && navigator.vibrate(30)}
-                >
-                    <div className="stat-icon"><FontAwesomeIcon icon={faClipboardList} /></div>
-                    <div className="stat-info">
-                        <div className="stat-value">{data?.overview?.totalAssessments || 0}</div>
-                        <div className="stat-label">Check-ins</div>
-                    </div>
-                </motion.div>
+                    <motion.div variants={itemVariants} className="stat-card aesthetic-card">
+                        <div className="stat-info">
+                            <div className="stat-value">{data?.overview?.totalAssessments || 0}</div>
+                            <div className="stat-label">Total Check-ins</div>
+                        </div>
+                    </motion.div>
 
-                <motion.div
-                    className="stat-card glass-panel"
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.4 }}
-                    whileHover={{ scale: 1.05, translateY: -5 }}
-                    onHoverStart={() => navigator.vibrate && navigator.vibrate(30)}
-                >
-                    <div className="stat-icon"><FontAwesomeIcon icon={faCheckCircle} /></div>
-                    <div className="stat-info">
-                        <div className="stat-value">{data?.overview?.totalSubmissions || 0}</div>
-                        <div className="stat-label">Submissions</div>
-                    </div>
-                </motion.div>
-            </div>
+                    <motion.div variants={itemVariants} className="stat-card aesthetic-card">
+                        <div className="stat-info">
+                            <div className="stat-value">{data?.overview?.totalSubmissions || 0}</div>
+                            <div className="stat-label">Submissions</div>
+                        </div>
+                    </motion.div>
+                </div>
 
-            {/* Charts Section */}
-            <div className="charts-grid">
-                {/* 4 Donut Charts for Focus Areas */}
-                <motion.div
-                    className="chart-card glass-panel"
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.5 }}
-                >
-                    <h3 className="chart-title">Focus Area Breakdown</h3>
-                    <div className="four-chart-grid" style={{ height: 'auto', minHeight: '300px' }}>
-                        {[
-                            { key: 'A', title: 'Focus & Attention' },
-                            { key: 'B', title: 'Self-Esteem' },
-                            { key: 'C', title: 'Social Confidence' },
-                            { key: 'D', title: 'Digital Hygiene' }
-                        ].map((section) => {
-                            const dist = data?.analytics?.sectionDistributions?.[section.key];
-                            const chartData = [
-                                { name: 'Stable', value: dist?.['Skill Stable'] || 0, color: '#10B981' },
-                                { name: 'Emerging', value: dist?.['Skill Emerging'] || 0, color: '#F59E0B' },
-                                { name: 'Support', value: dist?.['Skill Support Needed'] || 0, color: '#EF4444' }
-                            ];
-                            const total = chartData.reduce((sum, item) => sum + item.value, 0);
+                {/* Bento Box Master Grid */}
+                <div className="dashboard-grid-main" style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr 1.2fr', gap: '24px' }}>
+                    
+                    {/* Row 1 / Col 1 - Trends */}
+                    <motion.div variants={itemVariants} style={{ gridColumn: '1' }}>
+                        <div className="chart-card aesthetic-card" style={{ height: '320px' }}>
+                            <div className="chart-title">
+                                <span>Wellness Progress</span>
+                                <span style={{ fontSize: '0.85rem', color: '#10B981', fontWeight: 600 }}>+4.2%</span>
+                            </div>
+                            {trendData.length > 0 ? (
+                                <div style={{ width: '100%', height: '100%' }}>
+                                    <ResponsiveContainer>
+                                        <AreaChart data={trendData} margin={{ top: 10, right: 10, left: -25, bottom: 0 }}>
+                                            <defs>
+                                                <linearGradient id="trendLightObj" x1="0" y1="0" x2="0" y2="1">
+                                                    <stop offset="0%" stopColor="#8B5CF6" stopOpacity={0.2} />
+                                                    <stop offset="100%" stopColor="#8B5CF6" stopOpacity={0} />
+                                                </linearGradient>
+                                            </defs>
+                                            <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.03)" vertical={false} />
+                                            <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#9CA3AF', fontSize: 11 }} />
+                                            <YAxis domain={[0, 32]} axisLine={false} tickLine={false} tick={{ fill: '#9CA3AF', fontSize: 11 }} />
+                                            <Tooltip content={<CustomTooltip />} cursor={{ stroke: 'rgba(0,0,0,0.05)' }} />
+                                            <Area type="monotone" dataKey="score" stroke="#8B5CF6" strokeWidth={2} fillOpacity={1} fill="url(#trendLightObj)" />
+                                        </AreaChart>
+                                    </ResponsiveContainer>
+                                </div>
+                            ) : (
+                                <div className="chart-empty">No trend data available</div>
+                            )}
+                        </div>
+                    </motion.div>
 
-                            return (
-                                <div key={section.key} className="mini-chart">
-                                    <h4>{section.title}</h4>
-                                    <div style={{ width: '100%', height: 160 }}>
-                                        <ResponsiveContainer>
+                    {/* Row 1 / Col 2 - Average Indices */}
+                    <motion.div variants={itemVariants} style={{ gridColumn: '2' }}>
+                        <div className="chart-card aesthetic-card" style={{ height: '320px' }}>
+                            <div className="chart-title">
+                                <span>Core Indices</span>
+                            </div>
+                            {sectionData.length > 0 && sectionData.some(s => s.score > 0) ? (
+                                <div style={{ width: '100%', height: '100%' }}>
+                                    <ResponsiveContainer>
+                                        <BarChart data={sectionData} margin={{ top: 10, right: 0, left: -25, bottom: 0 }}>
+                                            <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.03)" vertical={false} />
+                                            <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#9CA3AF' }} axisLine={false} tickLine={false} />
+                                            <YAxis domain={[0, 32]} tick={{ fontSize: 11, fill: '#9CA3AF' }} axisLine={false} tickLine={false} />
+                                            <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(0,0,0,0.02)', radius: 8 }} />
+                                            <Bar dataKey="score" radius={[6, 6, 0, 0]} barSize={20}>
+                                                {sectionData.map((entry, index) => (
+                                                    <Cell key={`cell-${index}`} fill={entry.fill} opacity={0.8} />
+                                                ))}
+                                            </Bar>
+                                        </BarChart>
+                                    </ResponsiveContainer>
+                                </div>
+                            ) : (
+                                <div className="chart-empty">No indices available</div>
+                            )}
+                        </div>
+                    </motion.div>
+
+                    {/* Row 1 & 2 / Col 3 - Luma AI / Photo Card */}
+                    <motion.div variants={itemVariants} style={{ gridColumn: '3', gridRow: '1 / span 2' }}>
+                        <div className="ai-assistant-card image-glass-card" style={{ height: '100%' }}>
+                            <div>
+                                <h3 className="chart-title"><FontAwesomeIcon icon={faRobot} /> Network Insights</h3>
+                                <p className="chart-subtitle">Your real-time wellness assistant</p>
+                                
+                                {bucketData.length > 0 && (
+                                    <div style={{ height: 280, position: 'relative' }}>
+                                        <ResponsiveContainer width="100%" height="100%">
                                             <PieChart>
                                                 <Pie
-                                                    data={chartData}
+                                                    data={bucketData}
                                                     cx="50%"
                                                     cy="50%"
-                                                    innerRadius={40}
-                                                    outerRadius={55}
-                                                    paddingAngle={2}
+                                                    innerRadius={70}
+                                                    outerRadius={100}
+                                                    paddingAngle={3}
                                                     dataKey="value"
-                                                    stroke="none"
+                                                    stroke="rgba(255,255,255,0.1)"
+                                                    strokeWidth={2}
                                                 >
-                                                    {chartData.map((entry, index) => (
+                                                    {bucketData.map((entry, index) => (
                                                         <Cell key={`cell-${index}`} fill={entry.color} />
                                                     ))}
                                                 </Pie>
-                                                <Tooltip
-                                                    formatter={(value, name) => [`${value} students`, name]}
-                                                    contentStyle={{ fontSize: '10px', padding: '5px' }}
-                                                />
+                                                <Tooltip content={<CustomPieTooltip />} />
                                             </PieChart>
                                         </ResponsiveContainer>
-                                        <div className="chart-center-text">
-                                            {total} <span>Students</span>
+                                        <div className="chart-center-text" style={{ color: 'white' }}>
+                                            {data?.overview?.totalStudents || 0}
+                                            <span style={{ color: 'rgba(255,255,255,0.7)' }}>Total</span>
                                         </div>
                                     </div>
+                                )}
+                            </div>
+                            
+                            <div className="glass-interface">
+                                <div className="glass-chip-row">
+                                    <div className="glass-chip">Why is focus dropping?</div>
+                                    <div className="glass-chip">Are schools stable?</div>
+                                    <div className="glass-chip">Generate report</div>
                                 </div>
-                            );
-                        })}
-                    </div>
-                </motion.div>
-
-                {/* Bar Chart (Restored) */}
-                <motion.div
-                    className="chart-card glass-panel"
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.6 }}
-                >
-                    <h3 className="chart-title">Average Focus Area Indices</h3>
-                    {sectionData.length > 0 && sectionData.some(s => s.score > 0) ? (
-                        <ResponsiveContainer width="100%" height={280}>
-                            <BarChart data={sectionData} barSize={40}>
-                                <defs>
-                                    <linearGradient id="barGradient" x1="0" y1="0" x2="1" y2="0">
-                                        <stop offset="0%" stopColor="#B993E9" stopOpacity={0.8} />
-                                        <stop offset="50%" stopColor="#9B6DD4" stopOpacity={1} />
-                                        <stop offset="100%" stopColor="#B993E9" stopOpacity={0.8} />
-                                    </linearGradient>
-                                </defs>
-                                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" vertical={false} />
-                                <XAxis
-                                    dataKey="name"
-                                    tick={{ fontSize: 12, fill: 'var(--text-muted)' }}
-                                    axisLine={false}
-                                    tickLine={false}
-                                />
-                                <YAxis
-                                    domain={[0, 32]}
-                                    tick={{ fontSize: 12, fill: 'var(--text-muted)' }}
-                                    axisLine={false}
-                                    tickLine={false}
-                                />
-                                <Tooltip
-                                    cursor={{ fill: 'transparent' }}
-                                    contentStyle={{
-                                        backgroundColor: 'rgba(255, 255, 255, 0.95)',
-                                        backdropFilter: 'blur(10px)',
-                                        borderRadius: '12px',
-                                        border: 'none',
-                                        boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
-                                        color: '#1f2937'
-                                    }}
-                                    itemStyle={{ color: '#1f2937' }}
-                                />
-                                <Bar
-                                    dataKey="score"
-                                    radius={[10, 10, 10, 10]}
-                                    fill="url(#barGradient)"
-                                    animationDuration={1500}
-                                    animationBegin={200}
-                                >
-                                    {sectionData.map((entry, index) => (
-                                        <Cell key={`cell-${index}`} fill={entry.fill} />
-                                    ))}
-                                </Bar>
-                            </BarChart>
-                        </ResponsiveContainer>
-                    ) : (
-                        <div className="chart-empty">
-                            <p>No data available yet</p>
-                        </div>
-                    )}
-                </motion.div>
-            </div>
-
-            <div className="charts-row-secondary" style={{ gridTemplateColumns: '1.5fr 1fr' }}>
-                {/* Wellness Trends Chart */}
-                <motion.div
-                    className="chart-card glass-panel"
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.7 }}
-                >
-                    <h3 className="chart-title">Well-being Trends (Last 6 Months)</h3>
-                    {trendData.length > 0 ? (
-                        <div style={{ width: '100%', height: 300 }}>
-                            <ResponsiveContainer>
-                                <AreaChart data={trendData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
-                                    <defs>
-                                        <linearGradient id="colorScore" x1="0" y1="0" x2="0" y2="1">
-                                            <stop offset="5%" stopColor="#10B981" stopOpacity={0.8} />
-                                            <stop offset="95%" stopColor="#10B981" stopOpacity={0} />
-                                        </linearGradient>
-                                    </defs>
-                                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" vertical={false} />
-                                    <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: 'var(--text-muted)' }} />
-                                    <YAxis domain={[0, 32]} axisLine={false} tickLine={false} tick={{ fill: 'var(--text-muted)' }} />
-                                    <Tooltip
-                                        contentStyle={{
-                                            backgroundColor: 'rgba(255, 255, 255, 0.95)',
-                                            borderRadius: '8px',
-                                            border: 'none',
-                                            boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
-                                            color: '#1f2937'
-                                        }}
-                                        itemStyle={{ color: '#1f2937' }}
-                                    />
-                                    <Area
-                                        type="monotone"
-                                        dataKey="score"
-                                        stroke="#10B981"
-                                        fillOpacity={1}
-                                        fill="url(#colorScore)"
-                                        strokeWidth={3}
-                                    />
-                                </AreaChart>
-                            </ResponsiveContainer>
-                        </div>
-                    ) : (
-                        <div className="chart-empty">
-                            <p>No trend data available yet</p>
-                        </div>
-                    )}
-                </motion.div>
-
-                {/* Pie Chart (Student Well-being) - Restored */}
-                <motion.div
-                    className="chart-card glass-panel"
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.8 }}
-                >
-                    <h3 className="chart-title">Student Well-being Distribution</h3>
-                    {bucketData.length > 0 ? (
-                        <ResponsiveContainer width="100%" height={280}>
-                            <PieChart>
-                                <Pie
-                                    data={bucketData}
-                                    cx="50%"
-                                    cy="45%"
-                                    innerRadius={70}
-                                    outerRadius={100}
-                                    paddingAngle={5}
-                                    dataKey="value"
-                                >
-                                    {bucketData.map((entry, index) => (
-                                        <Cell key={`cell-${index}`} fill={entry.color} />
-                                    ))}
-                                </Pie>
-                                <Tooltip formatter={(value, name) => [`${value} students`, name]} />
-                                <Legend
-                                    verticalAlign="bottom"
-                                    height={36}
-                                    formatter={(value, entry) => {
-                                        const item = bucketData.find(d => d.name === value);
-                                        const total = bucketData.reduce((sum, d) => sum + d.value, 0);
-                                        const percent = total > 0 ? ((item?.value || 0) / total * 100).toFixed(0) : 0;
-                                        return `${value} (${percent}%)`;
-                                    }}
-                                />
-                            </PieChart>
-                        </ResponsiveContainer>
-                    ) : (
-                        <div className="chart-empty">
-                            <p>No data available yet</p>
-                        </div>
-                    )}
-                </motion.div>
-            </div>
-
-            {/* Schools Needing Support - Full Width */}
-            <motion.div
-                className="charts-row-full chart-card glass-panel attention-card"
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.9 }}
-            >
-                <div className="card-header">
-                    <h3 className="chart-title">
-                        <FontAwesomeIcon icon={faExclamationTriangle} className="text-warning me-2" />
-                        Schools Needing Support
-                    </h3>
-                </div>
-
-                {attentionData.length > 0 ? (
-                    <div className="attention-list">
-                        {attentionData.map((school, index) => (
-                            <div key={school.id} className="attention-item">
-                                <div className="attention-info">
-                                    <h4>{school.name}</h4>
-                                    <p>{school.details}</p>
-                                </div>
-                                <div className="attention-score">
-                                    <div className="risk-badge">
-                                        {school.riskScore}% Priority
+                                <div className="glass-search-bar">
+                                    <img src="/assets/avatars/avatar-1.png" alt="Avatar" style={{ width: 24, height: 24, borderRadius: '50%' }} onError={(e) => { e.target.style.display = 'none'; }} />
+                                    <input type="text" placeholder="Ask AI something..." />
+                                    <div className="send-btn">
+                                        <FontAwesomeIcon icon={faPaperPlane} />
                                     </div>
                                 </div>
                             </div>
-                        ))}
-                        <div className="attention-footer">
-                            <a href="/admin/schools" className="btn-link">
-                                View All Schools <FontAwesomeIcon icon={faArrowRight} />
-                            </a>
                         </div>
-                    </div>
-                ) : (
-                    <div className="empty-state">
-                        <FontAwesomeIcon icon={faCheckCircle} className="text-success fa-3x mb-3" />
-                        <p>All schools are performing well!</p>
-                        <span className="text-muted text-sm">No priority schools detected.</span>
-                    </div>
-                )}
+                    </motion.div>
+
+                    {/* Row 2 / Col 1 - Priority Support List (Image background) */}
+                    <motion.div variants={itemVariants} style={{ gridColumn: '1' }}>
+                        <div className="integrations-panel image-glass-card" style={{ height: '100%', gridColumn: '1' }}>
+                            <h3 className="chart-title">Intervention Required</h3>
+                            <p className="chart-subtitle">Schools flagged by system analytics</p>
+                            
+                            {attentionData.length > 0 ? (
+                                <div className="glass-list">
+                                    {attentionData.slice(0, 3).map((school, i) => (
+                                        <div key={school.id || i} className="glass-list-item">
+                                            <div className="item-icon">
+                                                <FontAwesomeIcon icon={faExclamationCircle} color="#fca5a5" />
+                                            </div>
+                                            <div className="item-info">
+                                                <h4>{school.name}</h4>
+                                                <p>{school.details}</p>
+                                            </div>
+                                            <div className="item-value">
+                                                {school.riskScore}% Risk
+                                            </div>
+                                        </div>
+                                    ))}
+                                    <a href="/admin/schools" style={{ color: 'white', fontSize: '0.85rem', textAlign: 'center', display: 'block', marginTop: '8px', textDecoration: 'none', fontWeight: 500 }}>
+                                        + View all flagged schools
+                                    </a>
+                                </div>
+                            ) : (
+                                <div className="chart-empty" style={{ color: 'white', background: 'rgba(0,0,0,0.2)', backdropFilter: 'blur(10px)', borderRadius: '16px' }}>
+                                    <FontAwesomeIcon icon={faCheckCircle} size="2x" style={{ marginBottom: '12px', color: '#10B981' }} />
+                                    <p>All networks stable</p>
+                                </div>
+                            )}
+                        </div>
+                    </motion.div>
+
+                    {/* Row 2 / Col 2 - Focus Area Breakdown */}
+                    <motion.div variants={itemVariants} style={{ gridColumn: '2' }}>
+                        <div className="chart-card aesthetic-card" style={{ height: '100%' }}>
+                            <div className="chart-title">
+                                <span>Focus Areas</span>
+                            </div>
+                            <div className="four-chart-grid">
+                                {[
+                                    { key: 'A', title: 'Focus', icon: faBrain, color: '#8B5CF6' },
+                                    { key: 'B', title: 'Self-Esteem', icon: faHeartPulse, color: '#6366f1' },
+                                    { key: 'C', title: 'Social', icon: faSchool, color: '#06b6d4' },
+                                    { key: 'D', title: 'Digital', icon: faMobileScreenButton, color: '#f43f5e' }
+                                ].map((section) => {
+                                    const dist = data?.analytics?.sectionDistributions?.[section.key];
+                                    const chartData = [
+                                        { name: 'Stable', value: dist?.['Skill Stable'] || 0, color: '#34d399' },
+                                        { name: 'Emerging', value: dist?.['Skill Emerging'] || 0, color: '#fbbf24' },
+                                        { name: 'Support', value: dist?.['Skill Support Needed'] || 0, color: '#f87171' }
+                                    ];
+                                    const total = chartData.reduce((sum, item) => sum + item.value, 0);
+
+                                    return (
+                                        <div key={section.key} className="mini-chart">
+                                            <h4><FontAwesomeIcon icon={section.icon} style={{ color: section.color, marginRight: 6 }} />{section.title}</h4>
+                                            <div style={{ width: '100%', height: 100 }}>
+                                                <ResponsiveContainer>
+                                                    <PieChart>
+                                                        <Pie
+                                                            data={chartData}
+                                                            cx="50%"
+                                                            cy="50%"
+                                                            innerRadius={25}
+                                                            outerRadius={38}
+                                                            paddingAngle={2}
+                                                            dataKey="value"
+                                                            stroke="none"
+                                                        >
+                                                            {chartData.map((entry, index) => (
+                                                                <Cell key={`cell-${index}`} fill={entry.color} opacity={0.8} />
+                                                            ))}
+                                                        </Pie>
+                                                        <Tooltip content={<CustomPieTooltip />} />
+                                                    </PieChart>
+                                                </ResponsiveContainer>
+                                                <div className="chart-center-text">
+                                                    {total}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    </motion.div>
+                    
+                </div>
             </motion.div>
         </Layout>
     );
+};
+
+// Minimalist Tooltips
+const CustomTooltip = ({ active, payload, label }) => {
+    if (active && payload && payload.length) {
+        return (
+            <div className="custom-tooltip-light">
+                <p className="label" style={{ margin: 0, fontSize: '0.8rem', color: '#6B7280' }}>{label}</p>
+                <p className="value" style={{ margin: 0, fontSize: '1rem', color: payload[0].color || payload[0].fill, fontWeight: '700' }}>
+                    {payload[0].value}
+                </p>
+            </div>
+        );
+    }
+    return null;
+};
+
+const CustomPieTooltip = ({ active, payload }) => {
+    if (active && payload && payload.length) {
+        return (
+            <div className="custom-tooltip-light">
+                <p className="label" style={{ margin: 0, fontSize: '0.8rem', color: '#6B7280' }}>{payload[0].name}</p>
+                <p className="value" style={{ margin: 0, fontSize: '1rem', color: payload[0].payload.color || payload[0].fill, fontWeight: '700' }}>
+                    {payload[0].value} Students
+                </p>
+            </div>
+        );
+    }
+    return null;
 };
 
 export default AdminDashboard;

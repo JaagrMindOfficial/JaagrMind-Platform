@@ -5,13 +5,34 @@ const ThemeContext = createContext(null);
 export const ThemeProvider = ({ children }) => {
     const [theme, setTheme] = useState(() => {
         const stored = localStorage.getItem('jaagrmind_theme');
-        return stored || 'light';
+        return stored || 'system';
     });
+    
+    const [resolvedTheme, setResolvedTheme] = useState('dark');
 
     useEffect(() => {
-        document.documentElement.setAttribute('data-theme', theme);
+        const updateTheme = () => {
+            if (theme === 'system') {
+                const isSystemDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+                setResolvedTheme(isSystemDark ? 'dark' : 'light');
+            } else {
+                setResolvedTheme(theme);
+            }
+        };
+
+        updateTheme();
+
+        const mql = window.matchMedia('(prefers-color-scheme: dark)');
+        const listener = () => { if (theme === 'system') updateTheme(); };
+        mql.addEventListener('change', listener);
+
         localStorage.setItem('jaagrmind_theme', theme);
+        return () => mql.removeEventListener('change', listener);
     }, [theme]);
+
+    useEffect(() => {
+        document.documentElement.setAttribute('data-theme', resolvedTheme);
+    }, [resolvedTheme]);
 
     const toggleTheme = () => {
         setTheme(prev => prev === 'light' ? 'dark' : 'light');
@@ -19,8 +40,9 @@ export const ThemeProvider = ({ children }) => {
 
     const value = {
         theme,
+        setTheme,
         toggleTheme,
-        isDark: theme === 'dark'
+        isDark: resolvedTheme === 'dark' // Use resolved state for styling queries
     };
 
     return (

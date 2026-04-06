@@ -404,7 +404,7 @@ const LandingPage = () => {
     const features = [
         {
             icon: faBrain,
-            title: 'AI-Powered Check-ins',
+            title: 'Expert Designed Check-ins',
             description: 'Adaptive, emotion-responsive prompts that understand student context and provide personalized support.'
         },
         {
@@ -656,15 +656,17 @@ const LandingPage = () => {
                                 <li><strong>Wait for a crisis:</strong> Support only kicks in after a breakdown.</li>
                                 <li><strong>Blindspots:</strong> Counselors rely on rare 1-on-1 check-ins.</li>
                                 <li><strong>Fragmented tools:</strong> Isolated data with no predictive insights.</li>
+                                <li><strong>No Post-analysis:</strong> No way to handle Students Emotional Balance </li>
                             </ul>
                         </motion.div>
                         <motion.div className="ps-card ps-solution hover-lift" initial={{ opacity: 0, y: 30 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: 0.1, duration: 0.6 }}>
                             <span className="ps-badge success">THE JAAGRMIND WAY</span>
                             <h3>Proactive, unified, and holistic</h3>
                             <ul className="ps-list">
-                                <li><strong>Early detection:</strong> Predictive AI identifies risk before it escalates.</li>
+                                <li><strong>Early detection:</strong> Counsellors and Experts identifies risk before it escalates.</li>
                                 <li><strong>Continuous monitoring:</strong> Gamified daily check-ins for true visibility.</li>
                                 <li><strong>Centralized ecosystem:</strong> One dashboard for counselors, admins, and students.</li>
+                                <li><strong>Post-analysis:</strong>Handle Students Emotional Balance with Gamified and Proven Mind Relaxing activities</li>
                             </ul>
                         </motion.div>
                     </div>
@@ -803,7 +805,7 @@ const LandingPage = () => {
                             <div className="t-icon"><FontAwesomeIcon icon={faDesktop} /></div>
                             <div className="t-content">
                                 <span className="t-num">01</span>
-                                <h3>Gamified Daily Check-ins</h3>
+                                <h3>Gamified Check-ins</h3>
                                 <p>Students engage with quick, interactive wellness checks to log their emotional state and earn cosmic tokens.</p>
                             </div>
                         </motion.div>
@@ -818,8 +820,8 @@ const LandingPage = () => {
                             <div className="t-icon"><FontAwesomeIcon icon={faBrain} /></div>
                             <div className="t-content">
                                 <span className="t-num">02</span>
-                                <h3>AI Pattern Analysis</h3>
-                                <p>Our proprietary model securely analyzes language and behavioral patterns to predict underlying well-being flags.</p>
+                                <h3>AI-assisted Pattern Analysis</h3>
+                                <p>Our expert Counsellors And proprietary model securely analyzes language and behavioral patterns to predict underlying well-being flags.</p>
                             </div>
                         </motion.div>
 
@@ -901,7 +903,7 @@ const LandingPage = () => {
                                             <img src={FOUNDER_PHOTOS.srishty} alt="" />
                                         </div>
                                         <div className="founder-info">
-                                            <h4>Srishty Puri Gajbhiye</h4>
+                                            <h4>Dr.Srishty Puri Gajbhiye</h4>
                                             <span>Co-founder</span>
                                         </div>
                                     </div>
@@ -1215,7 +1217,7 @@ const LandingPage = () => {
                                                 Together with Saurabh, I&apos;m focused on design, culture, and making sure
                                                 every voice in a classroom feels seen—especially the quiet ones.
                                             </p>
-                                            <p className="story-modal-signoff">— Srishty Puri Gajbhiye</p>
+                                            <p className="story-modal-signoff">— Dr.Srishty Puri Gajbhiye</p>
                                         </div>
                                     </div>
                                     <div className="story-modal-founder-visual">

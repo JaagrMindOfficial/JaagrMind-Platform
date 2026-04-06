@@ -131,10 +131,18 @@
     align-items: center;
     gap: 16px;
     padding: 24px;
-    background: var(--bg-card);
+    background: #FFFFFF;
     border-radius: var(--radius-xl);
-    border: 1px solid var(--border-color);
-    box-shadow: var(--shadow-sm);
+    border: 1px solid rgba(0,0,0,0.03);
+    box-shadow: 0 16px 40px rgba(0,0,0,0.04), 0 4px 10px rgba(0,0,0,0.02);
+    backdrop-filter: blur(24px);
+    transition: all var(--transition-normal);
+}
+
+.hero-stat-card:hover {
+    transform: translateY(-5px);
+    box-shadow: var(--glow-purple);
+    border-color: rgba(139, 92, 246, 0.3);
 }
 
 .hero-stat-card .stat-icon {
@@ -195,11 +203,12 @@
 }
 
 .chart-card {
-    background: var(--bg-card);
+    background: #FFFFFF;
     border-radius: var(--radius-xl);
-    border: 1px solid var(--border-color);
+    border: 1px solid rgba(0,0,0,0.03);
     padding: 24px;
-    box-shadow: var(--shadow-sm);
+    box-shadow: 0 16px 40px rgba(0,0,0,0.04), 0 4px 10px rgba(0,0,0,0.02);
+    backdrop-filter: blur(24px);
 }
 
 .chart-card h3 {
@@ -258,9 +267,10 @@
 
 /* Data Tables */
 .data-table-container {
-    background: var(--bg-card);
+    background: #FFFFFF;
     border-radius: var(--radius-xl);
-    border: 1px solid var(--border-color);
+    border: 1px solid rgba(0,0,0,0.03);
+    backdrop-filter: blur(24px);
     overflow: hidden;
     margin-bottom: 32px;
 }
@@ -504,9 +514,10 @@
 }
 
 .class-card {
-    background: var(--bg-card);
+    background: #FFFFFF;
     border-radius: var(--radius-xl);
-    border: 1px solid var(--border-color);
+    border: 1px solid rgba(0,0,0,0.03);
+    backdrop-filter: blur(12px);
     padding: 20px;
     cursor: pointer;
     transition: all 0.2s ease;
@@ -582,9 +593,10 @@
     gap: 20px;
     margin-bottom: 24px;
     padding: 24px;
-    background: var(--bg-card);
+    background: #FFFFFF;
     border-radius: var(--radius-xl);
-    border: 1px solid var(--border-color);
+    border: 1px solid rgba(0,0,0,0.03);
+    backdrop-filter: blur(24px);
 }
 
 .school-logo-large {
@@ -690,9 +702,10 @@
     align-items: center;
     gap: 24px;
     padding: 32px;
-    background: var(--bg-card);
+    background: #FFFFFF;
     border-radius: var(--radius-xl);
-    border: 1px solid var(--border-color);
+    border: 1px solid rgba(0,0,0,0.03);
+    backdrop-filter: blur(24px);
     margin-bottom: 24px;
 }
 
@@ -736,9 +749,10 @@
 
 .skill-score-card {
     padding: 20px;
-    background: var(--bg-card);
+    background: #FFFFFF;
     border-radius: var(--radius-lg);
-    border: 2px solid var(--border-color);
+    border: 1px solid rgba(0,0,0,0.03);
+    backdrop-filter: blur(12px);
     text-align: center;
 }
 
@@ -774,9 +788,10 @@
 }
 
 .assessment-history {
-    background: var(--bg-card);
+    background: #FFFFFF;
     border-radius: var(--radius-xl);
-    border: 1px solid var(--border-color);
+    border: 1px solid rgba(0,0,0,0.03);
+    backdrop-filter: blur(24px);
     padding: 24px;
 }
 
@@ -788,7 +803,7 @@
 
 .submission-card {
     padding: 16px;
-    background: var(--bg-secondary);
+    background: #F8FAFC;
     border-radius: var(--radius-md);
     margin-bottom: 12px;
 }
@@ -813,9 +828,9 @@
 .no-submissions-state {
     text-align: center;
     padding: 60px 20px;
-    background: var(--bg-card);
+    background: #FFFFFF;
     border-radius: var(--radius-xl);
-    border: 1px solid var(--border-color);
+    border: 1px solid rgba(0,0,0,0.03);
 }
 
 .no-submissions-state svg {
@@ -889,9 +904,10 @@
 }
 
 .test-card {
-    background: var(--bg-card);
+    background: #FFFFFF;
     border-radius: var(--radius-xl);
-    border: 2px solid var(--border-color);
+    border: 1px solid rgba(0,0,0,0.03);
+    backdrop-filter: blur(12px);
     padding: 20px;
     cursor: pointer;
     transition: all 0.2s ease;
@@ -959,9 +975,10 @@
 
 /* Test Analytics Detail */
 .test-analytics-detail {
-    background: var(--bg-card);
+    background: #FFFFFF;
     border-radius: var(--radius-xl);
-    border: 1px solid var(--border-color);
+    border: 1px solid rgba(0,0,0,0.03);
+    backdrop-filter: blur(24px);
     padding: 24px;
     margin-bottom: 24px;
 }
@@ -1027,8 +1044,9 @@
 }
 
 .test-stat-card {
-    background: var(--bg-secondary);
+    background: #F8FAFC;
     border-radius: var(--radius-lg);
+    border: 1px solid rgba(255,255,255,0.03);
     padding: 16px;
     text-align: center;
 }
@@ -1136,9 +1154,9 @@
     gap: 12px;
     margin: 20px 0;
     padding: 16px;
-    background: var(--surface-primary);
+    background: #FFFFFF;
     border-radius: 12px;
-    border: 1px solid var(--border-primary);
+    border: 1px solid rgba(0,0,0,0.03);
 }
 
 .test-filter-section label {
@@ -1170,9 +1188,9 @@
 
 /* Expanded Submission Cards */
 .submission-card-expanded {
-    background: var(--surface-primary);
+    background: #F8FAFC;
     border-radius: 12px;
-    border: 1px solid var(--border-primary);
+    border: 1px solid rgba(0,0,0,0.03);
     margin-bottom: 16px;
     overflow: hidden;
     transition: box-shadow 0.3s;

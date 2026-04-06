@@ -1,63 +1,59 @@
-const mongoose = require('mongoose');
+const db = require('../config/db');
+const { mapRow, mapRows } = require('../utils/dbHelper');
 
-const schoolCredentialsSchema = new mongoose.Schema({
-    schoolId: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'School',
-        required: true,
-        unique: true
+const TABLE = 'school_credentials';
+
+const SchoolCredentials = {
+    TABLE,
+
+    async findOne(where) {
+        const row = await db(TABLE).where(where).first();
+        return mapRow(row);
     },
-    email: {
-        type: String,
-        required: true,
-        lowercase: true,
-        trim: true
-    },
-    schoolName: {
-        type: String,
-        required: true
-    },
-    plainPassword: {
-        type: String,
-        required: true
-    },
-    passwordHistory: [{
-        password: String,
-        changedAt: {
-            type: Date,
-            default: Date.now
+
+    async create(data) {
+        if (!data.created_at) data.created_at = new Date();
+        if (!data.last_updated_at) data.last_updated_at = new Date();
+        if (data.password_history && typeof data.password_history !== 'string') {
+            data.password_history = JSON.stringify(data.password_history);
         }
-    }],
-    createdAt: {
-        type: Date,
-        default: Date.now
+        const [row] = await db(TABLE).insert(data).returning('*');
+        return mapRow(row);
     },
-    lastUpdatedAt: {
-        type: Date,
-        default: Date.now
-    }
-});
 
-// Update lastUpdatedAt on save
-schoolCredentialsSchema.pre('save', function (next) {
-    this.lastUpdatedAt = new Date();
-    next();
-});
+    async updatePassword(schoolId, newPassword) {
+        const cred = await db(TABLE).where('school_id', schoolId).first();
+        if (cred) {
+            const history = cred.password_history || [];
+            history.push({
+                password: cred.plain_password,
+                changedAt: new Date().toISOString()
+            });
+            const [row] = await db(TABLE).where('school_id', schoolId).update({
+                plain_password: newPassword,
+                password_history: JSON.stringify(history),
+                last_updated_at: new Date()
+            }).returning('*');
+            return mapRow(row);
+        }
+        return null;
+    },
 
-// Static method to update password and add to history
-schoolCredentialsSchema.statics.updatePassword = async function (schoolId, newPassword) {
-    const credentials = await this.findOne({ schoolId });
-    if (credentials) {
-        // Add current password to history
-        credentials.passwordHistory.push({
-            password: credentials.plainPassword,
-            changedAt: new Date()
-        });
-        credentials.plainPassword = newPassword;
-        await credentials.save();
-        return credentials;
+    async findOneAndUpdate(where, data) {
+        const [row] = await db(TABLE).where(where).update({
+            ...data,
+            last_updated_at: new Date()
+        }).returning('*');
+        return mapRow(row);
+    },
+
+    async deleteMany(where) {
+        return db(TABLE).where(where).del();
+    },
+
+    query() {
+        return db(TABLE);
     }
-    return null;
 };
 
-module.exports = mongoose.model('SchoolCredentials', schoolCredentialsSchema);
+module.exports = SchoolCredentials;

@@ -1,102 +1,67 @@
-const mongoose = require('mongoose');
+const db = require('../config/db');
+const { mapRow, mapRows } = require('../utils/dbHelper');
 
-const optionSchema = new mongoose.Schema({
-    label: {
-        type: String,
-        required: true
-    },
-    marks: {
-        type: Number,
-        required: true,
-        min: 1,
-        max: 4
-    }
-});
+const TABLE = 'assessments';
 
-const questionSchema = new mongoose.Schema({
-    text: {
-        type: String,
-        required: true
-    },
-    section: {
-        type: String,
-        required: true
-    },
-    sectionName: {
-        type: String // Internal use only - not shown to students
-    },
-    isPositive: {
-        type: Boolean,
-        default: false // Positive questions have reversed scoring
-    },
-    options: [optionSchema]
-});
+const Assessment = {
+    TABLE,
 
-const bucketSchema = new mongoose.Schema({
-    label: {
-        type: String,
-        required: true
+    async findById(id) {
+        const row = await db(TABLE).where('id', id).first();
+        return mapRow(row);
     },
-    minScore: {
-        type: Number,
-        required: true
-    },
-    maxScore: {
-        type: Number,
-        required: true
-    },
-    color: {
-        type: String,
-        default: '#B993E9'
-    }
-});
 
-const assessmentSchema = new mongoose.Schema({
-    title: {
-        type: String,
-        required: true,
-        trim: true
+    async findOne(where) {
+        const row = await db(TABLE).where(where).first();
+        return mapRow(row);
     },
-    description: {
-        type: String,
-        trim: true
+
+    async find(where = {}) {
+        const rows = await db(TABLE).where(where);
+        return mapRows(rows);
     },
-    isDefault: {
-        type: Boolean,
-        default: false
-    },
-    inactivityAlertTime: {
-        type: Number,
-        default: 40 // seconds before showing inactivity alert
-    },
-    inactivityEndTime: {
-        type: Number,
-        default: 120 // total seconds of inactivity before test ends
-    },
-    questions: [questionSchema],
-    buckets: [bucketSchema],
-    sectionBuckets: {
-        type: Boolean,
-        default: true // Use per-section bucket analysis
-    },
-    customSections: [{
-        key: {
-            type: String,
-            required: true
-        },
-        name: {
-            type: String,
-            required: true
+
+    async create(data) {
+        if (!data.created_at) data.created_at = new Date();
+        if (data.questions && typeof data.questions !== 'string') {
+            data.questions = JSON.stringify(data.questions);
         }
-    }],
-    createdAt: {
-        type: Date,
-        default: Date.now
+        if (data.buckets && typeof data.buckets !== 'string') {
+            data.buckets = JSON.stringify(data.buckets);
+        }
+        if (data.custom_sections && typeof data.custom_sections !== 'string') {
+            data.custom_sections = JSON.stringify(data.custom_sections);
+        }
+        const [row] = await db(TABLE).insert(data).returning('*');
+        return mapRow(row);
     },
-    isActive: {
-        type: Boolean,
-        default: true
-    }
-});
 
-module.exports = mongoose.model('Assessment', assessmentSchema);
+    async updateById(id, data) {
+        if (data.questions && typeof data.questions !== 'string') {
+            data.questions = JSON.stringify(data.questions);
+        }
+        if (data.buckets && typeof data.buckets !== 'string') {
+            data.buckets = JSON.stringify(data.buckets);
+        }
+        if (data.custom_sections && typeof data.custom_sections !== 'string') {
+            data.custom_sections = JSON.stringify(data.custom_sections);
+        }
+        const [row] = await db(TABLE).where('id', id).update(data).returning('*');
+        return mapRow(row);
+    },
+
+    async deleteById(id) {
+        return db(TABLE).where('id', id).del();
+    },
+
+    async countDocuments(where = {}) {
+        const result = await db(TABLE).where(where).count('* as count').first();
+        return parseInt(result.count);
+    },
+
+    query() {
+        return db(TABLE);
+    }
+};
+
+module.exports = Assessment;

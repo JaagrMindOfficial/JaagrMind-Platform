@@ -2,21 +2,18 @@ const express = require('express');
 const router = express.Router();
 const multer = require('multer');
 const XLSX = require('xlsx');
-const School = require('../models/School');
-const Student = require('../models/Student');
-const Assessment = require('../models/Assessment');
-const Submission = require('../models/Submission');
-const ArchivedData = require('../models/ArchivedData');
+const bcrypt = require('bcryptjs');
+const db = require('../config/db');
+const { mapRow, mapRows } = require('../utils/dbHelper');
 const SchoolCredentials = require('../models/SchoolCredentials');
 const { protect, isSchoolAdmin, generateToken } = require('../middleware/auth');
 const { generateAccessId, generateBulkAccessIds, generateSchoolId, generateSchoolPassword } = require('../utils/idGenerator');
 const { exportAccessIdsToExcel, calculateAnalytics, getSectionName } = require('../utils/exportData');
 const { sendPasswordChangedEmail } = require('../utils/emailService');
 
-// Configure multer for Excel uploads
 const upload = multer({
     storage: multer.memoryStorage(),
-    limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit
+    limits: { fileSize: 10 * 1024 * 1024 },
     fileFilter: (req, file, cb) => {
         const allowedTypes = /xlsx|xls|csv/;
         const extname = allowedTypes.test(file.originalname.toLowerCase());
@@ -34,24 +31,32 @@ router.post('/login', async (req, res) => {
     try {
         const { schoolId, password } = req.body;
 
-        const school = await School.findOne({
-            schoolId: schoolId.toUpperCase(),
-            isActive: true
-        }).populate('assignedTests', 'title isDefault')
-            .populate('parentId', 'name schoolId');
+        const schoolRow = await db('schools')
+            .where({ school_id: schoolId.toUpperCase(), is_active: true })
+            .first();
 
-        if (!school) {
+        if (!schoolRow) {
             return res.status(401).json({ message: 'Invalid school ID or password' });
         }
 
-        // Check if school is blocked
+        const school = mapRow(schoolRow);
+
         if (school.isBlocked) {
             return res.status(403).json({ message: 'This school account has been blocked. Please contact administrator.' });
         }
 
-        const isMatch = await school.matchPassword(password);
+        const isMatch = await bcrypt.compare(password, school.password);
         if (!isMatch) {
             return res.status(401).json({ message: 'Invalid school ID or password' });
+        }
+
+        let parent = null;
+        if (school.parentId) {
+            const parentRow = await db('schools')
+                .where('id', school.parentId)
+                .select('id', 'name', 'school_id')
+                .first();
+            parent = parentRow ? mapRow(parentRow) : null;
         }
 
         res.json({
@@ -61,7 +66,7 @@ router.post('/login', async (req, res) => {
             name: school.name,
             logo: school.logo,
             type: school.type,
-            parentId: school.parentId,
+            parentId: parent,
             address: school.address,
             isDataVisibleToSchool: school.isDataVisibleToSchool,
             mustChangePassword: school.mustChangePassword || false,
@@ -85,29 +90,28 @@ router.put('/change-password', protect, isSchoolAdmin, async (req, res) => {
             return res.status(400).json({ message: 'New password must be at least 6 characters' });
         }
 
-        const school = await School.findById(req.school._id);
-        if (!school) {
+        const schoolRow = await db('schools').where('id', req.school._id).first();
+        if (!schoolRow) {
             return res.status(404).json({ message: 'School not found' });
         }
+        const school = mapRow(schoolRow);
 
-        // Verify current password (skip if first-time change)
         if (!school.mustChangePassword) {
-            const isMatch = await school.matchPassword(currentPassword);
+            const isMatch = await bcrypt.compare(currentPassword, school.password);
             if (!isMatch) {
                 return res.status(401).json({ message: 'Current password is incorrect' });
             }
         }
 
-        // Update password
-        school.password = newPassword;
-        school.plainPassword = newPassword;
-        school.mustChangePassword = false;
-        await school.save();
+        const hashedPassword = await bcrypt.hash(newPassword, 10);
+        await db('schools').where('id', school._id).update({
+            password: hashedPassword,
+            plain_password: newPassword,
+            must_change_password: false
+        });
 
-        // Update SchoolCredentials
         await SchoolCredentials.updatePassword(school._id, newPassword);
 
-        // Send notification email
         if (school.email) {
             await sendPasswordChangedEmail(school.email, school.name);
         }
@@ -129,51 +133,60 @@ router.put('/profile', protect, isSchoolAdmin, async (req, res) => {
     try {
         const { name, email, phone, address, city, state, pincode } = req.body;
 
-        const school = await School.findById(req.school._id);
-        if (!school) {
+        const schoolRow = await db('schools').where('id', req.school._id).first();
+        if (!schoolRow) {
             return res.status(404).json({ message: 'School not found' });
         }
+        const school = mapRow(schoolRow);
 
-        // Update fields
-        if (name) school.name = name;
-        if (phone) school.contact.phone = phone;
+        const updateData = {};
+        const contact = { ...(school.contact || {}) };
 
-        // Update email if changed (and check uniqueness)
+        if (name) updateData.name = name;
+        if (phone) contact.phone = phone;
+
         if (email && email.toLowerCase() !== school.email) {
-            const emailExists = await School.findOne({ email: email.toLowerCase() });
+            const emailExists = await db('schools')
+                .where('email', email.toLowerCase())
+                .whereNot('id', school._id)
+                .first();
             if (emailExists) {
                 return res.status(400).json({ message: 'Email already in use' });
             }
-            school.email = email.toLowerCase();
-            school.contact.email = email.toLowerCase();
+            updateData.email = email.toLowerCase();
+            contact.email = email.toLowerCase();
 
-            // Update credentials
-            await SchoolCredentials.findOneAndUpdate(
-                { schoolId: school._id },
-                { email: email.toLowerCase() }
-            );
+            await db('school_credentials')
+                .where('school_id', school._id)
+                .update({ email: email.toLowerCase() });
         }
 
-        // Update address
+        updateData.contact = JSON.stringify(contact);
+
         if (address !== undefined || city !== undefined || state !== undefined || pincode !== undefined) {
-            school.address = {
-                street: address !== undefined ? address : school.address.street,
-                city: city !== undefined ? city : school.address.city,
-                state: state !== undefined ? state : school.address.state,
-                pincode: pincode !== undefined ? pincode : school.address.pincode,
-                full: `${address || school.address.street}${city || school.address.city ? ', ' + (city || school.address.city) : ''}${state || school.address.state ? ', ' + (state || school.address.state) : ''}`
+            const addr = {
+                street: address !== undefined ? address : (school.address?.street || ''),
+                city: city !== undefined ? city : (school.address?.city || ''),
+                state: state !== undefined ? state : (school.address?.state || ''),
+                pincode: pincode !== undefined ? pincode : (school.address?.pincode || ''),
+                full: `${address || school.address?.street || ''}${(city || school.address?.city) ? ', ' + (city || school.address?.city) : ''}${(state || school.address?.state) ? ', ' + (state || school.address?.state) : ''}`
             };
+            updateData.address = JSON.stringify(addr);
         }
 
-        await school.save();
+        const [updatedRow] = await db('schools')
+            .where('id', school._id)
+            .update(updateData)
+            .returning('*');
+        const updated = mapRow(updatedRow);
 
         res.json({
             message: 'Profile updated successfully',
             school: {
-                name: school.name,
-                email: school.email,
-                contact: school.contact,
-                address: school.address
+                name: updated.name,
+                email: updated.email,
+                contact: updated.contact,
+                address: updated.address
             }
         });
     } catch (error) {
@@ -187,49 +200,29 @@ router.put('/profile', protect, isSchoolAdmin, async (req, res) => {
 // @access  School Admin (Super School only)
 router.get('/branches', protect, isSchoolAdmin, async (req, res) => {
     try {
-        // Only Super Schools can have branches
-        // But for now, any school can check (if type isn't migrated yet, it might default to super)
-        const branches = await School.find({
-            parentId: req.school._id,
-            isActive: true
-        })
-            .select('-password -plainPassword')
-            .sort({ createdAt: -1 });
+        const branchRows = await db('schools')
+            .where({ parent_id: req.school._id, is_active: true })
+            .orderBy('created_at', 'desc');
 
-        // Add stats to branches
+        const branches = mapRows(branchRows).map(b => {
+            const { password, plainPassword, ...rest } = b;
+            return rest;
+        });
+
         const branchesWithStats = await Promise.all(branches.map(async (branch) => {
-            const studentCount = await Student.countDocuments({ schoolId: branch._id, isActive: true });
-            const submissionCount = await Submission.countDocuments({ schoolId: branch._id });
+            const studentResult = await db('students')
+                .where({ school_id: branch._id, is_active: true })
+                .count('* as count')
+                .first();
+            const submissionResult = await db('submissions')
+                .where({ school_id: branch._id })
+                .count('* as count')
+                .first();
             return {
-                ...branch.toObject(),
-                stats: { studentCount, submissionCount }
-            };
-        }));
-
-        res.json(branchesWithStats);
-    } catch (error) {
-        console.error('Get branches error:', error);
-        res.status(500).json({ message: 'Server error' });
-    }
-});
-
-// @route   GET /api/school/branches
-// @desc    Get all branches for this school
-// @access  School Admin (Super School only)
-router.get('/branches', protect, isSchoolAdmin, async (req, res) => {
-    try {
-        const branches = await School.find({
-            parentId: req.school._id,
-            isActive: true
-        }).select('name schoolId email address contact logo isBlocked isDataVisibleToSchool studentCount submissionCount');
-
-        // Get meaningful stats for each branch (optional, but good for dashboard)
-        const branchesWithStats = await Promise.all(branches.map(async (branch) => {
-            const studentCount = await Student.countDocuments({ schoolId: branch._id, isActive: true });
-            return {
-                ...branch.toObject(),
+                ...branch,
                 stats: {
-                    studentCount
+                    studentCount: parseInt(studentResult.count),
+                    submissionCount: parseInt(submissionResult.count)
                 }
             };
         }));
@@ -248,9 +241,8 @@ router.post('/branches', protect, isSchoolAdmin, upload.single('logo'), async (r
     try {
         const { name, address, city, state, pincode, phone, email, isDataVisibleToSchool, sendEmail } = req.body;
 
-        // Check if current school is a Super School
-        // Note: We might need to fetch fresh school data if req.school doesn't have 'type'
-        const currentSchool = await School.findById(req.school._id);
+        const currentSchoolRow = await db('schools').where('id', req.school._id).first();
+        const currentSchool = mapRow(currentSchoolRow);
         if (currentSchool.type === 'sub') {
             return res.status(403).json({ message: 'Sub-schools cannot create branches' });
         }
@@ -259,23 +251,25 @@ router.post('/branches', protect, isSchoolAdmin, upload.single('logo'), async (r
             return res.status(400).json({ message: 'Email is required for branch registration' });
         }
 
-        const existingSchool = await School.findOne({ email: email.toLowerCase() });
-        if (existingSchool) {
+        const existingSchoolRow = await db('schools')
+            .where('email', email.toLowerCase())
+            .first();
+        if (existingSchoolRow) {
+            const existingSchool = mapRow(existingSchoolRow);
             if (existingSchool.isActive === false) {
-                await School.findByIdAndDelete(existingSchool._id);
-                await SchoolCredentials.deleteMany({ schoolId: existingSchool._id });
+                await db('school_credentials').where('school_id', existingSchool._id).del();
+                await db('schools').where('id', existingSchool._id).del();
             } else {
                 return res.status(400).json({ message: 'A school/branch with this email already exists' });
             }
         }
 
-        const schoolId = await generateSchoolId(School);
+        const newSchoolId = await generateSchoolId();
         const plainPassword = generateSchoolPassword();
+        const hashedPassword = await bcrypt.hash(plainPassword, 10);
 
-        // Use parent's logo if none provided
         const logo = req.file ? req.file.location : currentSchool.logo;
 
-        // Construct address
         const addressObj = {
             street: address || '',
             city: city || '',
@@ -284,32 +278,34 @@ router.post('/branches', protect, isSchoolAdmin, upload.single('logo'), async (r
             full: address ? `${address}${city ? ', ' + city : ''}${state ? ', ' + state : ''}${pincode ? ' - ' + pincode : ''}` : ''
         };
 
-        const branch = await School.create({
-            schoolId,
+        const [branchRow] = await db('schools').insert({
+            school_id: newSchoolId,
             name,
             email: email.toLowerCase(),
-            address: addressObj,
+            address: JSON.stringify(addressObj),
             type: 'sub',
-            parentId: currentSchool._id,
-            contact: { phone, email },
-            password: plainPassword,
-            plainPassword: plainPassword,
-            mustChangePassword: true,
-            isDataVisibleToSchool: isDataVisibleToSchool === 'true' || isDataVisibleToSchool === true,
-            logo: logo,
-            assignedTests: currentSchool.assignedTests // Inherit tests? Or default? Using parent's tests for now
-        });
+            parent_id: currentSchool._id,
+            contact: JSON.stringify({ phone, email }),
+            password: hashedPassword,
+            plain_password: plainPassword,
+            must_change_password: true,
+            is_data_visible_to_school: isDataVisibleToSchool === 'true' || isDataVisibleToSchool === true,
+            logo,
+            assigned_tests: currentSchool.assignedTests || []
+        }).returning('*');
+        const branch = mapRow(branchRow);
 
-        // Also create credentials entry
-        await SchoolCredentials.create({
-            schoolId: branch._id,
+        await db('school_credentials').insert({
+            school_id: branch._id,
             email: email.toLowerCase(),
-            password: plainPassword,
-            role: 'school'
+            school_name: name,
+            plain_password: plainPassword,
+            password_history: JSON.stringify([]),
+            created_at: new Date(),
+            last_updated_at: new Date()
         });
 
         const { sendSchoolCredentialsEmail } = require('../utils/emailService');
-        // Send email logic...
         let emailSent = false;
         if (sendEmail === 'true' || sendEmail === true) {
             const frontendUrl = process.env.FRONTEND_URL?.split(',')[0] || 'http://localhost:5173';
@@ -320,9 +316,10 @@ router.post('/branches', protect, isSchoolAdmin, upload.single('logo'), async (r
                 `${frontendUrl}/login`
             );
             if (emailSent) {
-                branch.credentialsEmailSent = true;
-                branch.lastCredentialsEmailSentAt = new Date();
-                await branch.save();
+                await db('schools').where('id', branch._id).update({
+                    credentials_email_sent: true,
+                    last_credentials_email_sent_at: new Date()
+                });
             }
         }
 
@@ -349,59 +346,64 @@ router.put('/branches/:id', protect, isSchoolAdmin, async (req, res) => {
     try {
         const { name, address, city, state, pincode, phone, email, isDataVisibleToSchool, password } = req.body;
 
-        const branch = await School.findOne({
-            _id: req.params.id,
-            parentId: req.school._id // Ensure it belongs to this super school
-        });
+        const branchRow = await db('schools')
+            .where({ id: req.params.id, parent_id: req.school._id })
+            .first();
 
-        if (!branch) {
+        if (!branchRow) {
             return res.status(404).json({ message: 'Branch not found' });
         }
+        const branch = mapRow(branchRow);
 
-        // Update fields
-        if (name) branch.name = name;
-        if (phone) branch.contact.phone = phone;
+        const updateData = {};
+        const contact = { ...(branch.contact || {}) };
+
+        if (name) updateData.name = name;
+        if (phone) contact.phone = phone;
         if (email) {
-            branch.email = email.toLowerCase();
-            branch.contact.email = email.toLowerCase();
+            updateData.email = email.toLowerCase();
+            contact.email = email.toLowerCase();
         }
+        updateData.contact = JSON.stringify(contact);
+
         if (isDataVisibleToSchool !== undefined) {
-            branch.isDataVisibleToSchool = isDataVisibleToSchool === 'true' || isDataVisibleToSchool === true;
+            updateData.is_data_visible_to_school = isDataVisibleToSchool === 'true' || isDataVisibleToSchool === true;
         }
 
-        // Update address if provided
         if (address || city || state || pincode) {
-            branch.address = {
-                street: address || branch.address.street,
-                city: city || branch.address.city,
-                state: state || branch.address.state,
-                pincode: pincode || branch.address.pincode,
-                full: `${address || branch.address.street}${city || branch.address.city ? ', ' + (city || branch.address.city) : ''}${state || branch.address.state ? ', ' + (state || branch.address.state) : ''}`
+            const addr = {
+                street: address || branch.address?.street || '',
+                city: city || branch.address?.city || '',
+                state: state || branch.address?.state || '',
+                pincode: pincode || branch.address?.pincode || '',
+                full: `${address || branch.address?.street || ''}${(city || branch.address?.city) ? ', ' + (city || branch.address?.city) : ''}${(state || branch.address?.state) ? ', ' + (state || branch.address?.state) : ''}`
             };
+            updateData.address = JSON.stringify(addr);
         }
 
-        // Update password if provided
         if (password && password.trim().length > 0) {
-            branch.password = password; // Will be hashed by pre-save hook
-            branch.plainPassword = password;
-            branch.mustChangePassword = true;
+            updateData.password = await bcrypt.hash(password, 10);
+            updateData.plain_password = password;
+            updateData.must_change_password = true;
 
-            // Also update credentials collection
-            await SchoolCredentials.findOneAndUpdate(
-                { schoolId: branch._id },
-                { plainPassword: password }
-            );
+            await db('school_credentials')
+                .where('school_id', branch._id)
+                .update({ plain_password: password });
         }
 
-        await branch.save();
+        const [updatedRow] = await db('schools')
+            .where('id', req.params.id)
+            .update(updateData)
+            .returning('*');
+        const updatedBranch = mapRow(updatedRow);
 
         res.json({
             message: 'Branch updated successfully',
             branch: {
-                _id: branch._id,
-                name: branch.name,
-                email: branch.email,
-                address: branch.address
+                _id: updatedBranch._id,
+                name: updatedBranch.name,
+                email: updatedBranch.email,
+                address: updatedBranch.address
             }
         });
     } catch (error) {
@@ -415,23 +417,16 @@ router.put('/branches/:id', protect, isSchoolAdmin, async (req, res) => {
 // @access  School Admin (Super School only)
 router.delete('/branches/:id', protect, isSchoolAdmin, async (req, res) => {
     try {
-        const branch = await School.findOne({
-            _id: req.params.id,
-            parentId: req.school._id // Ensure it belongs to this super school
-        });
+        const branchRow = await db('schools')
+            .where({ id: req.params.id, parent_id: req.school._id })
+            .first();
 
-        if (!branch) {
+        if (!branchRow) {
             return res.status(404).json({ message: 'Branch not found' });
         }
 
-        // Delete the branch
-        await School.findByIdAndDelete(req.params.id);
-
-        // Delete associated credentials
-        await SchoolCredentials.deleteMany({ schoolId: req.params.id });
-
-        // Optional: Logic to handle students/data associated with this branch could go here
-        // For now, we assume simple soft/hard delete of the school entity is enough
+        await db('schools').where('id', req.params.id).del();
+        await db('school_credentials').where('school_id', req.params.id).del();
 
         res.json({ message: 'Branch deleted successfully' });
     } catch (error) {
@@ -446,55 +441,67 @@ router.delete('/branches/:id', protect, isSchoolAdmin, async (req, res) => {
 router.get('/dashboard', protect, isSchoolAdmin, async (req, res) => {
     try {
         const schoolId = req.school._id;
-
-        let query = { isActive: true };
-        let submissionQuery = { status: 'complete' };
+        let allSchoolIds;
 
         if (req.school.type === 'super') {
-            query.$or = [
-                { schoolId: req.school._id },
-                { parentId: req.school._id }
-            ];
-            // submissionQuery needs to filter by schoolId/parentId implicitly via studentId or explicit schoolId check
-            // Simpler: Find matching students first, then count their submissions
-            // OR use schoolId in Submission if available. 
-            // We'll rely on schoolId in Submission for efficiency if indexed, but to be consistent with student query:
-            submissionQuery.$or = [
-                { schoolId: req.school._id },
-                { schoolId: { $in: await School.find({ parentId: req.school._id }).distinct('_id') } }
-            ];
-            // Optimisation: simpler to just find students matching the query, then count their complete submissions
-            // But counting documents is faster. Let's use the explicit ID list for submissions to match logic.
-            const branches = await School.find({ parentId: req.school._id }).distinct('_id');
-            const allSchoolIds = [req.school._id, ...branches];
-
-            submissionQuery = { schoolId: { $in: allSchoolIds }, status: 'complete' };
-            // Reset student query to use same list for consistency
-            query = { schoolId: { $in: allSchoolIds }, isActive: true };
-
+            const branchIds = await db('schools')
+                .where('parent_id', req.school._id)
+                .pluck('id');
+            allSchoolIds = [req.school._id, ...branchIds];
         } else {
-            query.schoolId = req.school._id;
-            submissionQuery.schoolId = req.school._id;
+            allSchoolIds = [req.school._id];
         }
 
-        const [studentCount, completedCount] = await Promise.all([
-            Student.countDocuments(query),
-            // Count unique students who have completed submissions (status='complete')
-            Submission.distinct('studentId', submissionQuery).then(arr => arr.length)
+        const [studentResult, completedStudentRows] = await Promise.all([
+            db('students')
+                .whereIn('school_id', allSchoolIds)
+                .where('is_active', true)
+                .count('* as count')
+                .first(),
+            db('submissions')
+                .whereIn('school_id', allSchoolIds)
+                .where('status', 'complete')
+                .distinct('student_id')
         ]);
 
-        // Get class breakdown
-        const classStats = await Student.aggregate([
-            { $match: query },
-            { $group: { _id: { class: '$class', section: '$section' }, count: { $sum: 1 } } },
-            { $sort: { '_id.class': 1, '_id.section': 1 } }
-        ]);
+        const studentCount = parseInt(studentResult.count);
+        const completedCount = completedStudentRows.length;
 
-        const school = await School.findById(schoolId)
-            .populate('assignedTests', 'title isDefault questionCount')
-            .populate('parentId', 'name schoolId');
+        const classStatsRows = await db('students')
+            .whereIn('school_id', allSchoolIds)
+            .where('is_active', true)
+            .select('class', 'section')
+            .count('* as count')
+            .groupBy('class', 'section')
+            .orderBy([{ column: 'class', order: 'asc' }, { column: 'section', order: 'asc' }]);
 
-        // Ensure pending is never negative
+        const classStats = classStatsRows.map(r => ({
+            _id: { class: r.class, section: r.section },
+            count: parseInt(r.count)
+        }));
+
+        const schoolRow = await db('schools').where('id', schoolId).first();
+        const school = mapRow(schoolRow);
+
+        const assignedTests = (school.assignedTests && school.assignedTests.length > 0)
+            ? mapRows(await db('assessments')
+                .whereIn('id', school.assignedTests)
+                .select('id', 'title', 'is_default', 'questions'))
+            : [];
+        assignedTests.forEach(t => {
+            t.questionCount = Array.isArray(t.questions) ? t.questions.length : 0;
+            delete t.questions;
+        });
+
+        let parent = null;
+        if (school.parentId) {
+            const parentRow = await db('schools')
+                .where('id', school.parentId)
+                .select('id', 'name', 'school_id')
+                .first();
+            parent = parentRow ? mapRow(parentRow) : null;
+        }
+
         const pendingTests = Math.max(0, studentCount - completedCount);
 
         res.json({
@@ -503,7 +510,7 @@ router.get('/dashboard', protect, isSchoolAdmin, async (req, res) => {
                 logo: school.logo,
                 schoolId: school.schoolId,
                 type: school.type,
-                parentId: school.parentId,
+                parentId: parent,
                 address: school.address
             },
             stats: {
@@ -512,7 +519,7 @@ router.get('/dashboard', protect, isSchoolAdmin, async (req, res) => {
                 pendingTests: pendingTests
             },
             classStats,
-            assignedTests: school.assignedTests
+            assignedTests
         });
     } catch (error) {
         console.error('School dashboard error:', error);
@@ -525,57 +532,87 @@ router.get('/dashboard', protect, isSchoolAdmin, async (req, res) => {
 // @access  School Admin
 router.get('/students', protect, isSchoolAdmin, async (req, res) => {
     try {
-        const { class: className, section, status, page: pageParam, limit: limitParam, schoolId } = req.query;
+        const { class: className, section, status, page: pageParam, limit: limitParam, schoolId: schoolIdParam } = req.query;
         const page = parseInt(pageParam) || 1;
         const limit = parseInt(limitParam) || 20;
         const skip = (page - 1) * limit;
 
-        let query = { isActive: true };
+        const buildQuery = () => {
+            let q = db('students').where('is_active', true);
 
-        // simplified aggregation logic:
-        if (schoolId) {
-            // Specific branch filter requested
-            const targetSchool = await School.findOne({ _id: schoolId });
-            // Validate access
-            const isSelf = schoolId === req.school._id.toString();
-            const isChild = targetSchool && targetSchool.parentId && targetSchool.parentId.toString() === req.school._id.toString();
+            if (schoolIdParam) {
+                q = q.where('school_id', schoolIdParam);
+            } else if (req.school.type === 'super') {
+                q = q.where(function () {
+                    this.where('school_id', req.school._id)
+                        .orWhere('parent_id', req.school._id);
+                });
+            } else {
+                q = q.where('school_id', req.school._id);
+            }
 
+            if (className) q = q.where('class', className);
+            if (section) q = q.where('section', section);
+            return q;
+        };
+
+        if (schoolIdParam) {
+            const targetSchoolRow = await db('schools').where('id', schoolIdParam).first();
+            const targetSchool = targetSchoolRow ? mapRow(targetSchoolRow) : null;
+            const isSelf = schoolIdParam === req.school._id;
+            const isChild = targetSchool && targetSchool.parentId === req.school._id;
             if (!isSelf && !isChild) {
                 return res.status(403).json({ message: 'Unauthorized' });
             }
-            query.schoolId = schoolId;
-        } else if (req.school.type === 'super') {
-            // Default Super School: Show own students OR students from branches
-            query.$or = [
-                { schoolId: req.school._id },
-                { parentId: req.school._id }
-            ];
-        } else {
-            // Sub school: Only own students
-            query.schoolId = req.school._id;
         }
 
-        if (className) query.class = className;
-        if (section) query.section = section;
+        const totalResult = await buildQuery().count('* as count').first();
+        const total = parseInt(totalResult.count);
 
-        // Get total count for this query
-        let total = await Student.countDocuments(query);
-
-        let students = await Student.find(query)
-            .populate('schoolId', 'name')
-            .populate('testStatus.assessmentId', 'title')
-            .sort({ class: 1, section: 1, rollNo: 1, name: 1 })
-            .skip(skip)
+        const studentRows = await buildQuery()
+            .orderBy([
+                { column: 'class', order: 'asc' },
+                { column: 'section', order: 'asc' },
+                { column: 'roll_no', order: 'asc' },
+                { column: 'name', order: 'asc' }
+            ])
+            .offset(skip)
             .limit(limit);
+        let students = mapRows(studentRows);
 
-        // Filter by completion status if requested (done after pagination for consistency)
+        // Batch populate school names
+        const schoolIds = [...new Set(students.map(s => s.schoolId).filter(Boolean))];
+        if (schoolIds.length > 0) {
+            const schoolRows = await db('schools').whereIn('id', schoolIds).select('id', 'name');
+            const schoolMap = Object.fromEntries(mapRows(schoolRows).map(s => [s._id, s]));
+            students.forEach(s => {
+                s.schoolId = schoolMap[s.schoolId] || s.schoolId;
+            });
+        }
+
+        // Batch populate assessment titles in testStatus
+        const allAssessmentIds = [...new Set(
+            students.flatMap(s => (s.testStatus || []).map(t => t.assessmentId).filter(Boolean))
+        )];
+        if (allAssessmentIds.length > 0) {
+            const assessmentRows = await db('assessments').whereIn('id', allAssessmentIds).select('id', 'title');
+            const assessmentMap = Object.fromEntries(mapRows(assessmentRows).map(a => [a._id, a]));
+            students.forEach(s => {
+                (s.testStatus || []).forEach(ts => {
+                    if (ts.assessmentId && assessmentMap[ts.assessmentId]) {
+                        ts.assessmentId = assessmentMap[ts.assessmentId];
+                    }
+                });
+            });
+        }
+
         if (status === 'completed') {
             students = students.filter(s =>
-                s.testStatus.some(t => t.isCompleted)
+                (s.testStatus || []).some(t => t.isCompleted)
             );
         } else if (status === 'pending') {
             students = students.filter(s =>
-                !s.testStatus.some(t => t.isCompleted)
+                !(s.testStatus || []).some(t => t.isCompleted)
             );
         }
 
@@ -601,15 +638,16 @@ router.post('/students', protect, isSchoolAdmin, async (req, res) => {
     try {
         const { name, rollNo, class: className, section } = req.body;
 
-        // Check for duplicate student (same rollNo + class + section + name)
-        const existingStudent = await Student.findOne({
-            schoolId: req.school._id,
-            isActive: true,
-            name: { $regex: new RegExp(`^${name.trim()}$`, 'i') },
-            class: className,
-            section: section || '',
-            rollNo: rollNo || ''
-        });
+        const existingStudent = await db('students')
+            .where({
+                school_id: req.school._id,
+                is_active: true,
+                class: className,
+                section: section || '',
+                roll_no: rollNo || ''
+            })
+            .whereRaw('LOWER(name) = LOWER(?)', [name.trim()])
+            .first();
 
         if (existingStudent) {
             return res.status(400).json({
@@ -619,25 +657,33 @@ router.post('/students', protect, isSchoolAdmin, async (req, res) => {
 
         const accessId = generateAccessId(req.school.name);
 
-        // Get default assessment for this school
-        const school = await School.findById(req.school._id).populate('assignedTests');
-        const defaultTest = school.assignedTests.find(t => t.isDefault) || school.assignedTests[0];
+        const schoolRow = await db('schools').where('id', req.school._id).first();
+        const school = mapRow(schoolRow);
+        const assignedTestIds = school.assignedTests || [];
+        let defaultTest = null;
+        if (assignedTestIds.length > 0) {
+            const assessmentRows = await db('assessments')
+                .whereIn('id', assignedTestIds)
+                .select('id', 'is_default');
+            const assessments = mapRows(assessmentRows);
+            defaultTest = assessments.find(t => t.isDefault) || assessments[0];
+        }
 
-        const student = await Student.create({
-            accessId,
+        const [studentRow] = await db('students').insert({
+            access_id: accessId,
             name: name.trim(),
-            rollNo: rollNo?.trim() || '',
+            roll_no: rollNo?.trim() || '',
             class: className,
             section: section?.trim() || '',
-            schoolId: req.school._id,
-            parentId: req.school.type === 'sub' ? req.school.parentId : null, // Link to parent if sub-school
-            testStatus: defaultTest ? [{
+            school_id: req.school._id,
+            parent_id: req.school.type === 'sub' ? req.school.parentId : null,
+            test_status: JSON.stringify(defaultTest ? [{
                 assessmentId: defaultTest._id,
                 isCompleted: false
-            }] : []
-        });
+            }] : [])
+        }).returning('*');
 
-        res.status(201).json(student);
+        res.status(201).json(mapRow(studentRow));
     } catch (error) {
         console.error('Create student error:', error);
         res.status(500).json({ message: 'Server error' });
@@ -662,19 +708,25 @@ router.post('/students/import', protect, isSchoolAdmin, upload.single('file'), a
             return res.status(400).json({ message: 'No data found in file' });
         }
 
-        // Get school and default test
-        const school = await School.findById(req.school._id).populate('assignedTests');
-        const defaultTest = school.assignedTests.find(t => t.isDefault) || school.assignedTests[0];
+        const schoolRow = await db('schools').where('id', req.school._id).first();
+        const school = mapRow(schoolRow);
+        const assignedTestIds = school.assignedTests || [];
+        let defaultTest = null;
+        if (assignedTestIds.length > 0) {
+            const assessmentRows = await db('assessments')
+                .whereIn('id', assignedTestIds)
+                .select('id', 'is_default');
+            const assessments = mapRows(assessmentRows);
+            defaultTest = assessments.find(t => t.isDefault) || assessments[0];
+        }
 
-        // Get existing students for duplicate check
-        const existingStudents = await Student.find({
-            schoolId: req.school._id,
-            isActive: true
-        }).select('name rollNo class section');
+        const existingStudentRows = await db('students')
+            .where({ school_id: req.school._id, is_active: true })
+            .select('name', 'roll_no', 'class', 'section');
 
         const existingSet = new Set(
-            existingStudents.map(s =>
-                `${s.name.toLowerCase().trim()}|${s.rollNo?.trim() || ''}|${s.class?.trim() || ''}|${s.section?.trim() || ''}`
+            existingStudentRows.map(s =>
+                `${s.name.toLowerCase().trim()}|${(s.roll_no || '').trim()}|${(s.class || '').trim()}|${(s.section || '').trim()}`
             )
         );
 
@@ -694,13 +746,12 @@ router.post('/students/import', protect, isSchoolAdmin, upload.single('file'), a
                 continue;
             }
 
-            // Check for duplicate
             const key = `${name.toString().toLowerCase().trim()}|${rollNo.toString().trim()}|${className.toString().trim()}|${section.toString().trim()}`;
             if (existingSet.has(key)) {
                 duplicates.push({ row: i + 2, name: name.toString().trim() });
                 continue;
             }
-            existingSet.add(key); // Also track within batch
+            existingSet.add(key);
 
             students.push({
                 name: name.toString().trim(),
@@ -708,7 +759,7 @@ router.post('/students/import', protect, isSchoolAdmin, upload.single('file'), a
                 class: className.toString().trim(),
                 section: section.toString().trim(),
                 schoolId: req.school._id,
-                parentId: req.school.type === 'sub' ? req.school.parentId : null, // Link to parent if sub-school
+                parentId: req.school.type === 'sub' ? req.school.parentId : null,
                 testStatus: defaultTest ? [{
                     assessmentId: defaultTest._id,
                     isCompleted: false
@@ -716,13 +767,21 @@ router.post('/students/import', protect, isSchoolAdmin, upload.single('file'), a
             });
         }
 
-        // Generate access IDs for valid students only
         if (students.length > 0) {
-            const accessIds = await generateBulkAccessIds(Student, school.name, students.length);
-            students.forEach((s, i) => s.accessId = accessIds[i]);
+            const accessIds = await generateBulkAccessIds(school.name, students.length);
 
-            // Insert all students
-            const created = await Student.insertMany(students, { ordered: false });
+            const insertData = students.map((s, i) => ({
+                access_id: accessIds[i],
+                name: s.name,
+                roll_no: s.rollNo,
+                class: s.class,
+                section: s.section,
+                school_id: s.schoolId,
+                parent_id: s.parentId,
+                test_status: JSON.stringify(s.testStatus)
+            }));
+
+            const created = await db('students').insert(insertData).returning('*');
 
             res.status(201).json({
                 message: `${created.length} students imported successfully`,
@@ -750,32 +809,30 @@ router.put('/students/promote-class', protect, isSchoolAdmin, async (req, res) =
     try {
         const { filterClass, filterSection, studentIds } = req.body;
 
-        let query = { schoolId: req.school._id, isActive: true };
+        let query = db('students').where('is_active', true);
 
-        // If super school, include branches
         if (req.school.type === 'super') {
-            const branches = await School.find({ parentId: req.school._id }).distinct('_id');
-            query.schoolId = { $in: [req.school._id, ...branches] };
-        }
-
-        // If specific students selected, use those
-        if (studentIds && studentIds.length > 0) {
-            query._id = { $in: studentIds };
+            const branchIds = await db('schools').where('parent_id', req.school._id).pluck('id');
+            query = query.whereIn('school_id', [req.school._id, ...branchIds]);
         } else {
-            // Otherwise use filters
-            if (filterClass) query.class = filterClass;
-            if (filterSection) query.section = filterSection;
+            query = query.where('school_id', req.school._id);
         }
 
-        const students = await Student.find(query);
+        if (studentIds && studentIds.length > 0) {
+            query = query.whereIn('id', studentIds);
+        } else {
+            if (filterClass) query = query.where('class', filterClass);
+            if (filterSection) query = query.where('section', filterSection);
+        }
+
+        const students = mapRows(await query);
 
         let updatedCount = 0;
         let skippedCount = 0;
         for (const student of students) {
             const currentClass = parseInt(student.class);
             if (!isNaN(currentClass) && currentClass < 12) {
-                student.class = (currentClass + 1).toString();
-                await student.save();
+                await db('students').where('id', student._id).update({ class: (currentClass + 1).toString() });
                 updatedCount++;
             } else if (currentClass >= 12) {
                 skippedCount++;
@@ -799,23 +856,27 @@ router.put('/students/:id', protect, isSchoolAdmin, async (req, res) => {
     try {
         const { name, rollNo, class: className, section } = req.body;
 
-        const student = await Student.findOne({
-            _id: req.params.id,
-            schoolId: req.school._id
-        });
+        const studentRow = await db('students')
+            .where({ id: req.params.id, school_id: req.school._id })
+            .first();
 
-        if (!student) {
+        if (!studentRow) {
             return res.status(404).json({ message: 'Student not found' });
         }
+        const student = mapRow(studentRow);
 
-        student.name = name || student.name;
-        student.rollNo = rollNo || student.rollNo;
-        student.class = className || student.class;
-        student.section = section || student.section;
+        const updateData = {};
+        if (name) updateData.name = name;
+        if (rollNo) updateData.roll_no = rollNo;
+        if (className) updateData.class = className;
+        if (section) updateData.section = section;
 
-        await student.save();
+        const [updatedRow] = await db('students')
+            .where('id', req.params.id)
+            .update(updateData)
+            .returning('*');
 
-        res.json(student);
+        res.json(mapRow(updatedRow));
     } catch (error) {
         console.error('Update student error:', error);
         res.status(500).json({ message: 'Server error' });
@@ -826,75 +887,72 @@ router.put('/students/:id', protect, isSchoolAdmin, async (req, res) => {
 // @desc    Archive and Hard delete student
 // @access  School Admin
 router.delete('/students/:id', protect, isSchoolAdmin, async (req, res) => {
-    let session = null;
     try {
-        const mongoose = require('mongoose');
-        session = await mongoose.startSession();
-        session.startTransaction();
+        await db.transaction(async (trx) => {
+            const studentRow = await trx('students')
+                .where({ id: req.params.id, school_id: req.school._id })
+                .first();
 
-        const student = await Student.findOne({
-            _id: req.params.id,
-            schoolId: req.school._id
-        }).session(session);
-
-        if (!student) {
-            await session.abortTransaction();
-            session.endSession();
-            return res.status(404).json({ message: 'Student not found' });
-        }
-
-        // Get student's submissions for archival
-        const submissions = await Submission.find({ studentId: student._id })
-            .populate('assessmentId', 'title')
-            .session(session);
-
-        // Archive student data before deletion
-        await ArchivedData.create([{
-            type: 'student',
-            archivedBy: 'school',
-            reason: 'manual_deletion',
-            studentData: {
-                _id: student._id,
-                accessId: student.accessId,
-                name: student.name,
-                rollNo: student.rollNo,
-                class: student.class,
-                section: student.section,
-                schoolId: student.schoolId,
-                schoolName: req.school.name,
-                testStatus: student.testStatus,
-                createdAt: student.createdAt
-            },
-            studentSubmissions: submissions.map(sub => ({
-                assessmentId: sub.assessmentId?._id,
-                assessmentTitle: sub.assessmentId?.title || 'Unknown Assessment',
-                totalScore: sub.totalScore,
-                sectionScores: sub.sectionScores,
-                assignedBucket: sub.assignedBucket,
-                submittedAt: sub.submittedAt,
-                answers: sub.answers
-            })),
-            stats: {
-                submissionCount: submissions.length
+            if (!studentRow) {
+                const err = new Error('Student not found');
+                err.statusCode = 404;
+                throw err;
             }
-        }], { session });
+            const student = mapRow(studentRow);
 
-        // Delete associated submissions
-        await Submission.deleteMany({ studentId: student._id }).session(session);
+            const submissionRows = await trx('submissions').where('student_id', student._id);
+            const submissions = mapRows(submissionRows);
 
-        // Hard delete the student
-        await Student.findByIdAndDelete(req.params.id).session(session);
+            // Fetch assessment titles for archival
+            const assessmentIds = [...new Set(submissions.map(s => s.assessmentId).filter(Boolean))];
+            let assessmentMap = {};
+            if (assessmentIds.length > 0) {
+                const assessmentRows = await trx('assessments')
+                    .whereIn('id', assessmentIds)
+                    .select('id', 'title');
+                assessmentMap = Object.fromEntries(mapRows(assessmentRows).map(a => [a._id, a]));
+            }
 
-        await session.commitTransaction();
-        session.endSession();
+            await trx('archived_data').insert({
+                type: 'student',
+                archived_by: 'school',
+                reason: 'manual_deletion',
+                student_data: JSON.stringify({
+                    _id: student._id,
+                    accessId: student.accessId,
+                    name: student.name,
+                    rollNo: student.rollNo,
+                    class: student.class,
+                    section: student.section,
+                    schoolId: student.schoolId,
+                    schoolName: req.school.name,
+                    testStatus: student.testStatus,
+                    createdAt: student.createdAt
+                }),
+                student_submissions: JSON.stringify(submissions.map(sub => ({
+                    assessmentId: sub.assessmentId,
+                    assessmentTitle: assessmentMap[sub.assessmentId]?.title || 'Unknown Assessment',
+                    totalScore: sub.totalScore,
+                    sectionScores: sub.sectionScores,
+                    assignedBucket: sub.assignedBucket,
+                    submittedAt: sub.submittedAt,
+                    answers: sub.answers
+                }))),
+                stats: JSON.stringify({
+                    submissionCount: submissions.length
+                })
+            });
+
+            await trx('submissions').where('student_id', student._id).del();
+            await trx('students').where('id', req.params.id).del();
+        });
 
         res.json({ message: 'Student archived and permanently deleted successfully' });
     } catch (error) {
-        console.error('Delete student error:', error);
-        if (session) {
-            await session.abortTransaction();
-            session.endSession();
+        if (error.statusCode === 404) {
+            return res.status(404).json({ message: error.message });
         }
+        console.error('Delete student error:', error);
         res.status(500).json({ message: 'Server error' });
     }
 });
@@ -906,36 +964,34 @@ router.put('/students/:id/reset', protect, isSchoolAdmin, async (req, res) => {
     try {
         const { assessmentId } = req.body;
 
-        const student = await Student.findOne({
-            _id: req.params.id,
-            schoolId: req.school._id
-        });
+        const studentRow = await db('students')
+            .where({ id: req.params.id, school_id: req.school._id })
+            .first();
 
-        if (!student) {
+        if (!studentRow) {
             return res.status(404).json({ message: 'Student not found' });
         }
+        const student = mapRow(studentRow);
 
-        // Find and reset the specific test status
-        const testIndex = student.testStatus.findIndex(
-            t => t.assessmentId.toString() === assessmentId
-        );
+        const testStatus = student.testStatus || [];
+        const testIndex = testStatus.findIndex(t => t.assessmentId === assessmentId);
 
         if (testIndex >= 0) {
-            student.testStatus[testIndex].isCompleted = false;
-            student.testStatus[testIndex].score = 0;
-            student.testStatus[testIndex].sectionScores = { A: 0, B: 0, C: 0, D: 0 };
-            student.testStatus[testIndex].sectionBuckets = { A: '', B: '', C: '', D: '' };
-            student.testStatus[testIndex].bucket = '';
-            student.testStatus[testIndex].completedAt = null;
+            testStatus[testIndex].isCompleted = false;
+            testStatus[testIndex].score = 0;
+            testStatus[testIndex].sectionScores = { A: 0, B: 0, C: 0, D: 0 };
+            testStatus[testIndex].sectionBuckets = { A: '', B: '', C: '', D: '' };
+            testStatus[testIndex].bucket = '';
+            testStatus[testIndex].completedAt = null;
         }
 
-        await student.save();
-
-        // Also delete the submission
-        await Submission.deleteOne({
-            studentId: student._id,
-            assessmentId
+        await db('students').where('id', student._id).update({
+            test_status: JSON.stringify(testStatus)
         });
+
+        await db('submissions')
+            .where({ student_id: student._id, assessment_id: assessmentId })
+            .del();
 
         res.json({ message: 'Test reset successfully' });
     } catch (error) {
@@ -957,25 +1013,30 @@ router.post('/students/bulk-delete', protect, isSchoolAdmin, async (req, res) =>
             return res.status(400).json({ message: 'No students selected' });
         }
 
-        const students = await Student.find({
-            _id: { $in: studentIds },
-            schoolId: req.school.type === 'super'
-                ? { $in: [req.school._id, ...(await School.find({ parentId: req.school._id }).distinct('_id'))] }
-                : req.school._id,
-            isActive: true
-        });
+        let schoolFilter;
+        if (req.school.type === 'super') {
+            const branchIds = await db('schools').where('parent_id', req.school._id).pluck('id');
+            schoolFilter = [req.school._id, ...branchIds];
+        } else {
+            schoolFilter = [req.school._id];
+        }
+
+        const studentRows = await db('students')
+            .whereIn('id', studentIds)
+            .whereIn('school_id', schoolFilter)
+            .where('is_active', true);
+        const students = mapRows(studentRows);
 
         let deletedCount = 0;
         for (const student of students) {
-            // Get submissions for archival
-            const submissions = await Submission.find({ studentId: student._id });
+            const submissionRows = await db('submissions').where('student_id', student._id);
+            const submissions = mapRows(submissionRows);
 
-            // Archive
-            await ArchivedData.create({
+            await db('archived_data').insert({
                 type: 'student',
-                archivedBy: 'school',
+                archived_by: 'school',
                 reason: 'bulk_deletion',
-                studentData: {
+                student_data: JSON.stringify({
                     _id: student._id,
                     accessId: student.accessId,
                     name: student.name,
@@ -986,21 +1047,19 @@ router.post('/students/bulk-delete', protect, isSchoolAdmin, async (req, res) =>
                     schoolName: req.school.name,
                     testStatus: student.testStatus,
                     createdAt: student.createdAt
-                },
-                studentSubmissions: submissions.map(sub => ({
+                }),
+                student_submissions: JSON.stringify(submissions.map(sub => ({
                     assessmentId: sub.assessmentId,
                     totalScore: sub.totalScore,
                     sectionScores: sub.sectionScores,
                     assignedBucket: sub.assignedBucket,
                     submittedAt: sub.submittedAt
-                })),
-                stats: { submissionCount: submissions.length }
+                }))),
+                stats: JSON.stringify({ submissionCount: submissions.length })
             });
 
-            // Delete submissions
-            await Submission.deleteMany({ studentId: student._id });
-            // Delete student
-            await Student.findByIdAndDelete(student._id);
+            await db('submissions').where('student_id', student._id).del();
+            await db('students').where('id', student._id).del();
             deletedCount++;
         }
 
@@ -1019,18 +1078,20 @@ router.post('/students/bulk-delete', protect, isSchoolAdmin, async (req, res) =>
 // @access  School Admin
 router.get('/classes', protect, isSchoolAdmin, async (req, res) => {
     try {
-        const classes = await Student.aggregate([
-            { $match: { schoolId: req.query.schoolId ? new mongoose.Types.ObjectId(req.query.schoolId) : req.school._id, isActive: true } },
-            {
-                $group: {
-                    _id: { class: '$class', section: '$section' },
-                    count: { $sum: 1 }
-                }
-            },
-            { $sort: { '_id.class': 1, '_id.section': 1 } }
-        ]);
+        const targetSchoolId = req.query.schoolId || req.school._id;
 
-        // Get unique class names
+        const classRows = await db('students')
+            .where({ school_id: targetSchoolId, is_active: true })
+            .select('class', 'section')
+            .count('* as count')
+            .groupBy('class', 'section')
+            .orderBy([{ column: 'class', order: 'asc' }, { column: 'section', order: 'asc' }]);
+
+        const classes = classRows.map(r => ({
+            _id: { class: r.class, section: r.section },
+            count: parseInt(r.count)
+        }));
+
         const uniqueClasses = [...new Set(classes.map(c => c._id.class))];
 
         res.json({ classes, uniqueClasses });
@@ -1045,10 +1106,17 @@ router.get('/classes', protect, isSchoolAdmin, async (req, res) => {
 // @access  School Admin
 router.get('/tests', protect, isSchoolAdmin, async (req, res) => {
     try {
-        const school = await School.findById(req.school._id)
-            .populate('assignedTests', 'title description isDefault timePerQuestion questions customSections');
+        const schoolRow = await db('schools').where('id', req.school._id).first();
+        const school = mapRow(schoolRow);
+        const assignedTestIds = school.assignedTests || [];
 
-        res.json(school.assignedTests);
+        const assignedTests = assignedTestIds.length > 0
+            ? mapRows(await db('assessments')
+                .whereIn('id', assignedTestIds)
+                .select('id', 'title', 'description', 'is_default', 'time_per_question', 'total_time', 'questions', 'custom_sections'))
+            : [];
+
+        res.json(assignedTests);
     } catch (error) {
         console.error('Get tests error:', error);
         res.status(500).json({ message: 'Server error' });
@@ -1060,27 +1128,32 @@ router.get('/tests', protect, isSchoolAdmin, async (req, res) => {
 // @access  School Admin
 router.get('/available-assessments', protect, isSchoolAdmin, async (req, res) => {
     try {
-        const school = await School.findById(req.school._id)
-            .populate('assignedTests', 'title description isDefault timePerQuestion questions customSections');
+        const schoolRow = await db('schools').where('id', req.school._id).first();
+        const school = mapRow(schoolRow);
+        const assignedTestIds = school.assignedTests || [];
 
-        // Get count of students assigned to each assessment
+        const assignedTests = assignedTestIds.length > 0
+            ? mapRows(await db('assessments')
+                .whereIn('id', assignedTestIds)
+                .select('id', 'title', 'description', 'is_default', 'time_per_question', 'total_time', 'questions', 'custom_sections'))
+            : [];
+
         const assessmentStats = await Promise.all(
-            school.assignedTests.map(async (assessment) => {
-                const assignedCount = await Student.countDocuments({
-                    schoolId: req.school._id,
-                    isActive: true,
-                    'testStatus.assessmentId': assessment._id
-                });
-                const completedCount = await Submission.countDocuments({
-                    schoolId: req.school._id,
-                    assessmentId: assessment._id,
-                    status: 'complete'  // Only count complete submissions
-                });
+            assignedTests.map(async (assessment) => {
+                const assignedResult = await db('students')
+                    .where({ school_id: req.school._id, is_active: true })
+                    .whereRaw("test_status @> ?::jsonb", [JSON.stringify([{ assessmentId: assessment._id }])])
+                    .count('* as count')
+                    .first();
+                const completedResult = await db('submissions')
+                    .where({ school_id: req.school._id, assessment_id: assessment._id, status: 'complete' })
+                    .count('* as count')
+                    .first();
                 return {
-                    ...assessment.toObject(),
-                    assignedStudents: assignedCount,
-                    completedStudents: completedCount,
-                    questionCount: assessment.questions?.length || 0
+                    ...assessment,
+                    assignedStudents: parseInt(assignedResult.count),
+                    completedStudents: parseInt(completedResult.count),
+                    questionCount: Array.isArray(assessment.questions) ? assessment.questions.length : 0
                 };
             })
         );
@@ -1099,46 +1172,40 @@ router.post('/tests/assign', protect, isSchoolAdmin, async (req, res) => {
     try {
         const { assessmentId, targetType, targetClass, targetSection, studentIds } = req.body;
 
-        let query = { schoolId: req.school._id, isActive: true };
+        let query = db('students').where({ school_id: req.school._id, is_active: true });
 
         if (targetType === 'class') {
-            query.class = targetClass;
+            query = query.where('class', targetClass);
         } else if (targetType === 'section') {
-            query.class = targetClass;
-            query.section = targetSection;
+            query = query.where('class', targetClass).where('section', targetSection);
         } else if (targetType === 'students' && studentIds) {
-            query._id = { $in: studentIds };
+            query = query.whereIn('id', studentIds);
         }
 
-        const students = await Student.find(query);
+        const students = mapRows(await query);
 
         for (const student of students) {
-            const existingTest = student.testStatus.find(
-                t => t.assessmentId.toString() === assessmentId
-            );
+            const testStatus = student.testStatus || [];
+            const existingTest = testStatus.find(t => t.assessmentId === assessmentId);
 
             if (!existingTest) {
-                student.testStatus.push({
-                    assessmentId,
-                    isCompleted: false
+                testStatus.push({ assessmentId, isCompleted: false });
+                await db('students').where('id', student._id).update({
+                    test_status: JSON.stringify(testStatus)
                 });
-                await student.save();
             } else if (existingTest.isCompleted) {
-                // Re-assign: Reset status for new attempt
-                // Previous submission is already saved in Submission collection
-                const testIndex = student.testStatus.findIndex(
-                    t => t.assessmentId.toString() === assessmentId
-                );
-
+                const testIndex = testStatus.findIndex(t => t.assessmentId === assessmentId);
                 if (testIndex !== -1) {
-                    student.testStatus[testIndex].isCompleted = false;
-                    student.testStatus[testIndex].score = 0;
-                    student.testStatus[testIndex].sectionScores = { A: 0, B: 0, C: 0, D: 0 };
-                    student.testStatus[testIndex].sectionBuckets = { A: '', B: '', C: '', D: '' };
-                    student.testStatus[testIndex].bucket = '';
-                    student.testStatus[testIndex].startedAt = null;
-                    student.testStatus[testIndex].completedAt = null;
-                    await student.save();
+                    testStatus[testIndex].isCompleted = false;
+                    testStatus[testIndex].score = 0;
+                    testStatus[testIndex].sectionScores = { A: 0, B: 0, C: 0, D: 0 };
+                    testStatus[testIndex].sectionBuckets = { A: '', B: '', C: '', D: '' };
+                    testStatus[testIndex].bucket = '';
+                    testStatus[testIndex].startedAt = null;
+                    testStatus[testIndex].completedAt = null;
+                    await db('students').where('id', student._id).update({
+                        test_status: JSON.stringify(testStatus)
+                    });
                 }
             }
         }
@@ -1164,23 +1231,22 @@ router.post('/tests/unassign', protect, isSchoolAdmin, async (req, res) => {
             return res.status(400).json({ message: 'No students selected' });
         }
 
-        const students = await Student.find({
-            _id: { $in: studentIds },
-            schoolId: req.school._id,
-            isActive: true
-        });
+        const studentRows = await db('students')
+            .whereIn('id', studentIds)
+            .where({ school_id: req.school._id, is_active: true });
+        const students = mapRows(studentRows);
 
         let unassignedCount = 0;
         for (const student of students) {
-            const testIndex = student.testStatus.findIndex(
-                t => t.assessmentId.toString() === assessmentId
-            );
+            const testStatus = student.testStatus || [];
+            const testIndex = testStatus.findIndex(t => t.assessmentId === assessmentId);
 
             if (testIndex !== -1) {
-                // Only unassign if not completed
-                if (!student.testStatus[testIndex].isCompleted) {
-                    student.testStatus.splice(testIndex, 1);
-                    await student.save();
+                if (!testStatus[testIndex].isCompleted) {
+                    testStatus.splice(testIndex, 1);
+                    await db('students').where('id', student._id).update({
+                        test_status: JSON.stringify(testStatus)
+                    });
                     unassignedCount++;
                 }
             }
@@ -1203,29 +1269,31 @@ router.get('/test-status', protect, isSchoolAdmin, async (req, res) => {
     try {
         const { assessmentId, class: className, section } = req.query;
 
-        let query = { isActive: true };
+        let query = db('students').where('is_active', true);
 
-        // simplified aggregation logic:
         if (req.school.type === 'super') {
-            query.$or = [
-                { schoolId: req.school._id },
-                { parentId: req.school._id }
-            ];
+            query = query.where(function () {
+                this.where('school_id', req.school._id)
+                    .orWhere('parent_id', req.school._id);
+            });
         } else {
-            query.schoolId = req.school._id;
+            query = query.where('school_id', req.school._id);
         }
 
-        if (className) query.class = className;
-        if (section) query.section = section;
+        if (className) query = query.where('class', className);
+        if (section) query = query.where('section', section);
 
-        const students = await Student.find(query)
-            .select('name accessId class section rollNo testStatus')
-            .sort({ class: 1, section: 1, name: 1 });
+        const studentRows = await query
+            .select('id', 'name', 'access_id', 'class', 'section', 'roll_no', 'test_status')
+            .orderBy([
+                { column: 'class', order: 'asc' },
+                { column: 'section', order: 'asc' },
+                { column: 'name', order: 'asc' }
+            ]);
+        const students = mapRows(studentRows);
 
         const status = students.map(s => {
-            const test = s.testStatus.find(
-                t => t.assessmentId.toString() === assessmentId
-            );
+            const test = (s.testStatus || []).find(t => t.assessmentId === assessmentId);
             return {
                 _id: s._id,
                 name: s.name,
@@ -1252,29 +1320,31 @@ router.post('/export-ids', protect, isSchoolAdmin, async (req, res) => {
     try {
         const { class: className, section, studentIds } = req.body;
 
-        let query = { isActive: true };
+        let query = db('students').where('is_active', true);
 
         if (studentIds && studentIds.length > 0) {
-            // Export only selected students (no schoolId filter needed, they were already visible)
-            query._id = { $in: studentIds };
+            query = query.whereIn('id', studentIds);
         } else {
-            // Apply school scope (include branches for super schools)
             if (req.school.type === 'super') {
-                query.$or = [
-                    { schoolId: req.school._id },
-                    { parentId: req.school._id }
-                ];
+                query = query.where(function () {
+                    this.where('school_id', req.school._id)
+                        .orWhere('parent_id', req.school._id);
+                });
             } else {
-                query.schoolId = req.school._id;
+                query = query.where('school_id', req.school._id);
             }
-            // Use filters
-            if (className) query.class = className;
-            if (section) query.section = section;
+            if (className) query = query.where('class', className);
+            if (section) query = query.where('section', section);
         }
 
-        const students = await Student.find(query)
-            .select('accessId name rollNo class section')
-            .sort({ class: 1, section: 1, rollNo: 1 });
+        const studentRows = await query
+            .select('id', 'access_id', 'name', 'roll_no', 'class', 'section')
+            .orderBy([
+                { column: 'class', order: 'asc' },
+                { column: 'section', order: 'asc' },
+                { column: 'roll_no', order: 'asc' }
+            ]);
+        const students = mapRows(studentRows);
 
         if (students.length === 0) {
             return res.status(400).json({ message: 'No students found. Export cannot be generated.' });
@@ -1298,8 +1368,8 @@ router.post('/export-ids', protect, isSchoolAdmin, async (req, res) => {
 // @access  School Admin
 router.get('/analytics', protect, isSchoolAdmin, async (req, res) => {
     try {
-        // Check if data visibility is allowed
-        const school = await School.findById(req.school._id);
+        const schoolRow = await db('schools').where('id', req.school._id).first();
+        const school = mapRow(schoolRow);
         if (!school.isDataVisibleToSchool) {
             return res.status(403).json({
                 message: 'Analytics not available. Please contact admin.'
@@ -1308,51 +1378,41 @@ router.get('/analytics', protect, isSchoolAdmin, async (req, res) => {
 
         const { class: className, section } = req.query;
 
-        // Determine target school ID (Same logic as above, but simplified for repeated use context)
         let schoolName = req.school.name;
-        let studentQuery = { isActive: true };
+        let studentQuery = db('students').where('is_active', true);
 
         if (req.query.schoolId) {
-            // Specific branch view
-            const targetSchool = await School.findOne({ _id: req.query.schoolId });
+            const targetSchoolRow = await db('schools').where('id', req.query.schoolId).first();
+            const targetSchool = targetSchoolRow ? mapRow(targetSchoolRow) : null;
 
-            // Security check: Must be self, or a child branch
-            const isSelf = req.query.schoolId === req.school._id.toString();
-            const isChild = targetSchool && targetSchool.parentId && targetSchool.parentId.toString() === req.school._id.toString();
+            const isSelf = req.query.schoolId === req.school._id;
+            const isChild = targetSchool && targetSchool.parentId === req.school._id;
 
             if (!isSelf && !isChild) {
                 return res.status(403).json({ message: 'Unauthorized' });
             }
 
-            studentQuery.schoolId = req.query.schoolId;
-            if (targetSchool) schoolName = targetSchool.name;
-
-            studentQuery.schoolId = req.query.schoolId;
+            studentQuery = studentQuery.where('school_id', req.query.schoolId);
             if (targetSchool) schoolName = targetSchool.name;
 
         } else if (req.school.type === 'super') {
-            // Aggregate View: Own students OR Branch students (Default for Super School)
-            studentQuery.$or = [
-                { schoolId: req.school._id },
-                { parentId: req.school._id }
-            ];
+            studentQuery = studentQuery.where(function () {
+                this.where('school_id', req.school._id)
+                    .orWhere('parent_id', req.school._id);
+            });
             schoolName = `${req.school.name} & Branches`;
         } else {
-            // Standard View: Only own students
-            studentQuery.schoolId = req.school._id;
+            studentQuery = studentQuery.where('school_id', req.school._id);
         }
 
-        if (className) studentQuery.class = className;
-        if (section) studentQuery.section = section;
+        if (className) studentQuery = studentQuery.where('class', className);
+        if (section) studentQuery = studentQuery.where('section', section);
 
-        // Get filtered student IDs with class info for participation stats
-        const filteredStudents = await Student.find(studentQuery).select('_id class');
+        const filteredStudentRows = await studentQuery.clone().select('id', 'class');
+        const filteredStudents = mapRows(filteredStudentRows);
         const studentIds = filteredStudents.map(s => s._id);
 
-        // Calculate Participation by Grade
         const participationByGrade = {};
-
-        // 1. Initialize with total students
         filteredStudents.forEach(s => {
             const grade = s.class || 'Unknown';
             if (!participationByGrade[grade]) {
@@ -1361,24 +1421,44 @@ router.get('/analytics', protect, isSchoolAdmin, async (req, res) => {
             participationByGrade[grade].total++;
         });
 
-        // Get submissions for filtered students (only complete ones for analytics)
-        // Note: We can rely on studentId filtering here since we already filtered students based on school/parent logic
-        const submissions = await Submission.find({
-            studentId: { $in: studentIds },
-            status: 'complete'  // Only include complete submissions in analytics
-        })
-            .populate('studentId', 'name accessId class section')
-            .populate('schoolId', 'name') // Populate school name for aggregation view
-            .sort({ submittedAt: -1 });
+        let submissionRows = [];
+        if (studentIds.length > 0) {
+            submissionRows = await db('submissions')
+                .whereIn('student_id', studentIds)
+                .where('status', 'complete')
+                .orderBy('submitted_at', 'desc');
+        }
+        const submissions = mapRows(submissionRows);
 
-        // 2. Count completed
+        // Batch populate students and schools on submissions
+        const subStudentIds = [...new Set(submissions.map(s => s.studentId).filter(Boolean))];
+        let studentMap = {};
+        if (subStudentIds.length > 0) {
+            const studRows = await db('students')
+                .whereIn('id', subStudentIds)
+                .select('id', 'name', 'access_id', 'class', 'section');
+            studentMap = Object.fromEntries(mapRows(studRows).map(s => [s._id, s]));
+        }
+
+        const subSchoolIds = [...new Set(submissions.map(s => s.schoolId).filter(Boolean))];
+        let schoolMapForSubs = {};
+        if (subSchoolIds.length > 0) {
+            const schRows = await db('schools')
+                .whereIn('id', subSchoolIds)
+                .select('id', 'name');
+            schoolMapForSubs = Object.fromEntries(mapRows(schRows).map(s => [s._id, s]));
+        }
+
+        submissions.forEach(sub => {
+            sub.studentId = studentMap[sub.studentId] || null;
+            sub.schoolId = schoolMapForSubs[sub.schoolId] || null;
+        });
+
         const completedStudentIds = new Set();
         submissions.forEach(sub => {
             if (sub.studentId) {
-                // Track unique students who have completed
-                if (!completedStudentIds.has(sub.studentId._id.toString())) {
-                    completedStudentIds.add(sub.studentId._id.toString());
-
+                if (!completedStudentIds.has(sub.studentId._id)) {
+                    completedStudentIds.add(sub.studentId._id);
                     const grade = sub.studentId.class || 'Unknown';
                     if (participationByGrade[grade]) {
                         participationByGrade[grade].completed++;
@@ -1387,12 +1467,10 @@ router.get('/analytics', protect, isSchoolAdmin, async (req, res) => {
             }
         });
 
-        // 3. Calculate pending and format as array
         const participationData = Object.values(participationByGrade).map(p => ({
             ...p,
             pending: p.total - p.completed
         })).sort((a, b) => {
-            // Try to sort numerically if grades are numbers, else string
             const numA = parseInt(a.grade);
             const numB = parseInt(b.grade);
             return !isNaN(numA) && !isNaN(numB) ? numA - numB : a.grade.localeCompare(b.grade);
@@ -1405,7 +1483,7 @@ router.get('/analytics', protect, isSchoolAdmin, async (req, res) => {
             participationByGrade: participationData,
             recentSubmissions: submissions.slice(0, 20),
             filters: { class: className || null, section: section || null },
-            aggregated: req.school.type === 'super' && !req.query.schoolId, // Updated logic: true if super school and no specific school filter
+            aggregated: req.school.type === 'super' && !req.query.schoolId,
             schoolName
         });
     } catch (error) {
@@ -1419,12 +1497,12 @@ router.get('/analytics', protect, isSchoolAdmin, async (req, res) => {
 // @access  School Admin
 router.get('/assessment-link/:assessmentId', protect, isSchoolAdmin, async (req, res) => {
     try {
-        const assessment = await Assessment.findById(req.params.assessmentId);
-        if (!assessment) {
+        const assessmentRow = await db('assessments').where('id', req.params.assessmentId).first();
+        if (!assessmentRow) {
             return res.status(404).json({ message: 'Assessment not found' });
         }
+        const assessment = mapRow(assessmentRow);
 
-        // Use only the primary frontend URL (first one if comma-separated)
         const frontendUrls = process.env.FRONTEND_URL || 'https://www.jaagrmind.com';
         const baseUrl = frontendUrls.split(',')[0].trim();
         const link = `${baseUrl}/student/login?school=${req.school.schoolId}&test=${req.params.assessmentId}`;
@@ -1445,7 +1523,8 @@ router.get('/assessment-link/:assessmentId', protect, isSchoolAdmin, async (req,
 // @access  School Admin
 router.get('/students-analytics', protect, isSchoolAdmin, async (req, res) => {
     try {
-        const school = await School.findById(req.school._id);
+        const schoolRow = await db('schools').where('id', req.school._id).first();
+        const school = mapRow(schoolRow);
         if (!school.isDataVisibleToSchool) {
             return res.status(403).json({
                 message: 'Analytics not available. Please contact admin.'
@@ -1458,75 +1537,85 @@ router.get('/students-analytics', protect, isSchoolAdmin, async (req, res) => {
         let isAggregated = false;
 
         if (req.query.schoolId) {
-            // Specific branch filter
-            const targetSchool = await School.findOne({ _id: req.query.schoolId });
+            const targetSchoolRow = await db('schools').where('id', req.query.schoolId).first();
+            const targetSchool = targetSchoolRow ? mapRow(targetSchoolRow) : null;
 
-            // Validate access
-            const isSelf = req.query.schoolId === req.school._id.toString();
-            const isChild = targetSchool && targetSchool.parentId && targetSchool.parentId.toString() === req.school._id.toString();
+            const isSelf = req.query.schoolId === req.school._id;
+            const isChild = targetSchool && targetSchool.parentId === req.school._id;
 
             if (!isSelf && !isChild) {
                 return res.status(403).json({ message: 'Unauthorized' });
             }
             targetSchoolId = req.query.schoolId;
         } else if (req.school.type === 'super') {
-            // Default to aggregated view for Super School
             isAggregated = true;
         }
 
-        // Build student query
-        let studentQuery = { isActive: true };
+        let query = db('students').where('is_active', true);
 
         if (studentId) {
-            studentQuery._id = studentId;
+            query = query.where('id', studentId);
+        } else if (search) {
+            // search $or overwrites school $or (preserving original behavior)
+            if (!isAggregated) {
+                query = query.where('school_id', targetSchoolId);
+            }
+            query = query.where(function () {
+                this.where('name', 'ilike', `%${search}%`)
+                    .orWhere('access_id', 'ilike', `%${search}%`)
+                    .orWhere('roll_no', 'ilike', `%${search}%`);
+            });
         } else if (isAggregated) {
-            studentQuery.$or = [
-                { schoolId: req.school._id },
-                { parentId: req.school._id }
-            ];
+            query = query.where(function () {
+                this.where('school_id', req.school._id)
+                    .orWhere('parent_id', req.school._id);
+            });
         } else {
-            studentQuery.schoolId = targetSchoolId;
+            query = query.where('school_id', targetSchoolId);
         }
 
-        if (className) studentQuery.class = className;
-        if (section) studentQuery.section = section;
-        if (search) {
-            studentQuery.$or = [
-                { name: { $regex: search, $options: 'i' } },
-                { accessId: { $regex: search, $options: 'i' } },
-                { rollNo: { $regex: search, $options: 'i' } }
-            ];
-        }
+        if (className) query = query.where('class', className);
+        if (section) query = query.where('section', section);
 
-        const students = await Student.find(studentQuery)
-            .select('name accessId class section rollNo')
-            .sort({ class: 1, section: 1, name: 1 });
+        const studentRows = await query
+            .select('id', 'name', 'access_id', 'class', 'section', 'roll_no')
+            .orderBy([
+                { column: 'class', order: 'asc' },
+                { column: 'section', order: 'asc' },
+                { column: 'name', order: 'asc' }
+            ]);
+        const students = mapRows(studentRows);
 
-        // Get submissions for these students
-        // Get submissions for these students
-        // We only filter by studentId, because we've already filtered the students list according to the school/branch logic
-        // and we want ALL submissions for these valid students.
-        let submissionQuery = {
-            studentId: { $in: students.map(s => s._id) }
-        };
+        let submissionQuery = db('submissions')
+            .whereIn('student_id', students.map(s => s._id));
         if (assessmentId) {
-            submissionQuery.assessmentId = assessmentId;
+            submissionQuery = submissionQuery.where('assessment_id', assessmentId);
         }
 
-        const submissions = await Submission.find(submissionQuery)
-            .populate('assessmentId', 'title')
-            .select('studentId assessmentId totalScore sectionScores assignedBucket submittedAt');
+        const submissionRows = await submissionQuery
+            .select('id', 'student_id', 'assessment_id', 'total_score', 'section_scores', 'assigned_bucket', 'submitted_at');
+        const submissions = mapRows(submissionRows);
 
-        // Map submissions by student
+        // Batch populate assessment titles
+        const allAssessmentIds = [...new Set(submissions.map(s => s.assessmentId).filter(Boolean))];
+        let assessmentMap = {};
+        if (allAssessmentIds.length > 0) {
+            const assessmentRows = await db('assessments')
+                .whereIn('id', allAssessmentIds)
+                .select('id', 'title');
+            assessmentMap = Object.fromEntries(mapRows(assessmentRows).map(a => [a._id, a]));
+        }
+
         const submissionsByStudent = {};
         submissions.forEach(sub => {
-            const studentIdStr = sub.studentId.toString();
+            const studentIdStr = sub.studentId;
             if (!submissionsByStudent[studentIdStr]) {
                 submissionsByStudent[studentIdStr] = [];
             }
+            const assessmentObj = assessmentMap[sub.assessmentId];
             submissionsByStudent[studentIdStr].push({
-                assessmentId: sub.assessmentId?._id,
-                assessmentTitle: sub.assessmentId?.title,
+                assessmentId: assessmentObj?._id || sub.assessmentId,
+                assessmentTitle: assessmentObj?.title,
                 totalScore: sub.totalScore,
                 sectionScores: sub.sectionScores,
                 bucket: sub.assignedBucket,
@@ -1534,7 +1623,6 @@ router.get('/students-analytics', protect, isSchoolAdmin, async (req, res) => {
             });
         });
 
-        // Build response
         const studentsWithAnalytics = students.map(student => ({
             _id: student._id,
             name: student.name,
@@ -1542,22 +1630,26 @@ router.get('/students-analytics', protect, isSchoolAdmin, async (req, res) => {
             class: student.class,
             section: student.section,
             rollNo: student.rollNo,
-            submissions: submissionsByStudent[student._id.toString()] || [],
-            latestSubmission: submissionsByStudent[student._id.toString()]?.[0] || null
+            submissions: submissionsByStudent[student._id] || [],
+            latestSubmission: submissionsByStudent[student._id]?.[0] || null
         }));
 
-        // Get filter options
-        const allStudents = await Student.find({ schoolId: targetSchoolId, isActive: true })
-            .select('class section');
-        const uniqueClasses = [...new Set(allStudents.map(s => s.class))].sort();
+        // Filter options
+        const allStudentRows = await db('students')
+            .where({ school_id: targetSchoolId, is_active: true })
+            .select('class', 'section');
+        const uniqueClasses = [...new Set(allStudentRows.map(s => s.class))].sort();
         const uniqueSections = className
-            ? [...new Set(allStudents.filter(s => s.class === className).map(s => s.section))].sort()
+            ? [...new Set(allStudentRows.filter(s => s.class === className).map(s => s.section))].sort()
             : [];
 
-        const assessments = await Assessment.find({
-            _id: { $in: school.assignedTests },
-            isActive: true
-        }).select('title');
+        const assignedTestIds = school.assignedTests || [];
+        const assessments = assignedTestIds.length > 0
+            ? mapRows(await db('assessments')
+                .whereIn('id', assignedTestIds)
+                .where('is_active', true)
+                .select('id', 'title'))
+            : [];
 
         res.json({
             students: studentsWithAnalytics,
@@ -1579,40 +1671,42 @@ router.get('/students-analytics', protect, isSchoolAdmin, async (req, res) => {
 // @access  School Admin
 router.get('/student/:id/details', protect, isSchoolAdmin, async (req, res) => {
     try {
-        // Allow access if own student OR (super school AND student belongs to child branch)
-        const studentQuery = {
-            _id: req.params.id,
-            isActive: true
-        };
+        let query = db('students').where({ id: req.params.id, is_active: true });
 
         if (req.school.type === 'super') {
-            studentQuery.$or = [
-                { schoolId: req.school._id },
-                { parentId: req.school._id }
-            ];
+            query = query.where(function () {
+                this.where('school_id', req.school._id)
+                    .orWhere('parent_id', req.school._id);
+            });
         } else {
-            studentQuery.schoolId = req.school._id;
+            query = query.where('school_id', req.school._id);
         }
 
-        const student = await Student.findOne(studentQuery);
-
-        if (!student) {
+        const studentRow = await query.first();
+        if (!studentRow) {
             return res.status(404).json({ message: 'Student not found' });
         }
+        const student = mapRow(studentRow);
 
-        // Get all submissions for this student with full details
-        const submissions = await Submission.find({
-            studentId: student._id
-        })
-            .populate('assessmentId', 'title questions customSections')
-            .sort({ submittedAt: -1 });
+        const submissionRows = await db('submissions')
+            .where('student_id', student._id)
+            .orderBy('submitted_at', 'desc');
+        const submissions = mapRows(submissionRows);
 
-        // Format submissions with detailed answer breakdown
+        // Batch populate assessment details
+        const assessmentIds = [...new Set(submissions.map(s => s.assessmentId).filter(Boolean))];
+        let assessmentMap = {};
+        if (assessmentIds.length > 0) {
+            const assessmentRows = await db('assessments')
+                .whereIn('id', assessmentIds)
+                .select('id', 'title', 'questions', 'custom_sections');
+            assessmentMap = Object.fromEntries(mapRows(assessmentRows).map(a => [a._id, a]));
+        }
+
         const detailedSubmissions = submissions.map(sub => {
-            const assessment = sub.assessmentId;
-            const questions = assessment?.questions || [];
+            const assessment = assessmentMap[sub.assessmentId] || {};
+            const questions = assessment.questions || [];
 
-            // Map answers to questions
             const answersWithQuestions = (sub.answers || []).map((answer, index) => {
                 const question = questions[answer?.questionIndex ?? index];
                 return {
@@ -1627,7 +1721,6 @@ router.get('/student/:id/details', protect, isSchoolAdmin, async (req, res) => {
                 };
             });
 
-            // Group answers by section
             const answersBySection = {};
             answersWithQuestions.forEach(a => {
                 if (!answersBySection[a.section]) {
@@ -1643,8 +1736,8 @@ router.get('/student/:id/details', protect, isSchoolAdmin, async (req, res) => {
 
             return {
                 _id: sub._id,
-                assessmentId: assessment?._id,
-                assessmentTitle: assessment?.title || 'Unknown Assessment',
+                assessmentId: assessment._id || sub.assessmentId,
+                assessmentTitle: assessment.title || 'Unknown Assessment',
                 totalScore: sub.totalScore,
                 sectionScores: sub.sectionScores,
                 sectionBuckets: sub.sectionBuckets,
@@ -1687,21 +1780,17 @@ router.get('/analytics/student/:studentId/attempts/:assessmentId', protect, isSc
     try {
         const { studentId, assessmentId } = req.params;
 
-        // Verify student belongs to school (or sub-school)
-        const student = await Student.findById(studentId);
-        if (!student) {
+        const studentRow = await db('students').where('id', studentId).first();
+        if (!studentRow) {
             return res.status(404).json({ message: 'Student not found' });
         }
 
-        const submissions = await Submission.find({
-            studentId,
-            assessmentId,
-            status: 'complete'
-        })
-            .select('totalScore sectionScores assignedBucket submittedAt timeTaken')
-            .sort({ submittedAt: 1 });
+        const submissionRows = await db('submissions')
+            .where({ student_id: studentId, assessment_id: assessmentId, status: 'complete' })
+            .select('id', 'total_score', 'section_scores', 'assigned_bucket', 'submitted_at', 'time_taken')
+            .orderBy('submitted_at', 'asc');
 
-        res.json(submissions);
+        res.json(mapRows(submissionRows));
     } catch (error) {
         console.error('Get student attempts error:', error);
         res.status(500).json({ message: 'Server error' });

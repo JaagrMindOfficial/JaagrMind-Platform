@@ -1,9 +1,7 @@
 const jwt = require('jsonwebtoken');
-const Admin = require('../models/Admin');
-const School = require('../models/School');
-const Student = require('../models/Student');
+const db = require('../config/db');
+const { mapRow } = require('../utils/dbHelper');
 
-// Protect routes - verify JWT token
 const protect = async (req, res, next) => {
     let token;
 
@@ -11,7 +9,6 @@ const protect = async (req, res, next) => {
         try {
             token = req.headers.authorization.split(' ')[1];
             const decoded = jwt.verify(token, process.env.JWT_SECRET);
-
             req.user = decoded;
             next();
         } catch (error) {
@@ -25,13 +22,14 @@ const protect = async (req, res, next) => {
     }
 };
 
-// Admin only middleware
 const isAdmin = async (req, res, next) => {
     try {
         if (req.user && req.user.role === 'admin') {
-            const admin = await Admin.findById(req.user.id).select('-password');
-            if (admin) {
-                req.admin = admin;
+            const row = await db('admins').where('id', req.user.id)
+                .select('id', 'email', 'name', 'role', 'created_at', 'last_login')
+                .first();
+            if (row) {
+                req.admin = mapRow(row);
                 next();
             } else {
                 res.status(401).json({ message: 'Not authorized as admin' });
@@ -44,13 +42,16 @@ const isAdmin = async (req, res, next) => {
     }
 };
 
-// School admin only middleware
 const isSchoolAdmin = async (req, res, next) => {
     try {
         if (req.user && req.user.role === 'school') {
-            const school = await School.findById(req.user.id).select('-password');
-            if (school) {
-                req.school = school;
+            const row = await db('schools').where('id', req.user.id)
+                .select('id', 'school_id', 'name', 'email', 'logo', 'address', 'type',
+                    'parent_id', 'contact', 'is_data_visible_to_school', 'assigned_tests',
+                    'is_blocked', 'must_change_password', 'created_at', 'is_active')
+                .first();
+            if (row) {
+                req.school = mapRow(row);
                 next();
             } else {
                 res.status(401).json({ message: 'Not authorized as school admin' });
@@ -63,13 +64,18 @@ const isSchoolAdmin = async (req, res, next) => {
     }
 };
 
-// Student middleware (access ID based)
 const isStudent = async (req, res, next) => {
     try {
         if (req.user && req.user.role === 'student') {
-            const student = await Student.findById(req.user.id).populate('schoolId', 'name logo');
+            const student = await db('students').where('students.id', req.user.id)
+                .first();
             if (student) {
-                req.student = student;
+                const school = await db('schools').where('id', student.school_id)
+                    .select('id', 'name', 'logo', 'school_id')
+                    .first();
+                const mapped = mapRow(student);
+                mapped.schoolId = school ? mapRow(school) : null;
+                req.student = mapped;
                 next();
             } else {
                 res.status(401).json({ message: 'Student not found' });
@@ -82,7 +88,6 @@ const isStudent = async (req, res, next) => {
     }
 };
 
-// Generate JWT token
 const generateToken = (id, role) => {
     return jwt.sign({ id, role }, process.env.JWT_SECRET, {
         expiresIn: process.env.JWT_EXPIRES_IN || '7d'

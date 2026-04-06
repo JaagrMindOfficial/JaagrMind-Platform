@@ -1,49 +1,67 @@
-const mongoose = require('mongoose');
+const db = require('../config/db');
 const bcrypt = require('bcryptjs');
+const { mapRow, mapRows } = require('../utils/dbHelper');
 
-const adminSchema = new mongoose.Schema({
-    email: {
-        type: String,
-        required: true,
-        unique: true,
-        lowercase: true,
-        trim: true,
-        match: [/^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/, 'Please fill a valid email address']
+const TABLE = 'admins';
+
+const Admin = {
+    TABLE,
+
+    async findById(id) {
+        const row = await db(TABLE).where('id', id).first();
+        return mapRow(row);
     },
-    password: {
-        type: String,
-        required: true
+
+    async findOne(where) {
+        const row = await db(TABLE).where(where).first();
+        return mapRow(row);
     },
-    name: {
-        type: String,
-        default: 'Company Admin'
+
+    async find(where = {}) {
+        const rows = await db(TABLE).where(where);
+        return mapRows(rows);
     },
-    role: {
-        type: String,
-        default: 'admin',
-        enum: ['admin', 'superadmin']
+
+    async create(data) {
+        if (data.password) {
+            const salt = await bcrypt.genSalt(10);
+            data.password = await bcrypt.hash(data.password, salt);
+        }
+        if (!data.created_at) data.created_at = new Date();
+        const [row] = await db(TABLE).insert(data).returning('*');
+        return mapRow(row);
     },
-    createdAt: {
-        type: Date,
-        default: Date.now
+
+    async updateById(id, data) {
+        if (data.password && !data.password.startsWith('$2')) {
+            const salt = await bcrypt.genSalt(10);
+            data.password = await bcrypt.hash(data.password, salt);
+        }
+        const [row] = await db(TABLE).where('id', id).update(data).returning('*');
+        return mapRow(row);
     },
-    lastLogin: {
-        type: Date
+
+    async deleteById(id) {
+        return db(TABLE).where('id', id).del();
+    },
+
+    async countDocuments(where = {}) {
+        const result = await db(TABLE).where(where).count('* as count').first();
+        return parseInt(result.count);
+    },
+
+    async matchPassword(hashedPassword, enteredPassword) {
+        return bcrypt.compare(enteredPassword, hashedPassword);
+    },
+
+    async hashPassword(password) {
+        const salt = await bcrypt.genSalt(10);
+        return bcrypt.hash(password, salt);
+    },
+
+    query() {
+        return db(TABLE);
     }
-});
-
-// Hash password before saving
-adminSchema.pre('save', async function (next) {
-    if (!this.isModified('password')) {
-        next();
-    }
-    const salt = await bcrypt.genSalt(10);
-    this.password = await bcrypt.hash(this.password, salt);
-});
-
-// Match password method
-adminSchema.methods.matchPassword = async function (enteredPassword) {
-    return await bcrypt.compare(enteredPassword, this.password);
 };
 
-module.exports = mongoose.model('Admin', adminSchema);
+module.exports = Admin;

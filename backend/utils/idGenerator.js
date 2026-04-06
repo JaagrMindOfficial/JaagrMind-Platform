@@ -1,8 +1,7 @@
 const { v4: uuidv4 } = require('uuid');
+const db = require('../config/db');
 
-// Generate unique school ID
-// Format: JM-XXXX-YYYY (randomized alphanumeric)
-const generateSchoolId = async (School) => {
+const generateSchoolId = async () => {
     const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
     let id;
     let exists = true;
@@ -15,13 +14,12 @@ const generateSchoolId = async (School) => {
             part2 += chars.charAt(Math.floor(Math.random() * chars.length));
         }
         id = `JM-${part1}-${part2}`;
-        exists = await School.findOne({ schoolId: id });
+        const row = await db('schools').where('school_id', id).first();
+        exists = !!row;
     }
     return id;
 };
 
-// Generate random password for school
-// Format: 8-12 characters with letters and numbers
 const generateSchoolPassword = () => {
     const chars = 'ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
     let password = '';
@@ -31,10 +29,7 @@ const generateSchoolPassword = () => {
     return password;
 };
 
-// Generate unique student access ID
-// Format: [SCHOOL_ABBREV]-[YEAR]-[RANDOM_16_CHARS] (e.g., CHS-2026-A9B2F3E72C4D8F1A)
 const generateAccessId = (schoolName) => {
-    // Get school abbreviation (first 3 letters of each word, max 4 chars)
     const words = schoolName.split(' ').filter(w => w.length > 0);
     let abbrev = '';
 
@@ -44,23 +39,17 @@ const generateAccessId = (schoolName) => {
         abbrev = words.map(w => w[0]).join('').substring(0, 4).toUpperCase();
     }
 
-    // Get current year
     const year = new Date().getFullYear();
-
-    // Generate stronger random ID (16 characters)
-    // Uses full UUID for maximum entropy
     const uuid = uuidv4().replace(/-/g, '');
     const randomPart = uuid.substring(0, 16).toUpperCase();
 
     return `${abbrev}-${year}-${randomPart}`;
 };
 
-// Generate bulk access IDs (ensures uniqueness)
-const generateBulkAccessIds = async (Student, schoolName, count) => {
+const generateBulkAccessIds = async (schoolName, count) => {
     const accessIds = [];
-    const existingIds = new Set(
-        (await Student.find({}, 'accessId')).map(s => s.accessId)
-    );
+    const rows = await db('students').select('access_id');
+    const existingIds = new Set(rows.map(s => s.access_id));
 
     while (accessIds.length < count) {
         const newId = generateAccessId(schoolName);

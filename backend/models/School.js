@@ -1,122 +1,73 @@
-const mongoose = require('mongoose');
+const db = require('../config/db');
 const bcrypt = require('bcryptjs');
+const { mapRow, mapRows } = require('../utils/dbHelper');
 
-const schoolSchema = new mongoose.Schema({
-    schoolId: {
-        type: String,
-        unique: true,
-        required: true
+const TABLE = 'schools';
+
+const School = {
+    TABLE,
+
+    async findById(id) {
+        const row = await db(TABLE).where('id', id).first();
+        return mapRow(row);
     },
-    name: {
-        type: String,
-        required: true,
-        trim: true
+
+    async findOne(where) {
+        const row = await db(TABLE).where(where).first();
+        return mapRow(row);
     },
-    // Primary email for login (required for new unified login)
-    email: {
-        type: String,
-        unique: true,
-        sparse: true, // Allows null for existing records during migration
-        lowercase: true,
-        trim: true,
-        match: [/^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/, 'Please fill a valid email address']
+
+    async find(where = {}) {
+        const rows = await db(TABLE).where(where);
+        return mapRows(rows);
     },
-    logo: {
-        type: String,
-        default: ''
-    },
-    address: {
-        street: { type: String, trim: true },
-        city: { type: String, trim: true },
-        state: { type: String, trim: true },
-        pincode: { type: String, trim: true },
-        full: { type: String, trim: true } // For legacy or formatted address
-    },
-    type: {
-        type: String,
-        enum: ['super', 'sub'],
-        default: 'super'
-    },
-    parentId: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'School',
-        default: null
-    },
-    contact: {
-        phone: {
-            type: String,
-            match: [/^[0-9]{10}$/, 'Please fill a valid 10-digit phone number']
-        },
-        email: {
-            type: String,
-            match: [/^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/, 'Please fill a valid email address']
+
+    async create(data) {
+        if (data.password && !data.password.startsWith('$2')) {
+            const salt = await bcrypt.genSalt(10);
+            data.password = await bcrypt.hash(data.password, salt);
         }
+        if (!data.created_at) data.created_at = new Date();
+        if (data.assigned_tests && Array.isArray(data.assigned_tests)) {
+            data.assigned_tests = data.assigned_tests.map(String);
+        }
+        const [row] = await db(TABLE).insert(data).returning('*');
+        return mapRow(row);
     },
-    password: {
-        type: String,
-        required: true
+
+    async updateById(id, data) {
+        if (data.password && !data.password.startsWith('$2')) {
+            const salt = await bcrypt.genSalt(10);
+            data.password = await bcrypt.hash(data.password, salt);
+        }
+        if (data.assigned_tests && Array.isArray(data.assigned_tests)) {
+            data.assigned_tests = data.assigned_tests.map(String);
+        }
+        const [row] = await db(TABLE).where('id', id).update(data).returning('*');
+        return mapRow(row);
     },
-    isDataVisibleToSchool: {
-        type: Boolean,
-        default: false
+
+    async deleteById(id) {
+        return db(TABLE).where('id', id).del();
     },
-    assignedTests: [{
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'Assessment'
-    }],
-    plainPassword: {
-        type: String,
-        default: ''
+
+    async countDocuments(where = {}) {
+        const result = await db(TABLE).where(where).count('* as count').first();
+        return parseInt(result.count);
     },
-    isBlocked: {
-        type: Boolean,
-        default: false
+
+    async matchPassword(hashedPassword, enteredPassword) {
+        return bcrypt.compare(enteredPassword, hashedPassword);
     },
-    // New fields for unified login
-    mustChangePassword: {
-        type: Boolean,
-        default: true
+
+    async hashPassword(password) {
+        const salt = await bcrypt.genSalt(10);
+        return bcrypt.hash(password, salt);
     },
-    credentialsEmailSent: {
-        type: Boolean,
-        default: false
-    },
-    lastCredentialsEmailSentAt: {
-        type: Date
-    },
-    createdAt: {
-        type: Date,
-        default: Date.now
-    },
-    isActive: {
-        type: Boolean,
-        default: true
+
+    query() {
+        return db(TABLE);
     }
-});
-
-// Virtual for branches
-schoolSchema.virtual('branches', {
-    ref: 'School',
-    localField: '_id',
-    foreignField: 'parentId'
-});
-
-// Ensure virtuals are included in toJSON/toObject
-schoolSchema.set('toJSON', { virtuals: true });
-schoolSchema.set('toObject', { virtuals: true });
-
-// Hash password before saving
-schoolSchema.pre('save', async function (next) {
-    if (!this.isModified('password')) {
-        next();
-    }
-    const salt = await bcrypt.genSalt(10);
-    this.password = await bcrypt.hash(this.password, salt);
-});
-
-// Match password method
-schoolSchema.methods.matchPassword = async function (enteredPassword) {
-    return await bcrypt.compare(enteredPassword, this.password);
 };
 
-module.exports = mongoose.model('School', schoolSchema);
+module.exports = School;

@@ -1,114 +1,71 @@
-const mongoose = require('mongoose');
+const db = require('../config/db');
+const { mapRow, mapRows } = require('../utils/dbHelper');
 
-const testStatusSchema = new mongoose.Schema({
-    assessmentId: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'Assessment',
-        required: true
+const TABLE = 'students';
+
+const Student = {
+    TABLE,
+
+    async findById(id) {
+        const row = await db(TABLE).where('id', id).first();
+        return mapRow(row);
     },
-    isCompleted: {
-        type: Boolean,
-        default: false
+
+    async findOne(where) {
+        const row = await db(TABLE).where(where).first();
+        return mapRow(row);
     },
-    score: {
-        type: Number,
-        default: 0
+
+    async find(where = {}) {
+        const rows = await db(TABLE).where(where);
+        return mapRows(rows);
     },
-    sectionScores: {
-        A: { type: Number, default: 0 },
-        B: { type: Number, default: 0 },
-        C: { type: Number, default: 0 },
-        D: { type: Number, default: 0 }
+
+    async create(data) {
+        if (!data.created_at) data.created_at = new Date();
+        if (data.test_status && typeof data.test_status !== 'string') {
+            data.test_status = JSON.stringify(data.test_status);
+        }
+        const [row] = await db(TABLE).insert(data).returning('*');
+        return mapRow(row);
     },
-    sectionBuckets: {
-        A: { type: String, default: '' },
-        B: { type: String, default: '' },
-        C: { type: String, default: '' },
-        D: { type: String, default: '' }
+
+    async insertMany(dataArray) {
+        const prepared = dataArray.map(d => {
+            if (d.test_status && typeof d.test_status !== 'string') {
+                d.test_status = JSON.stringify(d.test_status);
+            }
+            if (!d.created_at) d.created_at = new Date();
+            return d;
+        });
+        const rows = await db(TABLE).insert(prepared).returning('*');
+        return mapRows(rows);
     },
-    primarySkillArea: {
-        type: String,
-        default: ''
+
+    async updateById(id, data) {
+        if (data.test_status && typeof data.test_status !== 'string') {
+            data.test_status = JSON.stringify(data.test_status);
+        }
+        const [row] = await db(TABLE).where('id', id).update(data).returning('*');
+        return mapRow(row);
     },
-    secondarySkillArea: {
-        type: String,
-        default: ''
+
+    async deleteById(id) {
+        return db(TABLE).where('id', id).del();
     },
-    bucket: {
-        type: String,
-        default: ''
+
+    async deleteMany(where) {
+        return db(TABLE).where(where).del();
     },
-    timeTaken: {
-        type: Number,
-        default: 0 // in seconds
+
+    async countDocuments(where = {}) {
+        const result = await db(TABLE).where(where).count('* as count').first();
+        return parseInt(result.count);
     },
-    startedAt: {
-        type: Date
-    },
-    completedAt: {
-        type: Date
+
+    query() {
+        return db(TABLE);
     }
-});
+};
 
-const studentSchema = new mongoose.Schema({
-    accessId: {
-        type: String,
-        unique: true,
-        required: true
-    },
-    name: {
-        type: String,
-        required: true,
-        trim: true
-    },
-    rollNo: {
-        type: String,
-        trim: true
-    },
-    class: {
-        type: String,
-        required: true,
-        trim: true
-    },
-    section: {
-        type: String,
-        trim: true
-    },
-    schoolId: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'School',
-        required: true
-    },
-    parentId: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'School',
-        default: null,
-        index: true
-    },
-    mobileNumber: {
-        type: String,
-        trim: true,
-        match: [/^[0-9]{10}$/, 'Please fill a valid 10-digit mobile number']
-    },
-    email: {
-        type: String,
-        trim: true,
-        lowercase: true,
-        match: [/^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/, 'Please fill a valid email address']
-    },
-    testStatus: [testStatusSchema],
-    createdAt: {
-        type: Date,
-        default: Date.now
-    },
-    isActive: {
-        type: Boolean,
-        default: true
-    }
-});
-
-// Index for faster queries
-studentSchema.index({ schoolId: 1, class: 1, section: 1 });
-// accessId unique constraint already creates an index
-
-module.exports = mongoose.model('Student', studentSchema);
+module.exports = Student;

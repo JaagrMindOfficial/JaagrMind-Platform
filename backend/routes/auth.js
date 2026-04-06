@@ -1,23 +1,17 @@
 const express = require('express');
 const router = express.Router();
-const Admin = require('../models/Admin');
-const School = require('../models/School');
+const bcrypt = require('bcryptjs');
+const db = require('../config/db');
+const { mapRow } = require('../utils/dbHelper');
 const { generateToken } = require('../middleware/auth');
 
-// Admin email domains
 const ADMIN_DOMAINS = ['jaagr.com', 'jaagrmind.com'];
 
-/**
- * Check if email belongs to admin domain
- */
 const isAdminDomain = (email) => {
     const domain = email.split('@')[1]?.toLowerCase();
     return ADMIN_DOMAINS.includes(domain);
 };
 
-// @route   POST /api/auth/login
-// @desc    Unified login for Admin and School (email-based routing)
-// @access  Public
 router.post('/login', async (req, res) => {
     try {
         const { email, password } = req.body;
@@ -28,65 +22,59 @@ router.post('/login', async (req, res) => {
 
         const normalizedEmail = email.toLowerCase().trim();
 
-        // Check if admin domain
         if (isAdminDomain(normalizedEmail)) {
-            // Admin login
             console.log(`[Auth] Attempting Admin login for: ${normalizedEmail}`);
-            const admin = await Admin.findOne({ email: normalizedEmail });
+            const admin = await db('admins').where('email', normalizedEmail).first();
 
             if (!admin) {
                 console.log(`[Auth] Admin not found: ${normalizedEmail}`);
                 return res.status(401).json({ message: 'Invalid credentials' });
             }
 
-            const isMatch = await admin.matchPassword(password);
+            const isMatch = await bcrypt.compare(password, admin.password);
             if (!isMatch) {
                 console.log(`[Auth] Password mismatch for Admin: ${normalizedEmail}`);
                 return res.status(401).json({ message: 'Invalid credentials' });
             }
             console.log(`[Auth] Admin login successful: ${normalizedEmail}`);
 
-            // Update last login
-            admin.lastLogin = new Date();
-            await admin.save();
+            await db('admins').where('id', admin.id).update({ last_login: new Date() });
 
             return res.json({
-                _id: admin._id,
+                _id: admin.id,
                 email: admin.email,
                 name: admin.name,
                 role: 'admin',
-                token: generateToken(admin._id, 'admin')
+                token: generateToken(admin.id, 'admin')
             });
         } else {
-            // School login (by email)
-            const school = await School.findOne({
-                email: normalizedEmail,
-                isActive: true
-            });
+            const school = await db('schools')
+                .where({ email: normalizedEmail, is_active: true })
+                .first();
 
             if (!school) {
                 return res.status(401).json({ message: 'Invalid credentials' });
             }
 
-            if (school.isBlocked) {
+            if (school.is_blocked) {
                 return res.status(403).json({ message: 'Your account has been blocked. Please contact administrator.' });
             }
 
-            const isMatch = await school.matchPassword(password);
+            const isMatch = await bcrypt.compare(password, school.password);
             if (!isMatch) {
                 return res.status(401).json({ message: 'Invalid credentials' });
             }
 
             return res.json({
-                _id: school._id,
-                schoolId: school.schoolId,
+                _id: school.id,
+                schoolId: school.school_id,
                 email: school.email,
                 name: school.name,
                 logo: school.logo,
                 role: 'school',
-                mustChangePassword: school.mustChangePassword || false,
-                isDataVisibleToSchool: school.isDataVisibleToSchool,
-                token: generateToken(school._id, 'school')
+                mustChangePassword: school.must_change_password || false,
+                isDataVisibleToSchool: school.is_data_visible_to_school,
+                token: generateToken(school.id, 'school')
             });
         }
     } catch (error) {

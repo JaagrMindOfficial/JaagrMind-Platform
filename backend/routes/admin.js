@@ -1,20 +1,35 @@
 const express = require('express');
 const router = express.Router();
-const Admin = require('../models/Admin');
-const School = require('../models/School');
-const Assessment = require('../models/Assessment');
-const Student = require('../models/Student');
-const Submission = require('../models/Submission');
-const ArchivedData = require('../models/ArchivedData');
-const SchoolCredentials = require('../models/SchoolCredentials');
+const bcrypt = require('bcryptjs');
+const db = require('../config/db');
+const { mapRow, mapRows, excludeFields } = require('../utils/dbHelper');
 const { protect, isAdmin, generateToken } = require('../middleware/auth');
 const { generateSchoolId, generateSchoolPassword } = require('../utils/idGenerator');
 const { exportSubmissionsToExcel, calculateAnalytics } = require('../utils/exportData');
 const { logoUpload, deleteFromS3 } = require('../utils/s3Upload');
 const { sendSchoolCredentialsEmail, sendPasswordChangedEmail } = require('../utils/emailService');
 
-// Use S3 upload for logos
 const upload = logoUpload;
+const SALT_ROUNDS = 10;
+
+async function hashPassword(plain) {
+    const salt = await bcrypt.genSalt(SALT_ROUNDS);
+    return bcrypt.hash(plain, salt);
+}
+
+const getBucketCategory = (score) => {
+    if (score >= 8 && score <= 14) return 'green';
+    if (score >= 15 && score <= 22) return 'yellow';
+    if (score >= 23 && score <= 32) return 'red';
+    return 'unknown';
+};
+
+const getOverallBucket = (totalScore) => {
+    if (totalScore >= 32 && totalScore <= 56) return 'doingWell';
+    if (totalScore >= 57 && totalScore <= 88) return 'needsSupport';
+    if (totalScore >= 89 && totalScore <= 128) return 'needsAttention';
+    return 'unknown';
+};
 
 // @route   POST /api/admin/login
 // @desc    Admin login
@@ -23,28 +38,24 @@ router.post('/login', async (req, res) => {
     try {
         const { email, password } = req.body;
 
-        // Find admin by email
-        const admin = await Admin.findOne({ email: email.toLowerCase() });
+        const admin = await db('admins').where({ email: email.toLowerCase() }).first();
         if (!admin) {
             return res.status(401).json({ message: 'Invalid credentials' });
         }
 
-        // Check password
-        const isMatch = await admin.matchPassword(password);
+        const isMatch = await bcrypt.compare(password, admin.password);
         if (!isMatch) {
             return res.status(401).json({ message: 'Invalid credentials' });
         }
 
-        // Update last login
-        admin.lastLogin = new Date();
-        await admin.save();
+        await db('admins').where('id', admin.id).update({ last_login: new Date() });
 
         res.json({
-            _id: admin._id,
+            _id: admin.id,
             email: admin.email,
             name: admin.name,
             role: 'admin',
-            token: generateToken(admin._id, 'admin')
+            token: generateToken(admin.id, 'admin')
         });
     } catch (error) {
         console.error('Admin login error:', error);
@@ -67,20 +78,17 @@ router.put('/change-password', protect, isAdmin, async (req, res) => {
             return res.status(400).json({ message: 'New password must be at least 6 characters' });
         }
 
-        const admin = await Admin.findById(req.user._id);
+        const admin = await db('admins').where('id', req.user._id).first();
         if (!admin) {
             return res.status(404).json({ message: 'Admin not found' });
         }
 
-        // Verify current password
-        const isMatch = await admin.matchPassword(currentPassword);
+        const isMatch = await bcrypt.compare(currentPassword, admin.password);
         if (!isMatch) {
             return res.status(401).json({ message: 'Current password is incorrect' });
         }
 
-        // Update password
-        admin.password = newPassword;
-        await admin.save();
+        await db('admins').where('id', admin.id).update({ password: await hashPassword(newPassword) });
 
         res.json({ message: 'Password updated successfully' });
     } catch (error) {
@@ -96,31 +104,36 @@ router.put('/profile', protect, isAdmin, async (req, res) => {
     try {
         const { name, email } = req.body;
 
-        const admin = await Admin.findById(req.user._id);
+        const admin = await db('admins').where('id', req.user._id).first();
         if (!admin) {
             return res.status(404).json({ message: 'Admin not found' });
         }
 
-        // Check if new email is unique
+        const updates = {};
+
         if (email && email.toLowerCase() !== admin.email) {
-            const existingAdmin = await Admin.findOne({ email: email.toLowerCase() });
+            const existingAdmin = await db('admins').where({ email: email.toLowerCase() }).first();
             if (existingAdmin) {
                 return res.status(400).json({ message: 'Email already in use' });
             }
-            admin.email = email.toLowerCase();
+            updates.email = email.toLowerCase();
         }
 
         if (name) {
-            admin.name = name;
+            updates.name = name;
         }
 
-        await admin.save();
+        if (Object.keys(updates).length > 0) {
+            await db('admins').where('id', admin.id).update(updates);
+        }
+
+        const updated = await db('admins').where('id', admin.id).first();
 
         res.json({
-            _id: admin._id,
-            email: admin.email,
-            name: admin.name,
-            role: admin.role,
+            _id: updated.id,
+            email: updated.email,
+            name: updated.name,
+            role: updated.role,
             message: 'Profile updated successfully'
         });
     } catch (error) {
@@ -136,19 +149,21 @@ router.get('/admins', protect, isAdmin, async (req, res) => {
     try {
         const page = parseInt(req.query.page) || 1;
         const limit = parseInt(req.query.limit) || 10;
-        const skip = (page - 1) * limit;
+        const offset = (page - 1) * limit;
 
-        const [admins, total] = await Promise.all([
-            Admin.find()
-                .select('-password')
-                .sort({ createdAt: -1 })
-                .skip(skip)
+        const [admins, countResult] = await Promise.all([
+            db('admins')
+                .select('id', 'email', 'name', 'role', 'created_at', 'last_login')
+                .orderBy('created_at', 'desc')
+                .offset(offset)
                 .limit(limit),
-            Admin.countDocuments()
+            db('admins').count('* as count').first()
         ]);
 
+        const total = parseInt(countResult.count);
+
         res.json({
-            data: admins,
+            data: mapRows(admins),
             pagination: {
                 page,
                 limit,
@@ -177,25 +192,24 @@ router.post('/admins', protect, isAdmin, async (req, res) => {
             return res.status(400).json({ message: 'Password must be at least 6 characters' });
         }
 
-        // Check if email already exists
-        const existingAdmin = await Admin.findOne({ email: email.toLowerCase() });
+        const existingAdmin = await db('admins').where({ email: email.toLowerCase() }).first();
         if (existingAdmin) {
             return res.status(400).json({ message: 'Admin with this email already exists' });
         }
 
-        const admin = await Admin.create({
+        const [admin] = await db('admins').insert({
             email: email.toLowerCase(),
-            password,
+            password: await hashPassword(password),
             name: name || 'Company Admin',
             role: role || 'admin'
-        });
+        }).returning('*');
 
         res.status(201).json({
-            _id: admin._id,
+            _id: admin.id,
             email: admin.email,
             name: admin.name,
             role: admin.role,
-            createdAt: admin.createdAt,
+            createdAt: admin.created_at,
             message: 'Admin created successfully'
         });
     } catch (error) {
@@ -211,35 +225,40 @@ router.put('/admins/:id', protect, isAdmin, async (req, res) => {
     try {
         const { email, name, role, password } = req.body;
 
-        const admin = await Admin.findById(req.params.id);
+        const admin = await db('admins').where('id', req.params.id).first();
         if (!admin) {
             return res.status(404).json({ message: 'Admin not found' });
         }
 
-        // Check if new email is unique
+        const updates = {};
+
         if (email && email.toLowerCase() !== admin.email) {
-            const existingAdmin = await Admin.findOne({ email: email.toLowerCase() });
+            const existingAdmin = await db('admins').where({ email: email.toLowerCase() }).first();
             if (existingAdmin) {
                 return res.status(400).json({ message: 'Email already in use' });
             }
-            admin.email = email.toLowerCase();
+            updates.email = email.toLowerCase();
         }
 
-        if (name) admin.name = name;
-        if (role) admin.role = role;
+        if (name) updates.name = name;
+        if (role) updates.role = role;
         if (password && password.length >= 6) {
-            admin.password = password;
+            updates.password = await hashPassword(password);
         }
 
-        await admin.save();
+        if (Object.keys(updates).length > 0) {
+            await db('admins').where('id', admin.id).update(updates);
+        }
+
+        const updated = await db('admins').where('id', admin.id).first();
 
         res.json({
-            _id: admin._id,
-            email: admin.email,
-            name: admin.name,
-            role: admin.role,
-            createdAt: admin.createdAt,
-            lastLogin: admin.lastLogin,
+            _id: updated.id,
+            email: updated.email,
+            name: updated.name,
+            role: updated.role,
+            createdAt: updated.created_at,
+            lastLogin: updated.last_login,
             message: 'Admin updated successfully'
         });
     } catch (error) {
@@ -253,23 +272,21 @@ router.put('/admins/:id', protect, isAdmin, async (req, res) => {
 // @access  Admin
 router.delete('/admins/:id', protect, isAdmin, async (req, res) => {
     try {
-        // Prevent self-deletion
-        if (req.params.id === req.user.id.toString()) {
+        if (req.params.id === req.user._id?.toString()) {
             return res.status(400).json({ message: 'You cannot delete your own account' });
         }
 
-        const admin = await Admin.findById(req.params.id);
+        const admin = await db('admins').where('id', req.params.id).first();
         if (!admin) {
             return res.status(404).json({ message: 'Admin not found' });
         }
 
-        // Prevent deleting the last admin
-        const adminCount = await Admin.countDocuments();
-        if (adminCount <= 1) {
+        const countResult = await db('admins').count('* as count').first();
+        if (parseInt(countResult.count) <= 1) {
             return res.status(400).json({ message: 'Cannot delete the last admin account' });
         }
 
-        await Admin.findByIdAndDelete(req.params.id);
+        await db('admins').where('id', req.params.id).del();
 
         res.json({ message: 'Admin deleted successfully' });
     } catch (error) {
@@ -283,12 +300,17 @@ router.delete('/admins/:id', protect, isAdmin, async (req, res) => {
 // @access  Admin
 router.get('/dashboard', protect, isAdmin, async (req, res) => {
     try {
-        const [schoolCount, studentCount, assessmentCount, submissions] = await Promise.all([
-            School.countDocuments({ isActive: true }),
-            Student.countDocuments({ isActive: true }),
-            Assessment.countDocuments({ isActive: true }),
-            Submission.find().sort({ submittedAt: -1 }).limit(100)
+        const [schoolCountResult, studentCountResult, assessmentCountResult, submissionRows] = await Promise.all([
+            db('schools').where({ is_active: true }).count('* as count').first(),
+            db('students').where({ is_active: true }).count('* as count').first(),
+            db('assessments').where({ is_active: true }).count('* as count').first(),
+            db('submissions').orderBy('submitted_at', 'desc').limit(100)
         ]);
+
+        const schoolCount = parseInt(schoolCountResult.count);
+        const studentCount = parseInt(studentCountResult.count);
+        const assessmentCount = parseInt(assessmentCountResult.count);
+        const submissions = mapRows(submissionRows);
 
         const analytics = calculateAnalytics(submissions);
 
@@ -297,87 +319,52 @@ router.get('/dashboard', protect, isAdmin, async (req, res) => {
         sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 5);
         sixMonthsAgo.setDate(1);
 
-        const trendSubmissions = await Submission.aggregate([
-            {
-                $match: {
-                    submittedAt: { $gte: sixMonthsAgo }
-                }
-            },
-            {
-                $group: {
-                    _id: {
-                        month: { $month: "$submittedAt" },
-                        year: { $year: "$submittedAt" }
-                    },
-                    avgScore: { $avg: "$totalScore" },
-                    count: { $sum: 1 }
-                }
-            },
-            { $sort: { "_id.year": 1, "_id.month": 1 } }
-        ]);
+        const trendSubmissions = await db('submissions')
+            .where('submitted_at', '>=', sixMonthsAgo)
+            .select(
+                db.raw('EXTRACT(MONTH FROM submitted_at)::int as month'),
+                db.raw('EXTRACT(YEAR FROM submitted_at)::int as year')
+            )
+            .avg('total_score as avg_score')
+            .count('* as count')
+            .groupByRaw('EXTRACT(YEAR FROM submitted_at), EXTRACT(MONTH FROM submitted_at)')
+            .orderByRaw('EXTRACT(YEAR FROM submitted_at), EXTRACT(MONTH FROM submitted_at)');
 
         const wellnessTrends = [];
         const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
-        // Fill in missing months and format
         for (let i = 0; i < 6; i++) {
             const d = new Date();
             d.setMonth(d.getMonth() - (5 - i));
             const month = d.getMonth() + 1;
             const year = d.getFullYear();
 
-            const found = trendSubmissions.find(t => t._id.month === month && t._id.year === year);
+            const found = trendSubmissions.find(t => t.month === month && t.year === year);
             wellnessTrends.push({
                 name: monthNames[month - 1],
-                score: found ? Math.round(found.avgScore * 10) / 10 : 0,
-                count: found ? found.count : 0
+                score: found ? Math.round(parseFloat(found.avg_score) * 10) / 10 : 0,
+                count: found ? parseInt(found.count) : 0
             });
         }
 
         // Calculate Attention Needed (Schools with high % of 'red' bucket submissions)
-        const attentionStats = await Submission.aggregate([
-            {
-                $lookup: {
-                    from: 'schools',
-                    localField: 'schoolId',
-                    foreignField: '_id',
-                    as: 'school'
-                }
-            },
-            { $unwind: '$school' },
-            { $match: { 'school.isActive': true } },
-            {
-                $group: {
-                    _id: '$schoolId',
-                    name: { $first: '$school.name' },
-                    total: { $sum: 1 },
-                    redCount: {
-                        $sum: {
-                            $cond: [{ $eq: ['$assignedBucket', 'red'] }, 1, 0]
-                        }
-                    }
-                }
-            },
-            {
-                $project: {
-                    name: 1,
-                    total: 1,
-                    redCount: 1,
-                    riskRatio: { $divide: ['$redCount', '$total'] }
-                }
-            },
-            { $match: { total: { $gte: 5 } } }, // Only schools with at least 5 submissions
-            { $sort: { riskRatio: -1 } },
-            { $limit: 5 }
-        ]);
+        const attentionStats = await db('submissions as sub')
+            .join('schools as sch', 'sub.school_id', 'sch.id')
+            .where('sch.is_active', true)
+            .select('sub.school_id', 'sch.name')
+            .count('* as total')
+            .select(db.raw("SUM(CASE WHEN sub.assigned_bucket = 'red' THEN 1 ELSE 0 END)::int as red_count"))
+            .groupBy('sub.school_id', 'sch.name')
+            .havingRaw('COUNT(*) >= 5')
+            .orderByRaw("(SUM(CASE WHEN sub.assigned_bucket = 'red' THEN 1 ELSE 0 END)::float / COUNT(*)) DESC")
+            .limit(5);
 
         const attentionNeeded = attentionStats.map(s => ({
-            id: s._id,
+            id: s.school_id,
             name: s.name,
-            riskScore: Math.round(s.riskRatio * 100),
-            details: `${s.redCount}/${s.total} students need support`
+            riskScore: Math.round((parseInt(s.red_count) / parseInt(s.total)) * 100),
+            details: `${s.red_count}/${s.total} students need support`
         }));
-
 
         res.json({
             overview: {
@@ -405,48 +392,99 @@ router.get('/schools', protect, isAdmin, async (req, res) => {
         const page = parseInt(req.query.page) || 1;
         const limit = parseInt(req.query.limit) || 10;
         const search = req.query.search || '';
-        const skip = (page - 1) * limit;
+        const offset = (page - 1) * limit;
 
-        // Build search query
-        const query = { isActive: true };
+        let query = db('schools').where({ is_active: true });
+        let countQuery = db('schools').where({ is_active: true });
+
         if (search) {
-            const searchRegex = new RegExp(search, 'i');
-            query.$or = [
-                { name: searchRegex },
-                { schoolId: searchRegex },
-                { email: searchRegex }
-            ];
+            const searchFilter = function () {
+                this.where('name', 'ilike', `%${search}%`)
+                    .orWhere('school_id', 'ilike', `%${search}%`)
+                    .orWhere('email', 'ilike', `%${search}%`);
+            };
+            query = query.andWhere(searchFilter);
+            countQuery = countQuery.andWhere(searchFilter);
         }
 
-        // Get total count first
-        const total = await School.countDocuments(query);
+        const [countResult, schools] = await Promise.all([
+            countQuery.count('* as count').first(),
+            query
+                .orderBy('created_at', 'desc')
+                .offset(offset)
+                .limit(limit)
+        ]);
 
-        const schools = await School.find(query)
-            .populate('assignedTests', 'title isDefault')
-            .populate('branches') // Populate sub-schools
-            .populate('parentId', 'name schoolId') // Populate parent info
-            .select('-password')
-            .sort({ createdAt: -1 })
-            .skip(skip)
-            .limit(limit);
+        const total = parseInt(countResult.count);
 
-        // Get student count per school
-        const schoolsWithStats = await Promise.all(
-            schools.map(async (school) => {
-                const studentCount = await Student.countDocuments({
-                    schoolId: school._id,
-                    isActive: true
-                });
-                const submissionCount = await Submission.countDocuments({
-                    schoolId: school._id
-                });
-                return {
-                    ...school.toObject(),
-                    studentCount,
-                    submissionCount
-                };
-            })
-        );
+        const mappedSchools = schools.map(s => {
+            const mapped = mapRow(s);
+            delete mapped.password;
+            return mapped;
+        });
+
+        // Populate assignedTests
+        const allTestIds = [...new Set(schools.flatMap(s => s.assigned_tests || []))];
+        const assessmentsMap = {};
+        if (allTestIds.length > 0) {
+            const assessments = await db('assessments').whereIn('id', allTestIds).select('id', 'title', 'is_default');
+            assessments.forEach(a => {
+                assessmentsMap[a.id] = { _id: a.id, title: a.title, isDefault: a.is_default };
+            });
+        }
+
+        // Populate parent info
+        const parentIds = schools.filter(s => s.parent_id).map(s => s.parent_id);
+        const parentsMap = {};
+        if (parentIds.length > 0) {
+            const parents = await db('schools').whereIn('id', parentIds).select('id', 'name', 'school_id');
+            parents.forEach(p => {
+                parentsMap[p.id] = { _id: p.id, name: p.name, schoolId: p.school_id };
+            });
+        }
+
+        // Populate branches (sub-schools)
+        const schoolIds = schools.map(s => s.id);
+        const branchesMap = {};
+        if (schoolIds.length > 0) {
+            const branches = await db('schools').whereIn('parent_id', schoolIds).where('is_active', true);
+            branches.forEach(b => {
+                const pid = b.parent_id;
+                if (!branchesMap[pid]) branchesMap[pid] = [];
+                const mapped = mapRow(b);
+                delete mapped.password;
+                branchesMap[pid].push(mapped);
+            });
+        }
+
+        // Get student and submission counts per school in bulk
+        const [studentCounts, submissionCounts] = await Promise.all([
+            db('students')
+                .whereIn('school_id', schoolIds)
+                .where('is_active', true)
+                .select('school_id')
+                .count('* as count')
+                .groupBy('school_id'),
+            db('submissions')
+                .whereIn('school_id', schoolIds)
+                .select('school_id')
+                .count('* as count')
+                .groupBy('school_id')
+        ]);
+
+        const studentCountMap = {};
+        studentCounts.forEach(r => { studentCountMap[r.school_id] = parseInt(r.count); });
+        const submissionCountMap = {};
+        submissionCounts.forEach(r => { submissionCountMap[r.school_id] = parseInt(r.count); });
+
+        const schoolsWithStats = mappedSchools.map(school => ({
+            ...school,
+            assignedTests: (school.assignedTests || []).map(tid => assessmentsMap[tid]).filter(Boolean),
+            parentId: school.parentId ? (parentsMap[school.parentId] || school.parentId) : null,
+            branches: branchesMap[school._id] || [],
+            studentCount: studentCountMap[school._id] || 0,
+            submissionCount: submissionCountMap[school._id] || 0
+        }));
 
         res.json({
             data: schoolsWithStats,
@@ -470,38 +508,29 @@ router.post('/schools', protect, isAdmin, upload.single('logo'), async (req, res
     try {
         const { name, address, city, state, pincode, phone, email, type, parentId, isDataVisibleToSchool, sendEmail } = req.body;
 
-        // Validate email is required for new schools
         if (!email) {
             return res.status(400).json({ message: 'Email is required for school registration' });
         }
 
-        // Check if email already exists
-        const existingSchool = await School.findOne({ email: email.toLowerCase() });
+        const existingSchool = await db('schools').where({ email: email.toLowerCase() }).first();
         if (existingSchool) {
-            // Check if it's a "zombie" record (isActive: false)
-            if (existingSchool.isActive === false) {
+            if (existingSchool.is_active === false) {
                 console.log(`Found inactive school record for ${email}, cleaning up before registration...`);
-                // Clean up the inactive record
-                await School.findByIdAndDelete(existingSchool._id);
-                // Also clean up credentials if they exist
-                await SchoolCredentials.deleteMany({ schoolId: existingSchool._id });
+                await db('schools').where('id', existingSchool.id).del();
+                await db('school_credentials').where('school_id', existingSchool.id).del();
             } else {
                 return res.status(400).json({ message: 'A school with this email already exists' });
             }
         }
 
-        // Generate unique school ID and password
-        const schoolId = await generateSchoolId(School);
+        const schoolId = await generateSchoolId(db);
         const plainPassword = generateSchoolPassword();
 
-        // Get default assessment
-        const defaultAssessment = await Assessment.findOne({ isDefault: true });
+        const defaultAssessment = await db('assessments').where({ is_default: true }).first();
 
-        // Determine login URL
         const frontendUrl = process.env.FRONTEND_URL?.split(',')[0] || 'http://localhost:5173';
         const loginUrl = `${frontendUrl}/login`;
 
-        // Construct address object
         const addressObj = {
             street: address || '',
             city: city || '',
@@ -510,32 +539,29 @@ router.post('/schools', protect, isAdmin, upload.single('logo'), async (req, res
             full: address ? `${address}${city ? ', ' + city : ''}${state ? ', ' + state : ''}${pincode ? ' - ' + pincode : ''}` : ''
         };
 
-        // Create school
-        const school = await School.create({
-            schoolId,
+        const [school] = await db('schools').insert({
+            school_id: schoolId,
             name,
             email: email.toLowerCase(),
-            address: addressObj,
+            address: JSON.stringify(addressObj),
             type: type || 'super',
-            parentId: parentId || null,
-            contact: { phone, email },
-            password: plainPassword,
-            plainPassword: plainPassword,
-            mustChangePassword: true,
-            isDataVisibleToSchool: isDataVisibleToSchool === 'true' || isDataVisibleToSchool === true,
+            parent_id: parentId || null,
+            contact: JSON.stringify({ phone, email }),
+            password: await hashPassword(plainPassword),
+            plain_password: plainPassword,
+            must_change_password: true,
+            is_data_visible_to_school: isDataVisibleToSchool === 'true' || isDataVisibleToSchool === true,
             logo: req.file ? req.file.location : '',
-            assignedTests: defaultAssessment ? [defaultAssessment._id] : []
-        });
+            assigned_tests: defaultAssessment ? [defaultAssessment.id] : []
+        }).returning('*');
 
-        // Store credentials in separate collection for tracking
-        await SchoolCredentials.create({
-            schoolId: school._id,
+        await db('school_credentials').insert({
+            school_id: school.id,
             email: email.toLowerCase(),
-            schoolName: name,
-            plainPassword: plainPassword
+            school_name: name,
+            plain_password: plainPassword
         });
 
-        // Send credentials email if requested
         let emailSent = false;
         if (sendEmail === 'true' || sendEmail === true) {
             emailSent = await sendSchoolCredentialsEmail(
@@ -545,15 +571,16 @@ router.post('/schools', protect, isAdmin, upload.single('logo'), async (req, res
                 loginUrl
             );
             if (emailSent) {
-                school.credentialsEmailSent = true;
-                school.lastCredentialsEmailSentAt = new Date();
-                await school.save();
+                await db('schools').where('id', school.id).update({
+                    credentials_email_sent: true,
+                    last_credentials_email_sent_at: new Date()
+                });
             }
         }
 
         res.status(201).json({
-            _id: school._id,
-            schoolId: school.schoolId,
+            _id: school.id,
+            schoolId: school.school_id,
             email: school.email,
             name: school.name,
             password: plainPassword,
@@ -561,9 +588,9 @@ router.post('/schools', protect, isAdmin, upload.single('logo'), async (req, res
             logo: school.logo,
             address: school.address,
             contact: school.contact,
-            isDataVisibleToSchool: school.isDataVisibleToSchool,
-            isBlocked: school.isBlocked,
-            assignedTests: school.assignedTests,
+            isDataVisibleToSchool: school.is_data_visible_to_school,
+            isBlocked: school.is_blocked,
+            assignedTests: school.assigned_tests,
             credentialsEmailSent: emailSent,
             message: emailSent
                 ? 'School registered successfully. Credentials email sent!'
@@ -582,7 +609,7 @@ router.post('/schools/:id/send-credentials', protect, isAdmin, async (req, res) 
     try {
         const { regeneratePassword } = req.body;
 
-        const school = await School.findById(req.params.id);
+        const school = await db('schools').where('id', req.params.id).first();
         if (!school) {
             return res.status(404).json({ message: 'School not found' });
         }
@@ -591,24 +618,23 @@ router.post('/schools/:id/send-credentials', protect, isAdmin, async (req, res) 
             return res.status(400).json({ message: 'School does not have an email configured' });
         }
 
-        let password = school.plainPassword;
+        let password = school.plain_password;
 
-        // Regenerate password if requested
         if (regeneratePassword === 'true' || regeneratePassword === true) {
             password = generateSchoolPassword();
-            school.password = password;
-            school.plainPassword = password;
-            school.mustChangePassword = true;
-
-            // Update credentials collection
-            await SchoolCredentials.updatePassword(school._id, password);
+            await db('schools').where('id', school.id).update({
+                password: await hashPassword(password),
+                plain_password: password,
+                must_change_password: true
+            });
+            await db('school_credentials').where('school_id', school.id).update({
+                plain_password: password
+            });
         }
 
-        // Determine login URL
         const frontendUrl = process.env.FRONTEND_URL?.split(',')[0] || 'http://localhost:5173';
         const loginUrl = `${frontendUrl}/login`;
 
-        // Send email
         const emailSent = await sendSchoolCredentialsEmail(
             school.email,
             school.name,
@@ -617,9 +643,10 @@ router.post('/schools/:id/send-credentials', protect, isAdmin, async (req, res) 
         );
 
         if (emailSent) {
-            school.credentialsEmailSent = true;
-            school.lastCredentialsEmailSentAt = new Date();
-            await school.save();
+            await db('schools').where('id', school.id).update({
+                credentials_email_sent: true,
+                last_credentials_email_sent_at: new Date()
+            });
 
             res.json({
                 success: true,
@@ -634,90 +661,89 @@ router.post('/schools/:id/send-credentials', protect, isAdmin, async (req, res) 
         res.status(500).json({ message: 'Server error' });
     }
 });
+
+// @route   PUT /api/admin/schools/:id
 // @desc    Update school
 // @access  Admin
 router.put('/schools/:id', protect, isAdmin, upload.single('logo'), async (req, res) => {
     try {
         const { name, address, city, state, pincode, phone, email, type, parentId, isDataVisibleToSchool, resetPassword } = req.body;
 
-        const school = await School.findById(req.params.id);
+        const school = await db('schools').where('id', req.params.id).first();
         if (!school) {
             return res.status(404).json({ message: 'School not found' });
         }
 
-        school.name = name || school.name;
+        const updates = {};
 
-        // Ensure address object exists
-        if (!school.address) {
-            school.address = {};
-        }
+        updates.name = name || school.name;
 
         // Update structured address
-        if (address !== undefined) school.address.street = address;
-        if (city !== undefined) school.address.city = city;
-        if (state !== undefined) school.address.state = state;
-        if (pincode !== undefined) school.address.pincode = pincode;
+        let addressObj = school.address || {};
+        if (typeof addressObj === 'string') addressObj = JSON.parse(addressObj);
 
-        // Update full address if any part changed or if it was empty
+        if (address !== undefined) addressObj.street = address;
+        if (city !== undefined) addressObj.city = city;
+        if (state !== undefined) addressObj.state = state;
+        if (pincode !== undefined) addressObj.pincode = pincode;
+
         if (address || city || state || pincode) {
-            const street = school.address.street || '';
-            const c = school.address.city || '';
-            const s = school.address.state || '';
-            const p = school.address.pincode || '';
-            school.address.full = `${street}${c ? ', ' + c : ''}${s ? ', ' + s : ''}${p ? ' - ' + p : ''}`;
+            const street = addressObj.street || '';
+            const c = addressObj.city || '';
+            const s = addressObj.state || '';
+            const p = addressObj.pincode || '';
+            addressObj.full = `${street}${c ? ', ' + c : ''}${s ? ', ' + s : ''}${p ? ' - ' + p : ''}`;
         } else if (address) {
-            // Fallback if only address string was passed (legacy)
-            school.address.full = address;
+            addressObj.full = address;
         }
 
-        if (type) school.type = type;
-        if (parentId) school.parentId = parentId;
+        updates.address = JSON.stringify(addressObj);
 
-        // Update contact info
-        school.contact = {
+        if (type) updates.type = type;
+        if (parentId) updates.parent_id = parentId;
+
+        updates.contact = JSON.stringify({
             phone: phone || school.contact?.phone,
             email: email || school.contact?.email
-        };
+        });
 
-        // Update root email (login email) if changed, checking uniqueness
         if (email && email.toLowerCase() !== school.email) {
-            const emailExists = await School.findOne({
-                email: email.toLowerCase(),
-                _id: { $ne: school._id }
-            });
+            const emailExists = await db('schools')
+                .where({ email: email.toLowerCase() })
+                .whereNot('id', school.id)
+                .first();
             if (emailExists) {
                 return res.status(400).json({ message: 'Email already in use by another school' });
             }
-            school.email = email.toLowerCase();
+            updates.email = email.toLowerCase();
         }
 
-        school.isDataVisibleToSchool = isDataVisibleToSchool === 'true' || isDataVisibleToSchool === true;
+        updates.is_data_visible_to_school = isDataVisibleToSchool === 'true' || isDataVisibleToSchool === true;
 
         if (req.file) {
-            // Delete old logo from S3 if exists
             if (school.logo && school.logo.includes('amazonaws.com')) {
                 deleteFromS3(school.logo);
             }
-            school.logo = req.file.location;
+            updates.logo = req.file.location;
         }
 
         let newPassword = null;
         if (resetPassword === 'true' || resetPassword === true) {
             newPassword = generateSchoolPassword();
-            school.password = newPassword;
+            updates.password = await hashPassword(newPassword);
         }
 
-        await school.save();
+        const [updated] = await db('schools').where('id', school.id).update(updates).returning('*');
 
         const response = {
-            _id: school._id,
-            schoolId: school.schoolId,
-            name: school.name,
-            email: school.email, // Return updated email
-            logo: school.logo,
-            address: school.address,
-            contact: school.contact,
-            isDataVisibleToSchool: school.isDataVisibleToSchool
+            _id: updated.id,
+            schoolId: updated.school_id,
+            name: updated.name,
+            email: updated.email,
+            logo: updated.logo,
+            address: updated.address,
+            contact: updated.contact,
+            isDataVisibleToSchool: updated.is_data_visible_to_school
         };
 
         if (newPassword) {
@@ -727,14 +753,11 @@ router.put('/schools/:id', protect, isAdmin, upload.single('logo'), async (req, 
         res.json(response);
     } catch (error) {
         console.error('Update school error:', error);
-        if (error.code === 11000) {
+        if (error.code === '23505') {
             return res.status(400).json({ message: 'Duplicate field value entered' });
         }
-        if (error.name === 'ValidationError') {
-            return res.status(400).json({ message: Object.values(error.errors).map(val => val.message).join(', ') });
-        }
-        if (error.name === 'CastError') {
-            return res.status(400).json({ message: `Invalid ${error.path}: ${error.value}` });
+        if (error.code === '22P02') {
+            return res.status(400).json({ message: 'Invalid ID format' });
         }
         res.status(500).json({ message: 'Server error' });
     }
@@ -744,105 +767,87 @@ router.put('/schools/:id', protect, isAdmin, upload.single('logo'), async (req, 
 // @desc    Archive and hard delete school (archives all school data, students, submissions)
 // @access  Admin
 router.delete('/schools/:id', protect, isAdmin, async (req, res) => {
-    let session = null;
     try {
-        const mongoose = require('mongoose');
-        session = await mongoose.startSession();
-        session.startTransaction();
-
-        const school = await School.findById(req.params.id).session(session);
-        if (!school) {
-            await session.abortTransaction();
-            session.endSession();
-            return res.status(404).json({ message: 'School not found' });
-        }
-
-        // Get all students of this school
-        const students = await Student.find({ schoolId: school._id }).session(session);
-
-        // Get all submissions for this school
-        const submissions = await Submission.find({ schoolId: school._id })
-            .populate('assessmentId', 'title')
-            .populate('studentId', 'name')
-            .session(session);
-
-        // Create archive document with all school data
-        await ArchivedData.create([{
-            type: 'school',
-            archivedBy: 'admin',
-            reason: 'manual_deletion',
-            schoolData: {
-                _id: school._id,
-                schoolId: school.schoolId,
-                name: school.name,
-                logo: school.logo,
-                address: school.address,
-                contact: school.contact,
-                isDataVisibleToSchool: school.isDataVisibleToSchool,
-                assignedTests: school.assignedTests,
-                createdAt: school.createdAt
-            },
-            schoolStudents: students.map(s => ({
-                _id: s._id,
-                accessId: s.accessId,
-                name: s.name,
-                rollNo: s.rollNo,
-                class: s.class,
-                section: s.section,
-                testStatus: s.testStatus,
-                createdAt: s.createdAt
-            })),
-            schoolSubmissions: submissions.map(sub => ({
-                studentId: sub.studentId?._id,
-                studentName: sub.studentId?.name || (sub.studentId ? 'Unknown' : 'Deleted Student'),
-                assessmentId: sub.assessmentId?._id,
-                assessmentTitle: sub.assessmentId?.title || 'Unknown Assessment',
-                totalScore: sub.totalScore,
-                sectionScores: sub.sectionScores,
-                assignedBucket: sub.assignedBucket,
-                submittedAt: sub.submittedAt,
-                answers: sub.answers
-            })),
-            stats: {
-                studentCount: students.length,
-                submissionCount: submissions.length
+        await db.transaction(async (trx) => {
+            const school = await trx('schools').where('id', req.params.id).first();
+            if (!school) {
+                res.status(404).json({ message: 'School not found' });
+                return;
             }
-        }], { session });
 
-        // Hard Data Clean up 
-        // 1. Delete all students
-        await Student.deleteMany({ schoolId: school._id }).session(session);
+            const students = await trx('students').where('school_id', school.id);
 
-        // 2. Delete all submissions
-        await Submission.deleteMany({ schoolId: school._id }).session(session);
+            const submissionRows = await trx('submissions as sub')
+                .leftJoin('assessments as a', 'sub.assessment_id', 'a.id')
+                .leftJoin('students as stu', 'sub.student_id', 'stu.id')
+                .where('sub.school_id', school.id)
+                .select(
+                    'sub.*',
+                    'a.title as assessment_title',
+                    'stu.name as student_name'
+                );
 
-        // 3. Delete school credentials (auth) - CRITICAL for re-creation
-        await SchoolCredentials.deleteMany({ schoolId: school._id }).session(session);
+            await trx('archived_data').insert({
+                type: 'school',
+                archived_by: 'admin',
+                reason: 'manual_deletion',
+                school_data: JSON.stringify({
+                    _id: school.id,
+                    schoolId: school.school_id,
+                    name: school.name,
+                    logo: school.logo,
+                    address: school.address,
+                    contact: school.contact,
+                    isDataVisibleToSchool: school.is_data_visible_to_school,
+                    assignedTests: school.assigned_tests,
+                    createdAt: school.created_at
+                }),
+                school_students: JSON.stringify(students.map(s => ({
+                    _id: s.id,
+                    accessId: s.access_id,
+                    name: s.name,
+                    rollNo: s.roll_no,
+                    class: s.class,
+                    section: s.section,
+                    testStatus: s.test_status,
+                    createdAt: s.created_at
+                }))),
+                school_submissions: JSON.stringify(submissionRows.map(sub => ({
+                    studentId: sub.student_id,
+                    studentName: sub.student_name || (sub.student_id ? 'Unknown' : 'Deleted Student'),
+                    assessmentId: sub.assessment_id,
+                    assessmentTitle: sub.assessment_title || 'Unknown Assessment',
+                    totalScore: sub.total_score,
+                    sectionScores: sub.section_scores,
+                    assignedBucket: sub.assigned_bucket,
+                    submittedAt: sub.submitted_at,
+                    answers: sub.answers
+                }))),
+                stats: JSON.stringify({
+                    studentCount: students.length,
+                    submissionCount: submissionRows.length
+                })
+            });
 
-        // 4. Delete tickets
-        const Ticket = require('../models/Ticket');
-        await Ticket.deleteMany({ school: school._id }).session(session);
+            await trx('students').where('school_id', school.id).del();
+            await trx('submissions').where('school_id', school.id).del();
+            await trx('school_credentials').where('school_id', school.id).del();
+            await trx('tickets').where('school_id', school.id).del();
+            await trx('schools').where('id', req.params.id).del();
 
-        // 5. Delete the school itself
-        await School.findByIdAndDelete(req.params.id).session(session);
-
-        await session.commitTransaction();
-        session.endSession();
-
-        res.json({
-            message: 'School archived and permanently deleted successfully',
-            archived: {
-                students: students.length,
-                submissions: submissions.length
-            }
+            res.json({
+                message: 'School archived and permanently deleted successfully',
+                archived: {
+                    students: students.length,
+                    submissions: submissionRows.length
+                }
+            });
         });
     } catch (error) {
         console.error('Delete school error:', error);
-        if (session) {
-            await session.abortTransaction();
-            session.endSession();
+        if (!res.headersSent) {
+            res.status(500).json({ message: 'Server error: ' + error.message });
         }
-        res.status(500).json({ message: 'Server error: ' + error.message });
     }
 });
 
@@ -853,89 +858,92 @@ router.get('/schools/:id/students-analytics', protect, isAdmin, async (req, res)
     try {
         const { class: className, section, assessmentId, search } = req.query;
 
-        const school = await School.findById(req.params.id);
+        const school = await db('schools').where('id', req.params.id).first();
         if (!school) {
             return res.status(404).json({ message: 'School not found' });
         }
 
-        // Build student query
-        let studentQuery = { schoolId: school._id, isActive: true };
-        if (className) studentQuery.class = className;
-        if (section) studentQuery.section = section;
+        let studentQuery = db('students')
+            .where({ school_id: school.id, is_active: true });
+
+        if (className) studentQuery = studentQuery.where('class', className);
+        if (section) studentQuery = studentQuery.where('section', section);
         if (search) {
-            studentQuery.$or = [
-                { name: { $regex: search, $options: 'i' } },
-                { accessId: { $regex: search, $options: 'i' } },
-                { rollNo: { $regex: search, $options: 'i' } }
-            ];
+            studentQuery = studentQuery.andWhere(function () {
+                this.where('name', 'ilike', `%${search}%`)
+                    .orWhere('access_id', 'ilike', `%${search}%`)
+                    .orWhere('roll_no', 'ilike', `%${search}%`);
+            });
         }
 
-        const students = await Student.find(studentQuery)
-            .select('name accessId class section rollNo testStatus')
-            .sort({ class: 1, section: 1, name: 1 });
+        const students = await studentQuery
+            .select('id', 'name', 'access_id', 'class', 'section', 'roll_no', 'test_status')
+            .orderBy([{ column: 'class', order: 'asc' }, { column: 'section', order: 'asc' }, { column: 'name', order: 'asc' }]);
 
-        // Get submissions for these students
-        let submissionQuery = {
-            schoolId: school._id,
-            studentId: { $in: students.map(s => s._id) }
-        };
+        const studentIds = students.map(s => s.id);
+
+        let subQuery = db('submissions as sub')
+            .leftJoin('assessments as a', 'sub.assessment_id', 'a.id')
+            .where('sub.school_id', school.id)
+            .whereIn('sub.student_id', studentIds);
+
         if (assessmentId) {
-            submissionQuery.assessmentId = assessmentId;
+            subQuery = subQuery.where('sub.assessment_id', assessmentId);
         }
 
-        const submissions = await Submission.find(submissionQuery)
-            .populate('assessmentId', 'title')
-            .select('studentId assessmentId totalScore sectionScores assignedBucket submittedAt');
+        const submissionRows = await subQuery.select(
+            'sub.id', 'sub.student_id', 'sub.assessment_id',
+            'sub.total_score', 'sub.section_scores', 'sub.assigned_bucket', 'sub.submitted_at',
+            'a.title as assessment_title'
+        );
 
-        // Map submissions by student
         const submissionsByStudent = {};
-        submissions.forEach(sub => {
-            const studentIdStr = sub.studentId.toString();
-            if (!submissionsByStudent[studentIdStr]) {
-                submissionsByStudent[studentIdStr] = [];
-            }
-            submissionsByStudent[studentIdStr].push({
-                assessmentId: sub.assessmentId?._id,
-                assessmentTitle: sub.assessmentId?.title,
-                totalScore: sub.totalScore,
-                sectionScores: sub.sectionScores,
-                bucket: sub.assignedBucket,
-                submittedAt: sub.submittedAt
+        submissionRows.forEach(sub => {
+            const sid = sub.student_id;
+            if (!submissionsByStudent[sid]) submissionsByStudent[sid] = [];
+            submissionsByStudent[sid].push({
+                assessmentId: sub.assessment_id,
+                assessmentTitle: sub.assessment_title,
+                totalScore: sub.total_score,
+                sectionScores: sub.section_scores,
+                bucket: sub.assigned_bucket,
+                submittedAt: sub.submitted_at
             });
         });
 
-        // Build response with student data and submissions
         const studentsWithAnalytics = students.map(student => ({
-            _id: student._id,
+            _id: student.id,
             name: student.name,
-            accessId: student.accessId,
+            accessId: student.access_id,
             class: student.class,
             section: student.section,
-            rollNo: student.rollNo,
-            submissions: submissionsByStudent[student._id.toString()] || [],
-            latestSubmission: submissionsByStudent[student._id.toString()]?.[0] || null
+            rollNo: student.roll_no,
+            submissions: submissionsByStudent[student.id] || [],
+            latestSubmission: submissionsByStudent[student.id]?.[0] || null
         }));
 
         // Get unique classes and sections for filters
-        const allStudents = await Student.find({ schoolId: school._id, isActive: true })
-            .select('class section');
+        const allStudents = await db('students')
+            .where({ school_id: school.id, is_active: true })
+            .select('class', 'section');
+
         const uniqueClasses = [...new Set(allStudents.map(s => s.class))].sort();
         const uniqueSections = className
             ? [...new Set(allStudents.filter(s => s.class === className).map(s => s.section))].sort()
             : [];
 
-        // Get assessments for filter
-        const assessments = await Assessment.find({ isActive: true })
-            .select('title');
+        const assessments = await db('assessments')
+            .where({ is_active: true })
+            .select('id', 'title');
 
         res.json({
-            school: { _id: school._id, name: school.name, schoolId: school.schoolId },
+            school: { _id: school.id, name: school.name, schoolId: school.school_id },
             students: studentsWithAnalytics,
             totalStudents: studentsWithAnalytics.length,
             filters: {
                 classes: uniqueClasses,
                 sections: uniqueSections,
-                assessments: assessments
+                assessments: assessments.map(a => ({ _id: a.id, title: a.title }))
             }
         });
     } catch (error) {
@@ -948,39 +956,28 @@ router.get('/schools/:id/students-analytics', protect, isAdmin, async (req, res)
 // HIERARCHICAL ANALYTICS ENDPOINTS
 // ============================================
 
-// Helper function to get bucket category from score
-const getBucketCategory = (score) => {
-    if (score >= 8 && score <= 14) return 'green';  // Stable/Thriving
-    if (score >= 15 && score <= 22) return 'yellow'; // Emerging/Growing
-    if (score >= 23 && score <= 32) return 'red';    // Support Needed
-    return 'unknown';
-};
-
-// Helper function to get overall bucket from total score
-const getOverallBucket = (totalScore) => {
-    if (totalScore >= 32 && totalScore <= 56) return 'doingWell';      // Stable
-    if (totalScore >= 57 && totalScore <= 88) return 'needsSupport';   // Emerging
-    if (totalScore >= 89 && totalScore <= 128) return 'needsAttention'; // Support Needed
-    return 'unknown';
-};
-
 // @route   GET /api/admin/analytics/overview
 // @desc    Get nationwide analytics overview for admin dashboard
 // @access  Admin
 router.get('/analytics/overview', protect, isAdmin, async (req, res) => {
     try {
-        // Get counts
-        const [totalSchools, totalStudents, totalSubmissions] = await Promise.all([
-            School.countDocuments({ isActive: true }),
-            Student.countDocuments({ isActive: true }),
-            Submission.countDocuments({ status: 'complete' })
+        const [totalSchoolsResult, totalStudentsResult, totalSubmissionsResult] = await Promise.all([
+            db('schools').where({ is_active: true }).count('* as count').first(),
+            db('students').where({ is_active: true }).count('* as count').first(),
+            db('submissions').where({ status: 'complete' }).count('* as count').first()
         ]);
 
-        // Get all completed submissions for analytics
-        const submissions = await Submission.find({ status: 'complete' })
-            .select('schoolId totalScore sectionScores assignedBucket submittedAt')
-            .sort({ submittedAt: -1 })
+        const totalSchools = parseInt(totalSchoolsResult.count);
+        const totalStudents = parseInt(totalStudentsResult.count);
+        const totalSubmissions = parseInt(totalSubmissionsResult.count);
+
+        const submissionRows = await db('submissions')
+            .where({ status: 'complete' })
+            .select('school_id', 'total_score', 'section_scores', 'assigned_bucket', 'submitted_at')
+            .orderBy('submitted_at', 'desc')
             .limit(5000);
+
+        const submissions = mapRows(submissionRows);
 
         // Calculate skill distribution
         const skillDistribution = {
@@ -990,7 +987,6 @@ router.get('/analytics/overview', protect, isAdmin, async (req, res) => {
         const overallDistribution = { doingWell: 0, needsSupport: 0, needsAttention: 0 };
 
         submissions.forEach(sub => {
-            // Section-wise distribution
             if (sub.sectionScores) {
                 Object.entries(sub.sectionScores).forEach(([section, score]) => {
                     if (skillDistribution[section]) {
@@ -999,7 +995,6 @@ router.get('/analytics/overview', protect, isAdmin, async (req, res) => {
                     }
                 });
             }
-            // Overall distribution
             const overall = getOverallBucket(sub.totalScore);
             if (overall !== 'unknown') overallDistribution[overall]++;
         });
@@ -1008,70 +1003,88 @@ router.get('/analytics/overview', protect, isAdmin, async (req, res) => {
         const sixMonthsAgo = new Date();
         sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
 
-        const monthlyTrend = await Submission.aggregate([
-            { $match: { status: 'complete', submittedAt: { $gte: sixMonthsAgo } } },
-            {
-                $group: {
-                    _id: { year: { $year: '$submittedAt' }, month: { $month: '$submittedAt' } },
-                    count: { $sum: 1 },
-                    avgScore: { $avg: '$totalScore' }
-                }
-            },
-            { $sort: { '_id.year': 1, '_id.month': 1 } }
-        ]);
+        const monthlyTrend = await db('submissions')
+            .where({ status: 'complete' })
+            .where('submitted_at', '>=', sixMonthsAgo)
+            .select(
+                db.raw('EXTRACT(YEAR FROM submitted_at)::int as year'),
+                db.raw('EXTRACT(MONTH FROM submitted_at)::int as month')
+            )
+            .count('* as count')
+            .avg('total_score as avg_score')
+            .groupByRaw('EXTRACT(YEAR FROM submitted_at), EXTRACT(MONTH FROM submitted_at)')
+            .orderByRaw('EXTRACT(YEAR FROM submitted_at), EXTRACT(MONTH FROM submitted_at)');
 
         // Get top schools by submissions
-        const topSchools = await Submission.aggregate([
-            { $match: { status: 'complete' } },
-            { $group: { _id: '$schoolId', count: { $sum: 1 }, avgScore: { $avg: '$totalScore' } } },
-            { $sort: { count: -1 } },
-            { $limit: 10 },
-            { $lookup: { from: 'schools', localField: '_id', foreignField: '_id', as: 'school' } },
-            { $unwind: '$school' },
-            {
-                $project: {
-                    schoolId: '$school._id',
-                    name: '$school.name',
-                    logo: '$school.logo',
-                    submissionCount: '$count',
-                    avgScore: { $round: ['$avgScore', 1] }
-                }
-            }
-        ]);
+        const topSchools = await db('submissions as sub')
+            .join('schools as sch', 'sub.school_id', 'sch.id')
+            .where('sub.status', 'complete')
+            .select('sch.id', 'sch.name', 'sch.logo')
+            .count('* as submission_count')
+            .avg('sub.total_score as avg_score')
+            .groupBy('sch.id', 'sch.name', 'sch.logo')
+            .orderBy('submission_count', 'desc')
+            .limit(10);
 
         // Get all schools for the school list
-        const schools = await School.find({ isActive: true })
-            .select('name schoolId logo address createdAt')
-            .sort({ name: 1 });
+        const schoolRows = await db('schools')
+            .where({ is_active: true })
+            .select('id', 'name', 'school_id', 'logo', 'address', 'created_at')
+            .orderBy('name', 'asc');
 
-        // Get student and submission counts per school
-        const schoolStats = await Promise.all(schools.map(async (school) => {
-            const [studentCount, submissionCount] = await Promise.all([
-                Student.countDocuments({ schoolId: school._id, isActive: true }),
-                Submission.countDocuments({ schoolId: school._id, status: 'complete' })
-            ]);
+        const schoolIds = schoolRows.map(s => s.id);
+
+        const [studentCounts, submissionCounts] = await Promise.all([
+            db('students')
+                .whereIn('school_id', schoolIds)
+                .where('is_active', true)
+                .select('school_id')
+                .count('* as count')
+                .groupBy('school_id'),
+            db('submissions')
+                .whereIn('school_id', schoolIds)
+                .where('status', 'complete')
+                .select('school_id')
+                .count('* as count')
+                .groupBy('school_id')
+        ]);
+
+        const studentCountMap = {};
+        studentCounts.forEach(r => { studentCountMap[r.school_id] = parseInt(r.count); });
+        const subCountMap = {};
+        submissionCounts.forEach(r => { subCountMap[r.school_id] = parseInt(r.count); });
+
+        const schoolStats = schoolRows.map(school => {
+            const sc = studentCountMap[school.id] || 0;
+            const subc = subCountMap[school.id] || 0;
             return {
-                _id: school._id,
+                _id: school.id,
                 name: school.name,
-                schoolId: school.schoolId,
+                schoolId: school.school_id,
                 logo: school.logo,
                 address: school.address,
-                studentCount,
-                submissionCount,
-                completionRate: studentCount > 0 ? Math.round((submissionCount / studentCount) * 100) : 0
+                studentCount: sc,
+                submissionCount: subc,
+                completionRate: sc > 0 ? Math.round((subc / sc) * 100) : 0
             };
-        }));
+        });
 
         res.json({
             totals: { totalSchools, totalStudents, totalSubmissions },
             overallDistribution,
             skillDistribution,
             monthlyTrend: monthlyTrend.map(m => ({
-                month: `${m._id.year}-${String(m._id.month).padStart(2, '0')}`,
-                count: m.count,
-                avgScore: Math.round(m.avgScore * 10) / 10
+                month: `${m.year}-${String(m.month).padStart(2, '0')}`,
+                count: parseInt(m.count),
+                avgScore: Math.round(parseFloat(m.avg_score) * 10) / 10
             })),
-            topSchools,
+            topSchools: topSchools.map(r => ({
+                schoolId: r.id,
+                name: r.name,
+                logo: r.logo,
+                submissionCount: parseInt(r.submission_count),
+                avgScore: Math.round(parseFloat(r.avg_score) * 10) / 10
+            })),
             schools: schoolStats
         });
     } catch (error) {
@@ -1085,54 +1098,53 @@ router.get('/analytics/overview', protect, isAdmin, async (req, res) => {
 // @access  Admin
 router.get('/analytics/tests', protect, isAdmin, async (req, res) => {
     try {
-        // Get all active assessments
-        const assessments = await Assessment.find({ isActive: true })
-            .select('title description createdAt')
-            .sort({ createdAt: -1 });
+        const assessments = await db('assessments')
+            .where({ is_active: true })
+            .select('id', 'title', 'description', 'created_at')
+            .orderBy('created_at', 'desc');
 
-        // Get submission stats for each assessment
         const testsWithStats = await Promise.all(assessments.map(async (assessment) => {
-            const stats = await Submission.aggregate([
-                { $match: { assessmentId: assessment._id } },
-                {
-                    $group: {
-                        _id: '$status',
-                        count: { $sum: 1 },
-                        avgScore: { $avg: '$totalScore' }
-                    }
-                }
-            ]);
+            const stats = await db('submissions')
+                .where('assessment_id', assessment.id)
+                .select('status')
+                .count('* as count')
+                .avg('total_score as avg_score')
+                .groupBy('status');
 
-            const completed = stats.find(s => s._id === 'complete') || { count: 0, avgScore: 0 };
-            const pending = stats.find(s => s._id === 'pending') || { count: 0 };
-            const incomplete = stats.find(s => s._id === 'incomplete') || { count: 0 };
+            const completed = stats.find(s => s.status === 'complete') || { count: '0', avg_score: 0 };
+            const pending = stats.find(s => s.status === 'pending') || { count: '0' };
+            const incomplete = stats.find(s => s.status === 'incomplete') || { count: '0' };
 
-            // Get bucket distribution for completed submissions
-            const bucketDist = await Submission.aggregate([
-                { $match: { assessmentId: assessment._id, status: 'complete' } },
-                { $group: { _id: '$assignedBucket', count: { $sum: 1 } } }
-            ]);
+            const completedCount = parseInt(completed.count);
+            const pendingCount = parseInt(pending.count);
+            const incompleteCount = parseInt(incomplete.count);
+
+            const bucketDist = await db('submissions')
+                .where({ assessment_id: assessment.id, status: 'complete' })
+                .select('assigned_bucket')
+                .count('* as count')
+                .groupBy('assigned_bucket');
 
             const distribution = { doingWell: 0, needsSupport: 0, needsAttention: 0 };
             bucketDist.forEach(b => {
-                if (b._id === 'Doing Well' || b._id === 'doingWell') distribution.doingWell = b.count;
-                else if (b._id === 'Needs Support' || b._id === 'needsSupport') distribution.needsSupport = b.count;
-                else if (b._id === 'Needs Attention' || b._id === 'needsAttention') distribution.needsAttention = b.count;
+                if (b.assigned_bucket === 'Doing Well' || b.assigned_bucket === 'doingWell') distribution.doingWell = parseInt(b.count);
+                else if (b.assigned_bucket === 'Needs Support' || b.assigned_bucket === 'needsSupport') distribution.needsSupport = parseInt(b.count);
+                else if (b.assigned_bucket === 'Needs Attention' || b.assigned_bucket === 'needsAttention') distribution.needsAttention = parseInt(b.count);
             });
 
+            const totalSubs = completedCount + pendingCount + incompleteCount;
+
             return {
-                _id: assessment._id,
+                _id: assessment.id,
                 title: assessment.title,
                 description: assessment.description,
-                createdAt: assessment.createdAt,
-                totalSubmissions: completed.count + pending.count + incomplete.count,
-                completedSubmissions: completed.count,
-                pendingSubmissions: pending.count,
-                incompleteSubmissions: incomplete.count,
-                avgScore: Math.round((completed.avgScore || 0) * 10) / 10,
-                completionRate: (completed.count + pending.count + incomplete.count) > 0
-                    ? Math.round((completed.count / (completed.count + pending.count + incomplete.count)) * 100)
-                    : 0,
+                createdAt: assessment.created_at,
+                totalSubmissions: totalSubs,
+                completedSubmissions: completedCount,
+                pendingSubmissions: pendingCount,
+                incompleteSubmissions: incompleteCount,
+                avgScore: Math.round((parseFloat(completed.avg_score) || 0) * 10) / 10,
+                completionRate: totalSubs > 0 ? Math.round((completedCount / totalSubs) * 100) : 0,
                 distribution
             };
         }));
@@ -1152,31 +1164,55 @@ router.get('/analytics/tests', protect, isAdmin, async (req, res) => {
 // @access  Admin
 router.get('/analytics/tests/:testId', protect, isAdmin, async (req, res) => {
     try {
-        const assessment = await Assessment.findById(req.params.testId);
+        const assessment = await db('assessments').where('id', req.params.testId).first();
         if (!assessment) {
             return res.status(404).json({ message: 'Assessment not found' });
         }
 
-        // Get all submissions for this test
-        const submissions = await Submission.find({ assessmentId: assessment._id, status: 'complete' })
-            .populate('studentId', 'name accessId class section')
-            .populate('schoolId', 'name schoolId logo')
-            .select('totalScore sectionScores assignedBucket submittedAt studentId schoolId');
+        const rawSubs = await db('submissions as sub')
+            .leftJoin('students as stu', 'sub.student_id', 'stu.id')
+            .leftJoin('schools as sch', 'sub.school_id', 'sch.id')
+            .where({ 'sub.assessment_id': assessment.id, 'sub.status': 'complete' })
+            .select(
+                'sub.id', 'sub.student_id', 'sub.school_id',
+                'sub.total_score', 'sub.section_scores', 'sub.assigned_bucket', 'sub.submitted_at',
+                'stu.name as student_name', 'stu.access_id as student_access_id',
+                'stu.class as student_class', 'stu.section as student_section',
+                'sch.name as school_name', 'sch.school_id as school_code', 'sch.logo as school_logo'
+            );
 
-        // Calculate overall stats
+        const submissions = rawSubs.map(r => ({
+            _id: r.id,
+            totalScore: r.total_score,
+            sectionScores: r.section_scores,
+            assignedBucket: r.assigned_bucket,
+            submittedAt: r.submitted_at,
+            studentId: r.student_id ? {
+                _id: r.student_id,
+                name: r.student_name,
+                accessId: r.student_access_id,
+                class: r.student_class,
+                section: r.student_section
+            } : null,
+            schoolId: r.school_id ? {
+                _id: r.school_id,
+                name: r.school_name,
+                schoolId: r.school_code,
+                logo: r.school_logo
+            } : null
+        }));
+
         const totalSubmissions = submissions.length;
         const avgScore = totalSubmissions > 0
             ? Math.round(submissions.reduce((acc, s) => acc + s.totalScore, 0) / totalSubmissions * 10) / 10
             : 0;
 
-        // Bucket distribution
         const distribution = { doingWell: 0, needsSupport: 0, needsAttention: 0 };
         submissions.forEach(sub => {
             const bucket = getOverallBucket(sub.totalScore);
             if (bucket !== 'unknown') distribution[bucket]++;
         });
 
-        // Skill distribution
         const skillDistribution = {
             A: { green: 0, yellow: 0, red: 0 },
             B: { green: 0, yellow: 0, red: 0 },
@@ -1198,9 +1234,9 @@ router.get('/analytics/tests/:testId', protect, isAdmin, async (req, res) => {
         const schoolMap = {};
         submissions.forEach(sub => {
             if (sub.schoolId) {
-                const schoolId = sub.schoolId._id.toString();
-                if (!schoolMap[schoolId]) {
-                    schoolMap[schoolId] = {
+                const sid = sub.schoolId._id;
+                if (!schoolMap[sid]) {
+                    schoolMap[sid] = {
                         _id: sub.schoolId._id,
                         name: sub.schoolId.name,
                         schoolId: sub.schoolId.schoolId,
@@ -1210,19 +1246,18 @@ router.get('/analytics/tests/:testId', protect, isAdmin, async (req, res) => {
                         distribution: { doingWell: 0, needsSupport: 0, needsAttention: 0 }
                     };
                 }
-                schoolMap[schoolId].submissions++;
-                schoolMap[schoolId].totalScore += sub.totalScore;
+                schoolMap[sid].submissions++;
+                schoolMap[sid].totalScore += sub.totalScore;
                 const bucket = getOverallBucket(sub.totalScore);
-                if (bucket !== 'unknown') schoolMap[schoolId].distribution[bucket]++;
+                if (bucket !== 'unknown') schoolMap[sid].distribution[bucket]++;
             }
         });
 
-        const schoolBreakdown = Object.values(schoolMap).map(school => ({
-            ...school,
-            avgScore: Math.round((school.totalScore / school.submissions) * 10) / 10
+        const schoolBreakdown = Object.values(schoolMap).map(s => ({
+            ...s,
+            avgScore: Math.round((s.totalScore / s.submissions) * 10) / 10
         })).sort((a, b) => b.submissions - a.submissions);
 
-        // Recent submissions
         const recentSubmissions = submissions.slice(0, 10).map(sub => ({
             _id: sub._id,
             studentName: sub.studentId?.name || 'Unknown',
@@ -1235,11 +1270,11 @@ router.get('/analytics/tests/:testId', protect, isAdmin, async (req, res) => {
 
         res.json({
             assessment: {
-                _id: assessment._id,
+                _id: assessment.id,
                 title: assessment.title,
                 description: assessment.description,
                 questionCount: assessment.questions?.length || 0,
-                createdAt: assessment.createdAt
+                createdAt: assessment.created_at
             },
             stats: {
                 totalSubmissions,
@@ -1261,19 +1296,36 @@ router.get('/analytics/tests/:testId', protect, isAdmin, async (req, res) => {
 // @access  Admin
 router.get('/schools/:id/analytics', protect, isAdmin, async (req, res) => {
     try {
-        const school = await School.findById(req.params.id);
+        const school = await db('schools').where('id', req.params.id).first();
         if (!school) {
             return res.status(404).json({ message: 'School not found' });
         }
 
-        // Get all students and group by class
-        const students = await Student.find({ schoolId: school._id, isActive: true })
-            .select('name accessId class section rollNo');
+        const students = await db('students')
+            .where({ school_id: school.id, is_active: true })
+            .select('id', 'name', 'access_id', 'class', 'section', 'roll_no');
 
-        // Get all submissions for this school
-        const submissions = await Submission.find({ schoolId: school._id, status: 'complete' })
-            .populate('studentId', 'class section name')
-            .select('studentId totalScore sectionScores assignedBucket submittedAt');
+        const rawSubs = await db('submissions as sub')
+            .leftJoin('students as stu', 'sub.student_id', 'stu.id')
+            .where({ 'sub.school_id': school.id, 'sub.status': 'complete' })
+            .select(
+                'sub.id', 'sub.student_id', 'sub.total_score', 'sub.section_scores',
+                'sub.assigned_bucket', 'sub.submitted_at',
+                'stu.class as student_class', 'stu.section as student_section', 'stu.name as student_name'
+            );
+
+        const submissions = rawSubs.map(r => ({
+            totalScore: r.total_score,
+            sectionScores: r.section_scores,
+            assignedBucket: r.assigned_bucket,
+            submittedAt: r.submitted_at,
+            studentId: r.student_id ? {
+                _id: r.student_id,
+                class: r.student_class,
+                section: r.student_section,
+                name: r.student_name
+            } : null
+        }));
 
         // Group data by class
         const classMap = {};
@@ -1292,20 +1344,18 @@ router.get('/schools/:id/analytics', protect, isAdmin, async (req, res) => {
                     overallDistribution: { doingWell: 0, needsSupport: 0, needsAttention: 0 }
                 };
             }
-            classMap[cls].students.push(student._id.toString());
+            classMap[cls].students.push(student.id);
             classMap[cls].totalStudents++;
         });
 
-        // Assign submissions to classes and calculate distributions
         const completedStudentIds = new Set();
         submissions.forEach(sub => {
             if (!sub.studentId) return;
             const cls = sub.studentId.class || 'Unknown';
             if (classMap[cls]) {
-                completedStudentIds.add(sub.studentId._id.toString());
+                completedStudentIds.add(sub.studentId._id);
                 classMap[cls].submissions.push(sub);
 
-                // Skill distribution
                 if (sub.sectionScores) {
                     Object.entries(sub.sectionScores).forEach(([section, score]) => {
                         if (classMap[cls].skillDistribution[section]) {
@@ -1314,21 +1364,18 @@ router.get('/schools/:id/analytics', protect, isAdmin, async (req, res) => {
                         }
                     });
                 }
-                // Overall distribution
                 const overall = getOverallBucket(sub.totalScore);
                 if (overall !== 'unknown') classMap[cls].overallDistribution[overall]++;
             }
         });
 
-        // Update completed counts
         students.forEach(student => {
             const cls = student.class || 'Unknown';
-            if (completedStudentIds.has(student._id.toString())) {
+            if (completedStudentIds.has(student.id)) {
                 classMap[cls].completedStudents++;
             }
         });
 
-        // Convert to array and calculate stats
         const classes = Object.entries(classMap).map(([className, data]) => ({
             className,
             totalStudents: data.totalStudents,
@@ -1341,13 +1388,11 @@ router.get('/schools/:id/analytics', protect, isAdmin, async (req, res) => {
             skillDistribution: data.skillDistribution,
             overallDistribution: data.overallDistribution
         })).sort((a, b) => {
-            // Sort classes naturally (1, 2, 3... not 1, 10, 11...)
             const aNum = parseInt(a.className) || 0;
             const bNum = parseInt(b.className) || 0;
             return aNum - bNum;
         });
 
-        // Recent submissions
         const recentSubmissions = submissions
             .sort((a, b) => new Date(b.submittedAt) - new Date(a.submittedAt))
             .slice(0, 10)
@@ -1360,7 +1405,6 @@ router.get('/schools/:id/analytics', protect, isAdmin, async (req, res) => {
                 submittedAt: sub.submittedAt
             }));
 
-        // School overall stats
         const totalStudents = students.length;
         const completedCount = completedStudentIds.size;
 
@@ -1368,39 +1412,39 @@ router.get('/schools/:id/analytics', protect, isAdmin, async (req, res) => {
         const sixMonthsAgo = new Date();
         sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
 
-        const monthlyTrend = await Submission.aggregate([
-            { $match: { schoolId: school._id, status: 'complete', submittedAt: { $gte: sixMonthsAgo } } },
-            {
-                $group: {
-                    _id: { year: { $year: '$submittedAt' }, month: { $month: '$submittedAt' } },
-                    count: { $sum: 1 },
-                    avgScore: { $avg: '$totalScore' }
-                }
-            },
-            { $sort: { '_id.year': 1, '_id.month': 1 } }
-        ]);
+        const monthlyTrend = await db('submissions')
+            .where({ school_id: school.id, status: 'complete' })
+            .where('submitted_at', '>=', sixMonthsAgo)
+            .select(
+                db.raw('EXTRACT(YEAR FROM submitted_at)::int as year'),
+                db.raw('EXTRACT(MONTH FROM submitted_at)::int as month')
+            )
+            .count('* as count')
+            .avg('total_score as avg_score')
+            .groupByRaw('EXTRACT(YEAR FROM submitted_at), EXTRACT(MONTH FROM submitted_at)')
+            .orderByRaw('EXTRACT(YEAR FROM submitted_at), EXTRACT(MONTH FROM submitted_at)');
 
         // Weekly trend for this school (last 8 weeks)
         const eightWeeksAgo = new Date();
         eightWeeksAgo.setDate(eightWeeksAgo.getDate() - 56);
 
-        const weeklyTrend = await Submission.aggregate([
-            { $match: { schoolId: school._id, status: 'complete', submittedAt: { $gte: eightWeeksAgo } } },
-            {
-                $group: {
-                    _id: { year: { $year: '$submittedAt' }, week: { $week: '$submittedAt' } },
-                    count: { $sum: 1 },
-                    avgScore: { $avg: '$totalScore' }
-                }
-            },
-            { $sort: { '_id.year': 1, '_id.week': 1 } }
-        ]);
+        const weeklyTrend = await db('submissions')
+            .where({ school_id: school.id, status: 'complete' })
+            .where('submitted_at', '>=', eightWeeksAgo)
+            .select(
+                db.raw('EXTRACT(ISOYEAR FROM submitted_at)::int as year'),
+                db.raw('EXTRACT(WEEK FROM submitted_at)::int as week')
+            )
+            .count('* as count')
+            .avg('total_score as avg_score')
+            .groupByRaw('EXTRACT(ISOYEAR FROM submitted_at), EXTRACT(WEEK FROM submitted_at)')
+            .orderByRaw('EXTRACT(ISOYEAR FROM submitted_at), EXTRACT(WEEK FROM submitted_at)');
 
         res.json({
             school: {
-                _id: school._id,
+                _id: school.id,
                 name: school.name,
-                schoolId: school.schoolId,
+                schoolId: school.school_id,
                 logo: school.logo,
                 address: school.address
             },
@@ -1413,14 +1457,14 @@ router.get('/schools/:id/analytics', protect, isAdmin, async (req, res) => {
             classes,
             recentSubmissions,
             monthlyTrend: monthlyTrend.map(m => ({
-                month: `${m._id.year}-${String(m._id.month).padStart(2, '0')}`,
-                count: m.count,
-                avgScore: Math.round(m.avgScore * 10) / 10
+                month: `${m.year}-${String(m.month).padStart(2, '0')}`,
+                count: parseInt(m.count),
+                avgScore: Math.round(parseFloat(m.avg_score) * 10) / 10
             })),
             weeklyTrend: weeklyTrend.map(w => ({
-                week: `W${w._id.week} ${w._id.year}`,
-                count: w.count,
-                avgScore: Math.round(w.avgScore * 10) / 10
+                week: `W${w.week} ${w.year}`,
+                count: parseInt(w.count),
+                avgScore: Math.round(parseFloat(w.avg_score) * 10) / 10
             }))
         });
 
@@ -1436,90 +1480,80 @@ router.get('/schools/:id/analytics', protect, isAdmin, async (req, res) => {
 router.get('/schools/:id/class/:className/analytics', protect, isAdmin, async (req, res) => {
     try {
         const { section } = req.query;
-        const school = await School.findById(req.params.id);
+        const school = await db('schools').where('id', req.params.id).first();
         if (!school) {
             return res.status(404).json({ message: 'School not found' });
         }
 
-        // Build student query
-        const studentQuery = {
-            schoolId: school._id,
-            isActive: true,
-            class: req.params.className
-        };
-        if (section) studentQuery.section = section;
+        let studentQuery = db('students')
+            .where({ school_id: school.id, is_active: true, class: req.params.className });
+        if (section) studentQuery = studentQuery.where('section', section);
 
-        const students = await Student.find(studentQuery)
-            .select('name accessId class section rollNo testStatus')
-            .sort({ section: 1, rollNo: 1, name: 1 });
+        const students = await studentQuery
+            .select('id', 'name', 'access_id', 'class', 'section', 'roll_no', 'test_status')
+            .orderBy([{ column: 'section', order: 'asc' }, { column: 'roll_no', order: 'asc' }, { column: 'name', order: 'asc' }]);
 
-        // Get submissions for these students
-        const studentIds = students.map(s => s._id);
-        const submissions = await Submission.find({
-            studentId: { $in: studentIds },
-            status: 'complete'
-        }).select('studentId totalScore sectionScores assignedBucket submittedAt');
+        const studentIds = students.map(s => s.id);
 
-        // Map submissions by student
+        const submissionRows = await db('submissions')
+            .whereIn('student_id', studentIds)
+            .where('status', 'complete')
+            .select('id', 'student_id', 'total_score', 'section_scores', 'assigned_bucket', 'submitted_at');
+
         const submissionMap = {};
-        submissions.forEach(sub => {
-            submissionMap[sub.studentId.toString()] = sub;
+        submissionRows.forEach(sub => {
+            submissionMap[sub.student_id] = sub;
         });
 
-        // Build student list with analytics
         const studentsWithAnalytics = students.map(student => {
-            const sub = submissionMap[student._id.toString()];
+            const sub = submissionMap[student.id];
             return {
-                _id: student._id,
+                _id: student.id,
                 name: student.name,
-                accessId: student.accessId,
+                accessId: student.access_id,
                 class: student.class,
                 section: student.section,
-                rollNo: student.rollNo,
+                rollNo: student.roll_no,
                 hasSubmission: !!sub,
-                totalScore: sub?.totalScore || null,
-                sectionScores: sub?.sectionScores || null,
-                bucket: sub?.assignedBucket || null,
-                submittedAt: sub?.submittedAt || null
+                totalScore: sub?.total_score || null,
+                sectionScores: sub?.section_scores || null,
+                bucket: sub?.assigned_bucket || null,
+                submittedAt: sub?.submitted_at || null
             };
         });
 
-        // Calculate class-wide stats
         const completedStudents = studentsWithAnalytics.filter(s => s.hasSubmission);
         const avgScore = completedStudents.length > 0
             ? Math.round(completedStudents.reduce((sum, s) => sum + (s.totalScore || 0), 0) / completedStudents.length)
             : 0;
 
-        // Skill distribution for the class
         const skillDistribution = {
             A: { green: 0, yellow: 0, red: 0 }, B: { green: 0, yellow: 0, red: 0 },
             C: { green: 0, yellow: 0, red: 0 }, D: { green: 0, yellow: 0, red: 0 }
         };
         const overallDistribution = { doingWell: 0, needsSupport: 0, needsAttention: 0 };
 
-        submissions.forEach(sub => {
-            if (sub.sectionScores) {
-                Object.entries(sub.sectionScores).forEach(([section, score]) => {
-                    if (skillDistribution[section]) {
+        submissionRows.forEach(sub => {
+            if (sub.section_scores) {
+                Object.entries(sub.section_scores).forEach(([sec, score]) => {
+                    if (skillDistribution[sec]) {
                         const bucket = getBucketCategory(score);
-                        if (bucket !== 'unknown') skillDistribution[section][bucket]++;
+                        if (bucket !== 'unknown') skillDistribution[sec][bucket]++;
                     }
                 });
             }
-            const overall = getOverallBucket(sub.totalScore);
+            const overall = getOverallBucket(sub.total_score);
             if (overall !== 'unknown') overallDistribution[overall]++;
         });
 
         // Get unique sections for filter
-        const allStudentsInClass = await Student.find({
-            schoolId: school._id,
-            isActive: true,
-            class: req.params.className
-        }).select('section');
+        const allStudentsInClass = await db('students')
+            .where({ school_id: school.id, is_active: true, class: req.params.className })
+            .select('section');
         const sections = [...new Set(allStudentsInClass.map(s => s.section).filter(Boolean))].sort();
 
         res.json({
-            school: { _id: school._id, name: school.name, schoolId: school.schoolId },
+            school: { _id: school.id, name: school.name, schoolId: school.school_id },
             className: req.params.className,
             currentSection: section || null,
             sections,
@@ -1545,35 +1579,41 @@ router.get('/schools/:id/class/:className/analytics', protect, isAdmin, async (r
 // @access  Admin
 router.get('/students/:studentId/analytics', protect, isAdmin, async (req, res) => {
     try {
-        const { testId } = req.query; // Optional test filter
+        const { testId } = req.query;
 
-        // Find the student
-        const student = await Student.findById(req.params.studentId)
-            .populate('schoolId', 'name schoolId logo');
+        const studentRow = await db('students as stu')
+            .leftJoin('schools as sch', 'stu.school_id', 'sch.id')
+            .where('stu.id', req.params.studentId)
+            .select(
+                'stu.id', 'stu.name', 'stu.access_id', 'stu.class', 'stu.section', 'stu.roll_no', 'stu.school_id',
+                'sch.name as school_name', 'sch.school_id as school_code', 'sch.logo as school_logo'
+            )
+            .first();
 
-        if (!student) {
+        if (!studentRow) {
             return res.status(404).json({ message: 'Student not found' });
         }
 
-        // Build submission query
-        let submissionQuery = {
-            studentId: student._id,
-            status: 'complete'
-        };
+        let subQuery = db('submissions as sub')
+            .leftJoin('assessments as a', 'sub.assessment_id', 'a.id')
+            .where({ 'sub.student_id': studentRow.id, 'sub.status': 'complete' });
+
         if (testId) {
-            submissionQuery.assessmentId = testId;
+            subQuery = subQuery.where('sub.assessment_id', testId);
         }
 
-        // Get all submissions for this student
-        const submissions = await Submission.find(submissionQuery)
-            .populate('assessmentId', 'title description questions')
-            .sort({ submittedAt: -1 });
+        const submissionRows = await subQuery
+            .select(
+                'sub.*',
+                'a.title as assessment_title', 'a.description as assessment_description',
+                'a.questions as assessment_questions'
+            )
+            .orderBy('sub.submitted_at', 'desc');
 
-        // Format submissions for frontend with detailed question answers
-        const formattedSubmissions = submissions.map(sub => {
-            // Map answers with question details
-            const answersWithDetails = sub.answers?.map(ans => {
-                const question = sub.assessmentId?.questions?.[ans.questionIndex];
+        const formattedSubmissions = submissionRows.map(sub => {
+            const questions = sub.assessment_questions || [];
+            const answersWithDetails = (sub.answers || []).map(ans => {
+                const question = questions[ans.questionIndex];
                 const selectedOption = question?.options?.[ans.selectedOption];
                 return {
                     questionIndex: ans.questionIndex,
@@ -1588,54 +1628,54 @@ router.get('/students/:studentId/analytics', protect, isAdmin, async (req, res) 
                     marks: ans.marks,
                     timeTakenForQuestion: ans.timeTakenForQuestion
                 };
-            }) || [];
+            });
 
             return {
-                _id: sub._id,
-                assessmentId: sub.assessmentId?._id,
-                assessmentTitle: sub.assessmentId?.title || 'Unknown Assessment',
-                totalScore: sub.totalScore,
-                sectionScores: sub.sectionScores,
-                sectionBuckets: sub.sectionBuckets,
-                bucket: sub.assignedBucket,
-                primarySkillArea: sub.primarySkillArea,
-                secondarySkillArea: sub.secondarySkillArea,
-                timeTaken: sub.timeTaken,
+                _id: sub.id,
+                assessmentId: sub.assessment_id,
+                assessmentTitle: sub.assessment_title || 'Unknown Assessment',
+                totalScore: sub.total_score,
+                sectionScores: sub.section_scores,
+                sectionBuckets: sub.section_buckets,
+                bucket: sub.assigned_bucket,
+                primarySkillArea: sub.primary_skill_area,
+                secondarySkillArea: sub.secondary_skill_area,
+                timeTaken: sub.time_taken,
                 answers: answersWithDetails,
-                moodCheck: sub.moodCheck,
-                submittedAt: sub.submittedAt
+                moodCheck: sub.mood_check,
+                submittedAt: sub.submitted_at
             };
         });
 
         // Get list of all tests this student has taken (for filter dropdown)
-        const allSubmissions = await Submission.find({
-            studentId: student._id,
-            status: 'complete'
-        }).populate('assessmentId', 'title').select('assessmentId');
+        const allSubRows = await db('submissions as sub')
+            .leftJoin('assessments as a', 'sub.assessment_id', 'a.id')
+            .where({ 'sub.student_id': studentRow.id, 'sub.status': 'complete' })
+            .select('sub.assessment_id', 'a.title as assessment_title');
 
         const testsMap = {};
-        allSubmissions.forEach(sub => {
-            if (sub.assessmentId) {
-                testsMap[sub.assessmentId._id.toString()] = {
-                    _id: sub.assessmentId._id,
-                    title: sub.assessmentId.title
+        allSubRows.forEach(sub => {
+            if (sub.assessment_id) {
+                testsMap[sub.assessment_id] = {
+                    _id: sub.assessment_id,
+                    title: sub.assessment_title
                 };
             }
         });
         const availableTests = Object.values(testsMap);
 
         res.json({
-            _id: student._id,
-            name: student.name,
-            accessId: student.accessId,
-            class: student.class,
-            section: student.section,
-            rollNo: student.rollNo,
-            school: student.schoolId ? {
-                _id: student.schoolId._id,
-                name: student.schoolId.name,
-                schoolId: student.schoolId.schoolId,
-                logo: student.schoolId.logo
+            _id: studentRow.id,
+            name: studentRow.name,
+            accessId: studentRow.access_id,
+            class: studentRow.class,
+            section: studentRow.section,
+            rollNo: studentRow.roll_no,
+            school: studentRow.school_id ? {
+                _id: studentRow.school_id,
+                name: studentRow.school_name,
+                schoolId: studentRow.school_code,
+                logo: studentRow.school_logo
             } : null,
             submissions: formattedSubmissions,
             availableTests
@@ -1651,14 +1691,17 @@ router.get('/students/:studentId/analytics', protect, isAdmin, async (req, res) 
 // @access  Admin
 router.get('/assessments', protect, isAdmin, async (req, res) => {
     try {
-        const assessments = await Assessment.find({ isActive: true })
-            .select('title description isDefault inactivityAlertTime inactivityEndTime questions buckets customSections createdAt')
-            .sort({ isDefault: -1, createdAt: -1 });
+        const assessments = await db('assessments')
+            .where({ is_active: true })
+            .select('id', 'title', 'description', 'is_default', 'inactivity_alert_time', 'inactivity_end_time',
+                'questions', 'buckets', 'custom_sections', 'created_at')
+            .orderBy([{ column: 'is_default', order: 'desc' }, { column: 'created_at', order: 'desc' }]);
 
-        const assessmentsWithStats = assessments.map(a => ({
-            ...a.toObject(),
-            questionCount: a.questions?.length || 0
-        }));
+        const assessmentsWithStats = assessments.map(a => {
+            const mapped = mapRow(a);
+            mapped.questionCount = a.questions?.length || 0;
+            return mapped;
+        });
 
         res.json(assessmentsWithStats);
     } catch (error) {
@@ -1674,18 +1717,18 @@ router.post('/assessments', protect, isAdmin, async (req, res) => {
     try {
         const { title, description, inactivityAlertTime, inactivityEndTime, questions, buckets, customSections } = req.body;
 
-        const assessment = await Assessment.create({
+        const [assessment] = await db('assessments').insert({
             title,
             description,
-            inactivityAlertTime: inactivityAlertTime || 40,
-            inactivityEndTime: inactivityEndTime || 120,
-            questions,
-            buckets,
-            customSections: customSections || [],
-            isDefault: false
-        });
+            inactivity_alert_time: inactivityAlertTime || 40,
+            inactivity_end_time: inactivityEndTime || 120,
+            questions: JSON.stringify(questions),
+            buckets: JSON.stringify(buckets),
+            custom_sections: JSON.stringify(customSections || []),
+            is_default: false
+        }).returning('*');
 
-        res.status(201).json(assessment);
+        res.status(201).json(mapRow(assessment));
     } catch (error) {
         console.error('Create assessment error:', error);
         res.status(500).json({ message: 'Server error' });
@@ -1699,23 +1742,23 @@ router.put('/assessments/:id', protect, isAdmin, async (req, res) => {
     try {
         const { title, description, inactivityAlertTime, inactivityEndTime, questions, buckets, customSections } = req.body;
 
-        const assessment = await Assessment.findById(req.params.id);
+        const assessment = await db('assessments').where('id', req.params.id).first();
         if (!assessment) {
             return res.status(404).json({ message: 'Assessment not found' });
         }
 
-        assessment.title = title || assessment.title;
-        assessment.description = description || assessment.description;
-        assessment.inactivityAlertTime = inactivityAlertTime || assessment.inactivityAlertTime;
-        assessment.inactivityEndTime = inactivityEndTime || assessment.inactivityEndTime;
+        const updates = {};
+        if (title) updates.title = title;
+        if (description) updates.description = description;
+        if (inactivityAlertTime) updates.inactivity_alert_time = inactivityAlertTime;
+        if (inactivityEndTime) updates.inactivity_end_time = inactivityEndTime;
+        if (questions) updates.questions = JSON.stringify(questions);
+        if (buckets) updates.buckets = JSON.stringify(buckets);
+        if (customSections) updates.custom_sections = JSON.stringify(customSections);
 
-        if (questions) assessment.questions = questions;
-        if (buckets) assessment.buckets = buckets;
-        if (customSections) assessment.customSections = customSections;
+        const [updated] = await db('assessments').where('id', req.params.id).update(updates).returning('*');
 
-        await assessment.save();
-
-        res.json(assessment);
+        res.json(mapRow(updated));
     } catch (error) {
         console.error('Update assessment error:', error);
         res.status(500).json({ message: 'Server error' });
@@ -1727,27 +1770,26 @@ router.put('/assessments/:id', protect, isAdmin, async (req, res) => {
 // @access  Admin
 router.delete('/assessments/:id', protect, isAdmin, async (req, res) => {
     try {
-        const assessment = await Assessment.findById(req.params.id);
+        const assessment = await db('assessments').where('id', req.params.id).first();
         if (!assessment) {
             return res.status(404).json({ message: 'Assessment not found' });
         }
 
-        // Check if this is the default assessment
-        if (assessment.isDefault) {
+        if (assessment.is_default) {
             return res.status(400).json({ message: 'Cannot delete the default assessment' });
         }
 
-        // Check if there are any submissions for this assessment
-        const submissionCount = await Submission.countDocuments({ assessmentId: assessment._id });
+        const countResult = await db('submissions')
+            .where('assessment_id', assessment.id)
+            .count('* as count')
+            .first();
+        const submissionCount = parseInt(countResult.count);
 
         if (submissionCount > 0) {
-            // Soft delete - just mark as inactive
-            assessment.isActive = false;
-            await assessment.save();
+            await db('assessments').where('id', req.params.id).update({ is_active: false });
             res.json({ message: 'Assessment deactivated (has existing submissions)' });
         } else {
-            // Hard delete - no submissions exist
-            await Assessment.findByIdAndDelete(req.params.id);
+            await db('assessments').where('id', req.params.id).del();
             res.json({ message: 'Assessment deleted successfully' });
         }
     } catch (error) {
@@ -1763,28 +1805,54 @@ router.get('/analytics', protect, isAdmin, async (req, res) => {
     try {
         const { schoolId, startDate, endDate, bucket, className } = req.query;
 
-        let query = {};
+        let baseQuery = db('submissions as sub')
+            .leftJoin('students as stu', 'sub.student_id', 'stu.id')
+            .leftJoin('schools as sch', 'sub.school_id', 'sch.id');
 
-        if (schoolId) {
-            query.schoolId = schoolId;
-        }
+        if (schoolId) baseQuery = baseQuery.where('sub.school_id', schoolId);
+        if (startDate) baseQuery = baseQuery.where('sub.submitted_at', '>=', new Date(startDate));
+        if (endDate) baseQuery = baseQuery.where('sub.submitted_at', '<=', new Date(endDate));
+        if (bucket) baseQuery = baseQuery.where('sub.assigned_bucket', bucket);
 
-        if (startDate || endDate) {
-            query.submittedAt = {};
-            if (startDate) query.submittedAt.$gte = new Date(startDate);
-            if (endDate) query.submittedAt.$lte = new Date(endDate);
-        }
+        const rawRows = await baseQuery.select(
+            'sub.id', 'sub.student_id', 'sub.school_id', 'sub.assessment_id',
+            'sub.total_score', 'sub.section_scores', 'sub.section_buckets',
+            'sub.assigned_bucket', 'sub.submitted_at', 'sub.status',
+            'sub.time_taken', 'sub.answers', 'sub.primary_skill_area', 'sub.secondary_skill_area',
+            'sub.mood_check', 'sub.total_inactivity_time',
+            'stu.name as student_name', 'stu.access_id as student_access_id',
+            'stu.class as student_class', 'stu.section as student_section',
+            'sch.name as school_name', 'sch.school_id as school_code'
+        ).orderBy('sub.submitted_at', 'desc');
 
-        if (bucket) {
-            query.assignedBucket = bucket;
-        }
+        const submissions = rawRows.map(r => ({
+            _id: r.id,
+            totalScore: r.total_score,
+            sectionScores: r.section_scores,
+            sectionBuckets: r.section_buckets,
+            assignedBucket: r.assigned_bucket,
+            submittedAt: r.submitted_at,
+            status: r.status,
+            timeTaken: r.time_taken,
+            answers: r.answers,
+            primarySkillArea: r.primary_skill_area,
+            secondarySkillArea: r.secondary_skill_area,
+            moodCheck: r.mood_check,
+            totalInactivityTime: r.total_inactivity_time,
+            studentId: r.student_id ? {
+                _id: r.student_id,
+                name: r.student_name,
+                accessId: r.student_access_id,
+                class: r.student_class,
+                section: r.student_section
+            } : null,
+            schoolId: r.school_id ? {
+                _id: r.school_id,
+                name: r.school_name,
+                schoolId: r.school_code
+            } : null
+        }));
 
-        const submissions = await Submission.find(query)
-            .populate('studentId', 'name accessId class section')
-            .populate('schoolId', 'name schoolId')
-            .sort({ submittedAt: -1 });
-
-        // Filter by class if specified
         let filteredSubmissions = submissions;
         if (className) {
             filteredSubmissions = submissions.filter(s => s.studentId?.class === className);
@@ -1792,32 +1860,22 @@ router.get('/analytics', protect, isAdmin, async (req, res) => {
 
         const analytics = calculateAnalytics(filteredSubmissions);
 
-        // Get per-school breakdown
         const schoolBreakdown = {};
         filteredSubmissions.forEach(sub => {
             const schoolName = sub.schoolId?.name || 'Unknown';
             if (!schoolBreakdown[schoolName]) {
-                schoolBreakdown[schoolName] = {
-                    total: 0,
-                    buckets: {}
-                };
+                schoolBreakdown[schoolName] = { total: 0, buckets: {} };
             }
             schoolBreakdown[schoolName].total++;
             const b = sub.assignedBucket || 'Unknown';
             schoolBreakdown[schoolName].buckets[b] = (schoolBreakdown[schoolName].buckets[b] || 0) + 1;
         });
 
-        // Get per-class breakdown
         const classBreakdown = {};
         filteredSubmissions.forEach(sub => {
             const classKey = sub.studentId?.class || 'Unknown';
             if (!classBreakdown[classKey]) {
-                classBreakdown[classKey] = {
-                    total: 0,
-                    avgScore: 0,
-                    totalScore: 0,
-                    buckets: {}
-                };
+                classBreakdown[classKey] = { total: 0, avgScore: 0, totalScore: 0, buckets: {} };
             }
             classBreakdown[classKey].total++;
             classBreakdown[classKey].totalScore += sub.totalScore || 0;
@@ -1825,7 +1883,6 @@ router.get('/analytics', protect, isAdmin, async (req, res) => {
             classBreakdown[classKey].buckets[b] = (classBreakdown[classKey].buckets[b] || 0) + 1;
         });
 
-        // Calculate avg scores per class
         Object.keys(classBreakdown).forEach(cls => {
             classBreakdown[cls].avgScore = classBreakdown[cls].total > 0
                 ? Math.round(classBreakdown[cls].totalScore / classBreakdown[cls].total * 10) / 10
@@ -1856,20 +1913,47 @@ router.get('/export', protect, isAdmin, async (req, res) => {
     try {
         const { schoolId, startDate, endDate, bucket } = req.query;
 
-        let query = {};
+        let baseQuery = db('submissions as sub')
+            .leftJoin('students as stu', 'sub.student_id', 'stu.id')
+            .leftJoin('schools as sch', 'sub.school_id', 'sch.id');
 
-        if (schoolId) query.schoolId = schoolId;
-        if (startDate || endDate) {
-            query.submittedAt = {};
-            if (startDate) query.submittedAt.$gte = new Date(startDate);
-            if (endDate) query.submittedAt.$lte = new Date(endDate);
-        }
-        if (bucket) query.assignedBucket = bucket;
+        if (schoolId) baseQuery = baseQuery.where('sub.school_id', schoolId);
+        if (startDate) baseQuery = baseQuery.where('sub.submitted_at', '>=', new Date(startDate));
+        if (endDate) baseQuery = baseQuery.where('sub.submitted_at', '<=', new Date(endDate));
+        if (bucket) baseQuery = baseQuery.where('sub.assigned_bucket', bucket);
 
-        const submissions = await Submission.find(query)
-            .populate('studentId', 'name accessId class section rollNo')
-            .populate('schoolId', 'name schoolId')
-            .sort({ submittedAt: -1 });
+        const rawRows = await baseQuery.select(
+            'sub.*',
+            'stu.name as student_name', 'stu.access_id as student_access_id',
+            'stu.class as student_class', 'stu.section as student_section',
+            'stu.roll_no as student_roll_no',
+            'sch.name as school_name', 'sch.school_id as school_code'
+        ).orderBy('sub.submitted_at', 'desc');
+
+        const submissions = rawRows.map(r => ({
+            _id: r.id,
+            totalScore: r.total_score,
+            sectionScores: r.section_scores,
+            sectionBuckets: r.section_buckets,
+            assignedBucket: r.assigned_bucket,
+            submittedAt: r.submitted_at,
+            status: r.status,
+            timeTaken: r.time_taken,
+            answers: r.answers,
+            studentId: r.student_id ? {
+                _id: r.student_id,
+                name: r.student_name,
+                accessId: r.student_access_id,
+                class: r.student_class,
+                section: r.student_section,
+                rollNo: r.student_roll_no
+            } : null,
+            schoolId: r.school_id ? {
+                _id: r.school_id,
+                name: r.school_name,
+                schoolId: r.school_code
+            } : null
+        }));
 
         const workbook = await exportSubmissionsToExcel(submissions);
 
@@ -1891,14 +1975,16 @@ router.post('/schools/:id/assign-test', protect, isAdmin, async (req, res) => {
     try {
         const { assessmentId } = req.body;
 
-        const school = await School.findById(req.params.id);
+        const school = await db('schools').where('id', req.params.id).first();
         if (!school) {
             return res.status(404).json({ message: 'School not found' });
         }
 
-        if (!school.assignedTests.includes(assessmentId)) {
-            school.assignedTests.push(assessmentId);
-            await school.save();
+        const currentTests = school.assigned_tests || [];
+        if (!currentTests.includes(assessmentId)) {
+            await db('schools').where('id', school.id).update({
+                assigned_tests: db.raw('array_append(assigned_tests, ?::uuid)', [assessmentId])
+            });
         }
 
         res.json({ message: 'Test assigned successfully' });
@@ -1915,37 +2001,43 @@ router.put('/schools/:id/tests', protect, isAdmin, async (req, res) => {
     try {
         const { assignedTests, assignAll } = req.body;
 
-        const school = await School.findById(req.params.id);
+        const school = await db('schools').where('id', req.params.id).first();
         if (!school) {
             return res.status(404).json({ message: 'School not found' });
         }
 
+        let newTests;
         if (assignAll) {
-            // Assign all active assessments
-            const allAssessments = await Assessment.find({ isActive: true }).select('_id');
-            school.assignedTests = allAssessments.map(a => a._id);
+            const allAssessments = await db('assessments').where({ is_active: true }).select('id');
+            newTests = allAssessments.map(a => a.id);
         } else if (assignedTests) {
-            // Validate that all assessment IDs are valid
-            const validAssessments = await Assessment.find({
-                _id: { $in: assignedTests },
-                isActive: true
-            }).select('_id');
-            school.assignedTests = validAssessments.map(a => a._id);
+            const validAssessments = await db('assessments')
+                .whereIn('id', assignedTests)
+                .where({ is_active: true })
+                .select('id');
+            newTests = validAssessments.map(a => a.id);
         }
 
-        await school.save();
+        if (newTests) {
+            await db('schools').where('id', req.params.id).update({ assigned_tests: newTests });
+        }
 
-        const updatedSchool = await School.findById(req.params.id)
-            .populate('assignedTests', 'title isDefault');
+        const updatedSchool = await db('schools').where('id', req.params.id).first();
+        const testIds = updatedSchool.assigned_tests || [];
+        let assessmentList = [];
+        if (testIds.length > 0) {
+            const assessments = await db('assessments').whereIn('id', testIds).select('id', 'title', 'is_default');
+            assessmentList = assessments.map(a => ({ _id: a.id, title: a.title, isDefault: a.is_default }));
+        }
 
         res.json({
             message: 'Tests updated successfully',
-            assignedTests: updatedSchool.assignedTests
+            assignedTests: assessmentList
         });
     } catch (error) {
         console.error('Update tests error:', error);
-        if (error.name === 'CastError') {
-            return res.status(400).json({ message: `Invalid ${error.path}: ${error.value}` });
+        if (error.code === '22P02') {
+            return res.status(400).json({ message: 'Invalid assessment ID format' });
         }
         res.status(500).json({ message: 'Server error' });
     }
@@ -1956,15 +2048,14 @@ router.put('/schools/:id/tests', protect, isAdmin, async (req, res) => {
 // @access  Admin
 router.delete('/schools/:id/tests/:testId', protect, isAdmin, async (req, res) => {
     try {
-        const school = await School.findById(req.params.id);
+        const school = await db('schools').where('id', req.params.id).first();
         if (!school) {
             return res.status(404).json({ message: 'School not found' });
         }
 
-        school.assignedTests = school.assignedTests.filter(
-            t => t.toString() !== req.params.testId
-        );
-        await school.save();
+        await db('schools').where('id', req.params.id).update({
+            assigned_tests: db.raw('array_remove(assigned_tests, ?::uuid)', [req.params.testId])
+        });
 
         res.json({ message: 'Test removed from school' });
     } catch (error) {
@@ -1978,40 +2069,35 @@ router.delete('/schools/:id/tests/:testId', protect, isAdmin, async (req, res) =
 // @access  Admin
 router.put('/assessments/:id/set-default', protect, isAdmin, async (req, res) => {
     try {
-        const assessment = await Assessment.findById(req.params.id);
+        const assessment = await db('assessments').where('id', req.params.id).first();
         if (!assessment) {
             return res.status(404).json({ message: 'Assessment not found' });
         }
 
-        if (!assessment.isActive) {
+        if (!assessment.is_active) {
             return res.status(400).json({ message: 'Cannot set inactive assessment as default' });
         }
 
         // Unset current default
-        await Assessment.updateMany(
-            { isDefault: true },
-            { isDefault: false }
-        );
+        await db('assessments').where({ is_default: true }).update({ is_default: false });
 
         // Set new default
-        assessment.isDefault = true;
-        await assessment.save();
+        await db('assessments').where('id', req.params.id).update({ is_default: true });
 
-        // Optionally: Add this assessment to all schools that don't have it
-        const schools = await School.find({ isActive: true });
-        for (const school of schools) {
-            if (!school.assignedTests.includes(assessment._id)) {
-                school.assignedTests.push(assessment._id);
-                await school.save();
-            }
-        }
+        // Add this assessment to all active schools that don't already have it
+        await db('schools')
+            .where('is_active', true)
+            .whereRaw('NOT (assigned_tests @> ARRAY[?]::uuid[])', [req.params.id])
+            .update({
+                assigned_tests: db.raw('array_append(assigned_tests, ?::uuid)', [req.params.id])
+            });
 
         res.json({
             message: 'Assessment set as default',
             assessment: {
-                _id: assessment._id,
+                _id: assessment.id,
                 title: assessment.title,
-                isDefault: assessment.isDefault
+                isDefault: true
             }
         });
     } catch (error) {
@@ -2026,33 +2112,37 @@ router.put('/assessments/:id/set-default', protect, isAdmin, async (req, res) =>
 router.put('/schools/:id/credentials', protect, isAdmin, async (req, res) => {
     try {
         const { schoolId, password } = req.body;
-        const school = await School.findById(req.params.id);
+        const school = await db('schools').where('id', req.params.id).first();
 
         if (!school) {
             return res.status(404).json({ message: 'School not found' });
         }
 
-        // Check if new schoolId is unique (if changing)
-        if (schoolId && schoolId !== school.schoolId) {
-            const existing = await School.findOne({ schoolId });
+        const updates = {};
+
+        if (schoolId && schoolId !== school.school_id) {
+            const existing = await db('schools').where({ school_id: schoolId }).first();
             if (existing) {
                 return res.status(400).json({ message: 'School ID already in use' });
             }
-            school.schoolId = schoolId;
+            updates.school_id = schoolId;
         }
 
-        // Update password if provided
         if (password) {
-            school.password = password;
-            school.plainPassword = password;
+            updates.password = await hashPassword(password);
+            updates.plain_password = password;
         }
 
-        await school.save();
+        if (Object.keys(updates).length > 0) {
+            await db('schools').where('id', school.id).update(updates);
+        }
+
+        const updated = await db('schools').where('id', school.id).first();
 
         res.json({
             message: 'Credentials updated',
-            schoolId: school.schoolId,
-            plainPassword: school.plainPassword
+            schoolId: updated.school_id,
+            plainPassword: updated.plain_password
         });
     } catch (error) {
         console.error('Update credentials error:', error);
@@ -2066,18 +2156,17 @@ router.put('/schools/:id/credentials', protect, isAdmin, async (req, res) => {
 router.put('/schools/:id/block', protect, isAdmin, async (req, res) => {
     try {
         const { isBlocked } = req.body;
-        const school = await School.findById(req.params.id);
+        const school = await db('schools').where('id', req.params.id).first();
 
         if (!school) {
             return res.status(404).json({ message: 'School not found' });
         }
 
-        school.isBlocked = isBlocked;
-        await school.save();
+        await db('schools').where('id', school.id).update({ is_blocked: isBlocked });
 
         res.json({
             message: isBlocked ? 'School blocked' : 'School unblocked',
-            isBlocked: school.isBlocked
+            isBlocked
         });
     } catch (error) {
         console.error('Block school error:', error);
@@ -2090,14 +2179,19 @@ router.put('/schools/:id/block', protect, isAdmin, async (req, res) => {
 // @access  Admin
 router.get('/student/:id/details', protect, isAdmin, async (req, res) => {
     try {
-        const student = await Student.findById(req.params.id)
-            .populate('schoolId', 'name schoolId');
+        const studentRow = await db('students as stu')
+            .leftJoin('schools as sch', 'stu.school_id', 'sch.id')
+            .where('stu.id', req.params.id)
+            .select(
+                'stu.*',
+                'sch.name as school_name', 'sch.school_id as school_code'
+            )
+            .first();
 
-        if (!student) {
+        if (!studentRow) {
             return res.status(404).json({ message: 'Student not found' });
         }
 
-        // Section name helper
         const getSectionName = (code) => {
             const sections = {
                 'A': 'Focus & Attention',
@@ -2108,19 +2202,19 @@ router.get('/student/:id/details', protect, isAdmin, async (req, res) => {
             return sections[code] || code;
         };
 
-        // Get all submissions for this student with full details
-        const submissions = await Submission.find({
-            studentId: student._id
-        })
-            .populate('assessmentId', 'title questions customSections')
-            .sort({ submittedAt: -1 });
+        const submissionRows = await db('submissions as sub')
+            .leftJoin('assessments as a', 'sub.assessment_id', 'a.id')
+            .where('sub.student_id', studentRow.id)
+            .select(
+                'sub.*',
+                'a.title as assessment_title', 'a.questions as assessment_questions',
+                'a.custom_sections as assessment_custom_sections'
+            )
+            .orderBy('sub.submitted_at', 'desc');
 
-        // Format submissions with detailed answer breakdown
-        const detailedSubmissions = submissions.map(sub => {
-            const assessment = sub.assessmentId;
-            const questions = assessment?.questions || [];
+        const detailedSubmissions = submissionRows.map(sub => {
+            const questions = sub.assessment_questions || [];
 
-            // Map answers to questions
             const answersWithQuestions = (sub.answers || []).map((answer, index) => {
                 const question = questions[answer?.questionIndex ?? index];
                 return {
@@ -2135,7 +2229,6 @@ router.get('/student/:id/details', protect, isAdmin, async (req, res) => {
                 };
             });
 
-            // Group answers by section
             const answersBySection = {};
             answersWithQuestions.forEach(a => {
                 if (!answersBySection[a.section]) {
@@ -2150,20 +2243,20 @@ router.get('/student/:id/details', protect, isAdmin, async (req, res) => {
             });
 
             return {
-                _id: sub._id,
-                assessmentId: assessment?._id,
-                assessmentTitle: assessment?.title || 'Unknown Assessment',
-                totalScore: sub.totalScore,
-                sectionScores: sub.sectionScores,
-                sectionBuckets: sub.sectionBuckets,
-                assignedBucket: sub.assignedBucket,
-                primarySkillArea: sub.primarySkillArea,
-                secondarySkillArea: sub.secondarySkillArea,
-                timeTaken: sub.timeTaken,
-                totalInactivityTime: sub.totalInactivityTime,
-                moodCheck: sub.moodCheck,
+                _id: sub.id,
+                assessmentId: sub.assessment_id,
+                assessmentTitle: sub.assessment_title || 'Unknown Assessment',
+                totalScore: sub.total_score,
+                sectionScores: sub.section_scores,
+                sectionBuckets: sub.section_buckets,
+                assignedBucket: sub.assigned_bucket,
+                primarySkillArea: sub.primary_skill_area,
+                secondarySkillArea: sub.secondary_skill_area,
+                timeTaken: sub.time_taken,
+                totalInactivityTime: sub.total_inactivity_time,
+                moodCheck: sub.mood_check,
                 status: sub.status,
-                submittedAt: sub.submittedAt,
+                submittedAt: sub.submitted_at,
                 answersWithQuestions,
                 answersBySection
             };
@@ -2171,14 +2264,18 @@ router.get('/student/:id/details', protect, isAdmin, async (req, res) => {
 
         res.json({
             student: {
-                _id: student._id,
-                name: student.name,
-                accessId: student.accessId,
-                class: student.class,
-                section: student.section,
-                rollNo: student.rollNo,
-                school: student.schoolId,
-                createdAt: student.createdAt
+                _id: studentRow.id,
+                name: studentRow.name,
+                accessId: studentRow.access_id,
+                class: studentRow.class,
+                section: studentRow.section,
+                rollNo: studentRow.roll_no,
+                school: studentRow.school_id ? {
+                    _id: studentRow.school_id,
+                    name: studentRow.school_name,
+                    schoolId: studentRow.school_code
+                } : null,
+                createdAt: studentRow.created_at
             },
             submissions: detailedSubmissions,
             totalSubmissions: detailedSubmissions.length

@@ -1,63 +1,52 @@
-const mongoose = require('mongoose');
+const db = require('../config/db');
+const { mapRow, mapRows } = require('../utils/dbHelper');
 
-const ticketSchema = new mongoose.Schema({
-    school: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'School',
-        required: true
+const TABLE = 'tickets';
+
+const Ticket = {
+    TABLE,
+
+    async findById(id) {
+        const row = await db(TABLE).where('id', id).first();
+        return mapRow(row);
     },
-    subject: {
-        type: String,
-        required: true,
-        trim: true
+
+    async findOne(where) {
+        const row = await db(TABLE).where(where).first();
+        return mapRow(row);
     },
-    category: {
-        type: String,
-        enum: ['general', 'technical', 'billing', 'feature'],
-        default: 'general'
+
+    async find(where = {}) {
+        const rows = await db(TABLE).where(where);
+        return mapRows(rows);
     },
-    priority: {
-        type: String,
-        enum: ['low', 'medium', 'high'],
-        default: 'medium'
-    },
-    message: {
-        type: String,
-        required: true
-    },
-    status: {
-        type: String,
-        enum: ['pending', 'in-progress', 'resolved'],
-        default: 'pending'
-    },
-    createdAt: {
-        type: Date,
-        default: Date.now
-    },
-    updatedAt: {
-        type: Date,
-        default: Date.now
-    },
-    responses: [{
-        sender: {
-            type: String, // 'admin' or 'school'
-            required: true
-        },
-        message: {
-            type: String,
-            required: true
-        },
-        timestamp: {
-            type: Date,
-            default: Date.now
+
+    async create(data) {
+        if (!data.created_at) data.created_at = new Date();
+        if (!data.updated_at) data.updated_at = new Date();
+        if (data.responses && typeof data.responses !== 'string') {
+            data.responses = JSON.stringify(data.responses);
         }
-    }]
-});
+        const [row] = await db(TABLE).insert(data).returning('*');
+        return mapRow(row);
+    },
 
-// Update timestamp on save
-ticketSchema.pre('save', function (next) {
-    this.updatedAt = Date.now();
-    next();
-});
+    async updateById(id, data) {
+        data.updated_at = new Date();
+        if (data.responses && typeof data.responses !== 'string') {
+            data.responses = JSON.stringify(data.responses);
+        }
+        const [row] = await db(TABLE).where('id', id).update(data).returning('*');
+        return mapRow(row);
+    },
 
-module.exports = mongoose.model('Ticket', ticketSchema);
+    async deleteMany(where) {
+        return db(TABLE).where(where).del();
+    },
+
+    query() {
+        return db(TABLE);
+    }
+};
+
+module.exports = Ticket;

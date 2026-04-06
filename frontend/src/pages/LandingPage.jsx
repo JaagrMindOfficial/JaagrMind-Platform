@@ -936,7 +936,7 @@ const LandingPage = () => {
                             <p className="test-quote">"JaagrMind completely shifted our school culture. We now detect emotional struggles weeks before they become crises."</p>
                             <div className="test-author">
                                 <div className="stars"><FontAwesomeIcon icon={faStar} /><FontAwesomeIcon icon={faStar} /><FontAwesomeIcon icon={faStar} /><FontAwesomeIcon icon={faStar} /><FontAwesomeIcon icon={faStar} /></div>
-                                <strong>Dr. Rachel Collins</strong>
+                                <strong> Preeti Kumbhaj</strong>
                                 <span>Principal, Oakwood Academy</span>
                             </div>
                         </GlowCard>
@@ -945,7 +945,7 @@ const LandingPage = () => {
                             <p className="test-quote">"The predictive AI is incredible. My counselors feel supported and our students actually enjoy doing their daily check-ins."</p>
                             <div className="test-author">
                                 <div className="stars"><FontAwesomeIcon icon={faStar} /><FontAwesomeIcon icon={faStar} /><FontAwesomeIcon icon={faStar} /><FontAwesomeIcon icon={faStar} /><FontAwesomeIcon icon={faStar} /></div>
-                                <strong>Marcus Chen</strong>
+                                <strong>Jatin Chulet</strong>
                                 <span>Director of Student Well-being</span>
                             </div>
                         </GlowCard>
@@ -954,7 +954,7 @@ const LandingPage = () => {
                             <p className="test-quote">"An essential tool for modern education. It bridges the gap between academics and emotional intelligence beautifully."</p>
                             <div className="test-author">
                                 <div className="stars"><FontAwesomeIcon icon={faStar} /><FontAwesomeIcon icon={faStar} /><FontAwesomeIcon icon={faStar} /><FontAwesomeIcon icon={faStar} /><FontAwesomeIcon icon={faStar} /></div>
-                                <strong>Sarah Jenkins</strong>
+                                <strong>Nitish Kumar</strong>
                                 <span>School Counselor</span>
                             </div>
                         </GlowCard>
@@ -981,39 +981,21 @@ const LandingPage = () => {
                                     <div className="c-icon"><FontAwesomeIcon icon={faPhone} /></div>
                                     <div>
                                         <span>PHONE</span>
-                                        <p>+91 80058 73864</p>
+                                        <p>+91 78200 01282</p>
                                     </div>
                                 </div>
                                 <div className="c-item">
                                     <div className="c-icon"><FontAwesomeIcon icon={faEnvelope} /></div>
                                     <div>
                                         <span>EMAIL</span>
-                                        <p>hello@jaagrmind.com</p>
+                                        <p>support@jaagrmind.com</p>
                                     </div>
                                 </div>
-                            </div>
-                            <div className="contact-item">
-                                <div className="contact-icon">
-                                    <FontAwesomeIcon icon={faPhone} />
-                                </div>
-                                <div>
-                                    <h4>Phone</h4>
-                                    <p>+91 78200 01282</p>
-                                </div>
-                            </div>
-                            <div className="contact-item">
-                                <div className="contact-icon">
-                                    <FontAwesomeIcon icon={faLocationDot} />
-                                </div>
-                                <div>
-                                    <h4>Location</h4>
-                                    <p>Bengaluru, India</p>
-                                    <div className="c-item">
-                                        <div className="c-icon"><FontAwesomeIcon icon={faLocationDot} /></div>
-                                        <div>
-                                            <span>LOCATION</span>
-                                            <p>Bengaluru, India</p>
-                                        </div>
+                                <div className="c-item">
+                                    <div className="c-icon"><FontAwesomeIcon icon={faLocationDot} /></div>
+                                    <div>
+                                        <span>LOCATION</span>
+                                        <p>Bengaluru, India</p>
                                     </div>
                                 </div>
                             </div>
@@ -1036,16 +1018,16 @@ const LandingPage = () => {
                             <div className="form-row">
                                 <div className="form-group-new">
                                     <label>FULL NAME</label>
-                                    <input type="text" name="name" value={formData.name} onChange={handleChange} placeholder="John Doe" required />
+                                    <input type="text" name="name" value={formData.name} onChange={handleChange} placeholder="Divyanshu pandey" required />
                                 </div>
                                 <div className="form-group-new">
                                     <label>SCHOOL NAME</label>
-                                    <input type="text" name="school" value={formData.school} onChange={handleChange} placeholder="Evergreen Academy" required />
+                                    <input type="text" name="school" value={formData.school} onChange={handleChange} placeholder="Scaler School" required />
                                 </div>
                             </div>
                             <div className="form-group-new">
                                 <label>EMAIL ADDRESS</label>
-                                <input type="email" name="email" value={formData.email} onChange={handleChange} placeholder="john@school.edu" required />
+                                <input type="email" name="email" value={formData.email} onChange={handleChange} placeholder="divpandey@edu.in" required />
                             </div>
                             <div className="form-group-new">
                                 <label>YOUR MESSAGE</label>
@@ -1082,7 +1064,7 @@ const LandingPage = () => {
                             <p>Empowering student well-being through proactive AI monitoring and cosmic mindfulness.</p>
                             <div className="f-social">
                                 <a
-                                    href="https://www.instagram.com/"
+                                    href="https://www.instagram.com/jaagrmind"
                                     target="_blank"
                                     rel="noopener noreferrer"
                                     aria-label="JaagrMind on Instagram"
@@ -1092,7 +1074,7 @@ const LandingPage = () => {
                                     </svg>
                                 </a>
                                 <a
-                                    href="https://www.linkedin.com/"
+                                    href="https://www.linkedin.com/company/jaagr-mind"
                                     target="_blank"
                                     rel="noopener noreferrer"
                                     aria-label="JaagrMind on LinkedIn"
@@ -1102,7 +1084,7 @@ const LandingPage = () => {
                                     </svg>
                                 </a>
                                 <a
-                                    href="https://twitter.com/"
+                                    href="https://twitter.com/JaagrMind"
                                     target="_blank"
                                     rel="noopener noreferrer"
                                     aria-label="JaagrMind on X (Twitter)"

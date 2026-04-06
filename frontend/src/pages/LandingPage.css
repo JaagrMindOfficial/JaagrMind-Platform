@@ -41,13 +41,18 @@
     transition: color 0.4s ease;
 }
 
-.landing-page h1, .landing-page h2, .landing-page h3 {
+.landing-page h1,
+.landing-page h2,
+.landing-page h3 {
     font-family: 'DM Sans', 'Inter', system-ui, sans-serif;
     font-weight: 700;
     letter-spacing: -0.035em;
     text-shadow: 0 0 30px rgba(178, 141, 255, 0.4);
 }
-[data-theme="light"] .landing-page h1, [data-theme="light"] .landing-page h2, [data-theme="light"] .landing-page h3 {
+
+[data-theme="light"] .landing-page h1,
+[data-theme="light"] .landing-page h2,
+[data-theme="light"] .landing-page h3 {
     text-shadow: 0 0 30px rgba(124, 58, 237, 0.2);
 }
 
@@ -97,9 +102,17 @@
 }
 
 @keyframes gradient-shift {
-    0% { background-position: 0% 50%; }
-    50% { background-position: 100% 50%; }
-    100% { background-position: 0% 50%; }
+    0% {
+        background-position: 0% 50%;
+    }
+
+    50% {
+        background-position: 100% 50%;
+    }
+
+    100% {
+        background-position: 0% 50%;
+    }
 }
 
 /* =============== NAVBAR =============== */
@@ -359,13 +372,13 @@
     align-items: center;
     justify-content: center;
     height: 32px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
     cursor: pointer;
     min-width: 32px;
 }
 
 [data-theme="light"] .theme-pill-container {
-    box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
 }
 
 .theme-btn-group {
@@ -755,9 +768,11 @@
 .mac-dot--close {
     background: #ff5f57;
 }
+
 .mac-dot--min {
     background: #febc2e;
 }
+
 .mac-dot--max {
     background: #28c840;
 }
@@ -797,6 +812,7 @@
     .preview-cluster-float:hover .mac-window {
         box-shadow: inherit;
     }
+
     .mac-window:hover .mac-dot {
         filter: none;
     }
@@ -1876,13 +1892,11 @@
 .story-modal-divider {
     height: 1px;
     margin: 28px 0;
-    background: linear-gradient(
-        90deg,
-        transparent,
-        var(--glass-border) 12%,
-        var(--glass-border) 88%,
-        transparent
-    );
+    background: linear-gradient(90deg,
+            transparent,
+            var(--glass-border) 12%,
+            var(--glass-border) 88%,
+            transparent);
 }
 
 .story-modal-kicker {
@@ -2291,5 +2305,6 @@
         width: 100%;
         transform: scale(1);
         padding: 20px;
+
     }
 }

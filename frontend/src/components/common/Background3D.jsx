@@ -1,94 +1,101 @@
 import React, { useRef, useMemo } from 'react';
-import { Canvas, useFrame, useThree } from '@react-three/fiber';
-import { Stars, Float, PerspectiveCamera } from '@react-three/drei';
+import { Canvas, useFrame } from '@react-three/fiber';
+import { PerspectiveCamera } from '@react-three/drei';
 import * as THREE from 'three';
 import { useTheme } from '../../context/ThemeContext';
 
-const InteractiveParticles = ({ count = 400, color = "#8B5CF6", isDark = false }) => {
-    const mesh = useRef();
-    const { mouse, viewport } = useThree();
-    const dummy = useMemo(() => new THREE.Object3D(), []);
+const ParticleWave = ({ isDark }) => {
+    const meshRef = useRef();
 
+    // Grid configuration for the wave
+    const countX = 80;
+    const countZ = 80;
+    const spacing = 1.2;
+
+    // Create initial grid positions
     const particles = useMemo(() => {
-        const temp = [];
-        for (let i = 0; i < count; i++) {
-            const t = Math.random() * 100;
-            const factor = 20 + Math.random() * 100;
-            const speed = 0.01 + Math.random() / 200;
-            const xFactor = -50 + Math.random() * 100;
-            const yFactor = -50 + Math.random() * 100;
-            const zFactor = -50 + Math.random() * 100;
-            temp.push({ t, factor, speed, xFactor, yFactor, zFactor, mx: 0, my: 0 });
+        const positions = new Float32Array(countX * countZ * 3);
+        let i = 0;
+        for (let ix = 0; ix < countX; ix++) {
+            for (let iz = 0; iz < countZ; iz++) {
+                // center the grid around 0,0,0
+                positions[i] = ix * spacing - ((countX * spacing) / 2); // x
+                positions[i + 1] = 0; // y
+                positions[i + 2] = iz * spacing - ((countZ * spacing) / 2); // z
+                i += 3;
+            }
         }
-        return temp;
-    }, [count]);
+        return positions;
+    }, [countX, countZ, spacing]);
 
     useFrame((state) => {
-        particles.forEach((particle, i) => {
-            let { t, factor, speed, xFactor, yFactor, zFactor } = particle;
+        const time = state.clock.getElapsedTime();
+        const positions = meshRef.current.geometry.attributes.position.array;
 
-            // Mouse interaction
-            const targetX = (mouse.x * viewport.width) / 50;
-            const targetY = (mouse.y * viewport.height) / 50;
-
-            particle.mx += (targetX - particle.mx) * 0.1;
-            particle.my += (targetY - particle.my) * 0.1;
-
-            t = particle.t += speed / 2;
-            const a = Math.cos(t) + Math.sin(t * 1) / 10;
-            const b = Math.sin(t) + Math.cos(t * 2) / 10;
-            const s = Math.cos(t);
-
-            dummy.position.set(
-                (particle.mx * 10) + xFactor + Math.cos((t / 10) * factor) + (Math.sin(t * 1) * factor) / 10,
-                (particle.my * 10) + yFactor + Math.sin((t / 10) * factor) + (Math.cos(t * 2) * factor) / 10,
-                (particle.my * 10) + zFactor + Math.cos((t / 10) * factor) + (Math.sin(t * 3) * factor) / 10
-            );
-
-            dummy.scale.set(s, s, s);
-            dummy.rotation.set(s * 5, s * 5, s * 5);
-            dummy.updateMatrix();
-            mesh.current.setMatrixAt(i, dummy.matrix);
-        });
-        mesh.current.instanceMatrix.needsUpdate = true;
+        let i = 0;
+        for (let ix = 0; ix < countX; ix++) {
+            for (let iz = 0; iz < countZ; iz++) {
+                // Combine sine and cosine waves for an organic, rolling fluid motion
+                // Slower phase = calmer background motion (was ~0.5 / 0.3)
+                positions[i + 1] =
+                    Math.sin((ix * 0.1) + time * 0.14) * 2.2 +
+                    Math.sin((iz * 0.1) + time * 0.1) * 2.2;
+                
+                i += 3;
+            }
+        }
+        meshRef.current.geometry.attributes.position.needsUpdate = true;
+        
+        meshRef.current.rotation.y = time * 0.012;
+        meshRef.current.position.y = -5.5 + Math.sin(time * 0.07) * 0.35;
     });
 
+    // Theme-adaptive colors
+    const pointColor = isDark ? '#E9D5FF' : '#312E81';
+
     return (
-        <instancedMesh ref={mesh} args={[null, null, count]}>
-            <dodecahedronGeometry args={[0.2, 0]} />
-            <meshPhongMaterial
-                color={color}
-                emissive={color}
-                emissiveIntensity={isDark ? 0.8 : 0.2}
-                shininess={isDark ? 100 : 30}
-                specular={new THREE.Color('#ffffff')}
+        <points ref={meshRef} position={[0, -5.5, 0]} rotation={[0.1, 0, 0]}>
+            <bufferGeometry>
+                <bufferAttribute
+                    attach="attributes-position"
+                    count={particles.length / 3}
+                    array={particles}
+                    itemSize={3}
+                />
+            </bufferGeometry>
+            <pointsMaterial
+                size={0.18}
+                color={pointColor}
+                sizeAttenuation={true}
+                transparent={true}
+                opacity={isDark ? 0.9 : 1.0}
+                blending={isDark ? THREE.AdditiveBlending : THREE.NormalBlending}
             />
-        </instancedMesh>
+        </points>
     );
 };
 
-// --- Main Component ---
 const Background3D = () => {
-    const { theme } = useTheme();
-    const isDark = theme === 'dark';
-    const bgColor = isDark ? '#0F0D15' : '#F8FAFC';
+    const { isDark } = useTheme();
+    
+    // Exactly match the root CSS background variables for seamless fog blending
+    const bgColor = isDark ? '#090815' : '#F8FAFC';
 
     return (
-        <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', zIndex: -1, pointerEvents: 'none', background: bgColor, transition: 'background 0.5s ease' }}>
-            <Canvas camera={{ position: [0, 0, 15], fov: 75 }}>
-                <PerspectiveCamera makeDefault position={[0, 0, 30]} />
-                <ambientLight intensity={0.5} />
-                <pointLight position={[10, 10, 10]} intensity={1} />
-                <Stars radius={100} depth={50} count={isDark ? 5000 : 3000} factor={4} saturation={0} fade speed={1} />
-
-                {/* Floating Particles for both modes, color adapted for visibility */}
-                <Float speed={2} rotationIntensity={0.5} floatIntensity={1}>
-                    <InteractiveParticles
-                        count={400}
-                        color={isDark ? '#F472B6' : '#8B5CF6'} // Glossy Light Pink (#F472B6) for Dark Mode
-                        isDark={isDark}
-                    />
-                </Float>
+        <div style={{ 
+            position: 'fixed', 
+            top: 0, left: 0, 
+            width: '100%', height: '100%', 
+            zIndex: -1, 
+            pointerEvents: 'none', 
+            background: bgColor, 
+            transition: 'background 0.4s ease' 
+        }}>
+            <Canvas camera={{ position: [0, 5, 18], fov: 60 }}>
+                {/* Fog is critical to blend the distant particles into the background smoothly */}
+                <fog attach="fog" args={[bgColor, 5, 50]} />
+                <PerspectiveCamera makeDefault position={[0, 5, 18]} />
+                <ParticleWave isDark={isDark} />
             </Canvas>
         </div>
     );

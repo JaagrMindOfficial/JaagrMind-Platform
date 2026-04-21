@@ -8,7 +8,6 @@ import { useToast } from '../../components/common/Toast';
 import api from '../../services/api';
 import './StudentAssessment.css';
 
-const QUESTIONS_PER_SECTION = 8;
 const INACTIVITY_ALERT_DEFAULT = 40; // seconds before showing inactivity alert
 const INACTIVITY_END_DEFAULT = 120; // total seconds of inactivity before test ends
 
@@ -54,7 +53,6 @@ const StudentAssessment = ({ previewMode = false }) => {
     const [currentQuestion, setCurrentQuestion] = useState(0);
     const [answers, setAnswers] = useState([]);
     const [showLevelUp, setShowLevelUp] = useState(false);
-    const [currentLevel, setCurrentLevel] = useState(1);
     const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState(false);
     const [startTime, setStartTime] = useState(null);
@@ -270,7 +268,6 @@ const StudentAssessment = ({ previewMode = false }) => {
                 setAnswers(resumeAnswers);
                 setCurrentQuestion(data.resumeData.lastQuestionIndex);
                 setResumeSubmissionId(data.resumeData.submissionId);
-                setCurrentLevel(Math.floor(data.resumeData.lastQuestionIndex / QUESTIONS_PER_SECTION) + 1);
             } else {
                 setAnswers(new Array(data.questions.length).fill(null));
             }
@@ -357,11 +354,11 @@ const StudentAssessment = ({ previewMode = false }) => {
 
         if (currentQuestion < assessment.questions.length - 1) {
             const nextQuestion = currentQuestion + 1;
+            const curSec = assessment.questions[currentQuestion]?.section;
+            const nextSec = assessment.questions[nextQuestion]?.section;
 
-            // Check for level up (every 8 questions)
-            if (nextQuestion % QUESTIONS_PER_SECTION === 0 && nextQuestion > 0) {
+            if (curSec !== nextSec) {
                 setShowLevelUp(true);
-                setCurrentLevel(prev => prev + 1);
                 setTimeout(() => {
                     setShowLevelUp(false);
                     setCurrentQuestion(nextQuestion);
@@ -712,12 +709,19 @@ const StudentAssessment = ({ previewMode = false }) => {
         return null;
     }
 
-    // Calculate dynamic number of sections based on total questions
     const totalQuestions = assessment.questions.length;
-    const totalSections = Math.ceil(totalQuestions / QUESTIONS_PER_SECTION);
-    const currentSection = Math.min(Math.floor(currentQuestion / QUESTIONS_PER_SECTION), totalSections - 1);
-    const progressInSection = (currentQuestion % QUESTIONS_PER_SECTION) + 1;
+    const qs = assessment.questions;
+    const sectionOrder = [...new Set(qs.map((q) => q.section))];
+    const totalSections = Math.max(sectionOrder.length, 1);
+    const curSec = qs[currentQuestion]?.section;
+    const currentSectionIndex = Math.max(0, sectionOrder.indexOf(curSec));
+    const questionsInSection = qs.map((q, i) => (q.section === curSec ? i : null)).filter((i) => i !== null);
+    const progressInSection = questionsInSection.indexOf(currentQuestion) + 1;
     const totalProgress = ((currentQuestion + 1) / totalQuestions) * 100;
+    const enteringPart =
+        showLevelUp && currentQuestion < qs.length - 1
+            ? sectionOrder.indexOf(qs[currentQuestion + 1]?.section) + 1
+            : currentSectionIndex + 1;
 
     return (
         <div className="assessment-container">
@@ -784,11 +788,11 @@ const StudentAssessment = ({ previewMode = false }) => {
                         >
                             <h2 style={{ fontSize: '1.5rem', marginBottom: '1rem' }}>Reflection Moment</h2>
                             <p style={{ fontSize: '1.1rem', lineHeight: '1.6', maxWidth: '400px', margin: '0 auto' }}>
-                                {currentLevel === 2 ?
+                                {enteringPart === 2 ?
                                     "This Level Is Complete. You took a moment to notice how you're really feeling. That kind of awareness builds clarity over time." :
-                                    currentLevel === 3 ?
+                                    enteringPart === 3 ?
                                         "You paused, reflected, and shared honestly. That's an important step in understanding yourself." :
-                                        currentLevel === 4 ?
+                                        enteringPart === 4 ?
                                             "All Set with this level. You paid attention to your thoughts and emotions. Noticing these things helps you respond better." :
                                             "Level Complete. Thank you for your continued focus and reflection."}
                             </p>
@@ -835,8 +839,8 @@ const StudentAssessment = ({ previewMode = false }) => {
                 {/* Header */}
                 <div className="assessment-header">
                     <div className="header-left">
-                        <span className="level-badge" style={{ background: sectionColors[currentSection % sectionColors.length] }}>
-                            <FontAwesomeIcon icon={sectionIcons[currentSection % sectionIcons.length]} /> Part {currentLevel}
+                        <span className="level-badge" style={{ background: sectionColors[currentSectionIndex % sectionColors.length] }}>
+                            <FontAwesomeIcon icon={sectionIcons[currentSectionIndex % sectionIcons.length]} /> Part {currentSectionIndex + 1}
                         </span>
                     </div>
                     <div className="header-center">
@@ -855,10 +859,10 @@ const StudentAssessment = ({ previewMode = false }) => {
                         {Array.from({ length: totalSections }).map((_, section) => (
                             <div
                                 key={section}
-                                className={`section-dot ${section < currentSection ? 'completed' : ''} ${section === currentSection ? 'active' : ''}`}
-                                style={{ background: section <= currentSection ? sectionColors[section % sectionColors.length] : undefined }}
+                                className={`section-dot ${section < currentSectionIndex ? 'completed' : ''} ${section === currentSectionIndex ? 'active' : ''}`}
+                                style={{ background: section <= currentSectionIndex ? sectionColors[section % sectionColors.length] : undefined }}
                             >
-                                {section < currentSection ? <FontAwesomeIcon icon={faCheck} /> : <FontAwesomeIcon icon={sectionIcons[section % sectionIcons.length]} />}
+                                {section < currentSectionIndex ? <FontAwesomeIcon icon={faCheck} /> : <FontAwesomeIcon icon={sectionIcons[section % sectionIcons.length]} />}
                             </div>
                         ))}
                     </div>
@@ -867,7 +871,7 @@ const StudentAssessment = ({ previewMode = false }) => {
                             className="progress-bar-fill"
                             initial={{ width: 0 }}
                             animate={{ width: `${totalProgress}%` }}
-                            style={{ background: sectionColors[currentSection % sectionColors.length] }}
+                            style={{ background: sectionColors[currentSectionIndex % sectionColors.length] }}
                         />
                     </div>
                 </div>
@@ -944,16 +948,12 @@ const StudentAssessment = ({ previewMode = false }) => {
                     </button>
 
                     <div className="question-dots">
-                        {Array.from({ length: QUESTIONS_PER_SECTION }).map((_, i) => {
-                            const questionIndex = currentSection * QUESTIONS_PER_SECTION + i;
-                            if (questionIndex >= assessment.questions.length) return null;
-                            return (
-                                <span
-                                    key={i}
-                                    className={`q-dot ${questionIndex === currentQuestion ? 'current' : ''} ${answers[questionIndex] ? 'answered' : ''}`}
-                                />
-                            );
-                        })}
+                        {questionsInSection.map((questionIndex) => (
+                            <span
+                                key={questionIndex}
+                                className={`q-dot ${questionIndex === currentQuestion ? 'current' : ''} ${answers[questionIndex] ? 'answered' : ''}`}
+                            />
+                        ))}
                     </div>
 
                     <motion.button

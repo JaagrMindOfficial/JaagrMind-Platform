@@ -1,0 +1,148 @@
+.agm-page {
+    padding-bottom: 2rem;
+}
+
+.agm-grid {
+    display: grid;
+    grid-template-columns: 1fr 1.4fr;
+    gap: 1rem;
+    align-items: start;
+}
+
+@media (max-width: 1100px) {
+    .agm-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+.agm-card {
+    background: var(--primary-white);
+    border-radius: var(--radius-md);
+    padding: 1.25rem;
+    box-shadow: var(--shadow-sm);
+}
+
+.agm-card-wide {
+    grid-column: 1 / -1;
+}
+
+.agm-card h2 {
+    font-size: 1.1rem;
+    margin-bottom: 0.5rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.agm-muted {
+    color: var(--text-muted);
+    font-size: 0.85rem;
+    margin-bottom: 1rem;
+}
+
+.agm-bucket-list {
+    list-style: none;
+    padding: 0;
+    margin: 0 0 1rem;
+}
+
+.agm-bucket-btn {
+    width: 100%;
+    text-align: left;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.65rem 0.75rem;
+    margin-bottom: 0.35rem;
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    border-radius: var(--radius-sm);
+    background: var(--bg-light, #fafafa);
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s;
+}
+
+.agm-bucket-btn:hover {
+    background: rgba(185, 147, 233, 0.12);
+}
+
+.agm-bucket-btn.active {
+    border-color: var(--primary-purple);
+    background: rgba(185, 147, 233, 0.18);
+}
+
+.agm-bucket-name {
+    font-weight: 600;
+    flex: 1;
+}
+
+.agm-bucket-key {
+    font-size: 0.75rem;
+    opacity: 0.7;
+}
+
+.agm-badge {
+    font-size: 0.7rem;
+    background: var(--gradient-purple);
+    color: #fff;
+    padding: 0.15rem 0.45rem;
+    border-radius: 999px;
+}
+
+.agm-create {
+    border-top: 1px solid rgba(0, 0, 0, 0.06);
+    padding-top: 1rem;
+    margin-top: 0.5rem;
+}
+
+.agm-create h3 {
+    font-size: 0.95rem;
+    margin-bottom: 0.5rem;
+}
+
+.agm-create .form-input {
+    margin-bottom: 0.5rem;
+}
+
+.agm-game-list {
+    max-height: 420px;
+    overflow-y: auto;
+    margin-bottom: 1rem;
+}
+
+.agm-game-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.4rem 0.25rem;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+    cursor: pointer;
+}
+
+.agm-game-title {
+    flex: 1;
+    font-weight: 500;
+}
+
+.agm-game-slug {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    max-width: 120px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.agm-save {
+    margin-top: 0.5rem;
+}
+
+.agm-detail-pre {
+    white-space: pre-wrap;
+    font-family: inherit;
+    font-size: 0.9rem;
+    line-height: 1.5;
+    margin: 0;
+}
+
+.agm-detail-modal .modal-body {
+    max-height: 70vh;
+}

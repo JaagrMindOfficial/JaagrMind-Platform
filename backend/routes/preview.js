@@ -22,8 +22,11 @@ router.get('/assessment/:id', protect, isAuthorizedPreviewer, async (req, res) =
         const questions = (assessment.questions || []).map((q, index) => ({
             index,
             text: q.text,
-            options: q.options.map(o => ({ label: o.label }))
+            section: q.section || 'A',
+            options: (q.options || []).map((o) => ({ label: o.label }))
         }));
+        const customSections = assessment.custom_sections || [];
+        const sectionOrder = [...new Set(questions.map((q) => q.section))];
 
         res.json({
             _id: assessment.id,
@@ -31,8 +34,8 @@ router.get('/assessment/:id', protect, isAuthorizedPreviewer, async (req, res) =
             inactivityAlertTime: assessment.inactivity_alert_time,
             inactivityEndTime: assessment.inactivity_end_time,
             totalQuestions: questions.length,
-            questionsPerSection: 8,
-            totalSections: 4,
+            totalSections: sectionOrder.length,
+            customSections,
             questions,
             resumeData: null
         });

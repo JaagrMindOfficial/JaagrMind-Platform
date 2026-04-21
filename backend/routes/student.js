@@ -3,7 +3,36 @@ const router = express.Router();
 const db = require('../config/db');
 const { mapRow } = require('../utils/dbHelper');
 const { protect, isStudent, generateToken } = require('../middleware/auth');
-const { getBucketLabel, getSectionName } = require('../utils/exportData');
+const { computePathway, getSkillStatus, normalizeThresholds } = require('../utils/pathwayEngine');
+
+function buildStudentAssessmentPayload(assessment, resumeData) {
+    const questions = (assessment.questions || []).map((q, index) => ({
+        index,
+        text: q.text,
+        section: q.section || 'A',
+        options: (q.options || []).map((o) => ({ label: o.label }))
+    }));
+    const customSections = assessment.custom_sections || [];
+    const sectionOrder = [...new Set(questions.map((q) => q.section))];
+    return {
+        _id: assessment.id,
+        title: assessment.title,
+        inactivityAlertTime: assessment.inactivity_alert_time,
+        inactivityEndTime: assessment.inactivity_end_time,
+        totalQuestions: questions.length,
+        totalSections: sectionOrder.length,
+        customSections,
+        questions,
+        resumeData: resumeData || null
+    };
+}
+
+function sectionInterpretationLabel(score, thresholds) {
+    const s = getSkillStatus(score, thresholds);
+    if (s === 'stable') return 'Stable';
+    if (s === 'emerging') return 'Emerging';
+    return 'Support Needed';
+}
 
 router.post('/login', async (req, res) => {
     try {
@@ -150,12 +179,6 @@ router.get('/assessment/:id', protect, isStudent, async (req, res) => {
             return res.status(404).json({ message: 'Assessment not found' });
         }
 
-        const questions = (assessment.questions || []).map((q, index) => ({
-            index,
-            text: q.text,
-            options: q.options.map(o => ({ label: o.label }))
-        }));
-
         const testIndex = testStatus.findIndex(t => t.assessmentId === assessmentId);
         if (testIndex >= 0) {
             testStatus[testIndex].startedAt = new Date().toISOString();
@@ -168,21 +191,15 @@ router.get('/assessment/:id', protect, isStudent, async (req, res) => {
             .where({ student_id: student._id, assessment_id: assessmentId, status: 'incomplete' })
             .first();
 
-        res.json({
-            _id: assessment.id,
-            title: assessment.title,
-            inactivityAlertTime: assessment.inactivity_alert_time,
-            inactivityEndTime: assessment.inactivity_end_time,
-            totalQuestions: questions.length,
-            questionsPerSection: 8,
-            totalSections: 4,
-            questions,
-            resumeData: existingSubmission ? {
+        const resume = existingSubmission
+            ? {
                 lastQuestionIndex: existingSubmission.last_question_index,
                 answers: existingSubmission.answers,
                 submissionId: existingSubmission.id
-            } : null
-        });
+            }
+            : null;
+
+        res.json(buildStudentAssessmentPayload(assessment, resume));
     } catch (error) {
         console.error('Get assessment error:', error);
         res.status(500).json({ message: 'Server error' });
@@ -211,8 +228,14 @@ router.post('/submit', protect, isStudent, async (req, res) => {
         }
 
         let totalScore = 0;
-        const sectionScores = { A: 0, B: 0, C: 0, D: 0 };
+        const sectionScores = {};
+        (assessment.questions || []).forEach((q) => {
+            const k = q.section || 'A';
+            if (sectionScores[k] === undefined) sectionScores[k] = 0;
+        });
+
         const processedAnswers = [];
+        const thresholds = normalizeThresholds(assessment.buckets || {});
 
         answers.forEach((answer, index) => {
             if (!answer) return;
@@ -221,12 +244,12 @@ router.post('/submit', protect, isStudent, async (req, res) => {
                 const option = question.options?.[answer.selectedOption];
                 const marks = option?.marks || 0;
                 totalScore += marks;
-                if (sectionScores.hasOwnProperty(question.section)) {
-                    sectionScores[question.section] += marks;
-                }
+                const sec = question.section || 'A';
+                if (sectionScores[sec] === undefined) sectionScores[sec] = 0;
+                sectionScores[sec] += marks;
                 processedAnswers.push({
                     questionIndex: index,
-                    section: question.section || 'A',
+                    section: sec,
                     selectedOption: answer.selectedOption,
                     marks,
                     timeTakenForQuestion: answer.timeTaken || 0
@@ -234,19 +257,22 @@ router.post('/submit', protect, isStudent, async (req, res) => {
             }
         });
 
-        const sectionBuckets = {
-            A: getBucketLabel(sectionScores.A || 0),
-            B: getBucketLabel(sectionScores.B || 0),
-            C: getBucketLabel(sectionScores.C || 0),
-            D: getBucketLabel(sectionScores.D || 0)
-        };
+        const sectionBuckets = {};
+        Object.keys(sectionScores).forEach((key) => {
+            sectionBuckets[key] = sectionInterpretationLabel(sectionScores[key] || 0, thresholds);
+        });
 
-        const sectionEntries = Object.entries(sectionScores).sort((a, b) => b[1] - a[1]);
-        const primarySkillArea = getSectionName(sectionEntries[0]?.[0] || 'A');
-        const secondarySkillArea = getSectionName(sectionEntries[1]?.[0] || 'B');
+        const pathwayPayload = computePathway({
+            sectionScores,
+            customSections: assessment.custom_sections || [],
+            questions: assessment.questions || [],
+            bucketsJson: assessment.buckets || {},
+            dailyActivitySlots: (assessment.buckets && assessment.buckets.dailyActivitySlots) || 4
+        });
 
-        const avgSectionScore = totalScore / 4;
-        const assignedBucket = getBucketLabel(Math.round(avgSectionScore));
+        const primarySkillArea = pathwayPayload.primaryDisplay;
+        const secondarySkillArea = pathwayPayload.secondaryDisplay;
+        const assignedBucket = pathwayPayload.balanceMode ? 'Balance Mode' : pathwayPayload.trackName;
 
         const schoolIdValue = student.schoolId?._id || student.schoolId;
 
@@ -260,6 +286,7 @@ router.post('/submit', protect, isStudent, async (req, res) => {
             primary_skill_area: primarySkillArea,
             secondary_skill_area: secondarySkillArea,
             assigned_bucket: assignedBucket,
+            pathway: pathwayPayload,
             answers: JSON.stringify(processedAnswers),
             time_taken: timeTaken || 0,
             mobile_number: mobileNumber || '',
@@ -269,6 +296,28 @@ router.post('/submit', protect, isStudent, async (req, res) => {
             status: 'complete',
             submitted_at: new Date()
         }).returning('*');
+
+        try {
+            await db('student_pathways')
+                .insert({
+                    student_id: student._id,
+                    submission_id: submission.id,
+                    assessment_id: assessmentId,
+                    access_id: student.accessId || student.access_id || '',
+                    pathway: pathwayPayload,
+                    updated_at: new Date()
+                })
+                .onConflict('student_id')
+                .merge({
+                    submission_id: submission.id,
+                    assessment_id: assessmentId,
+                    access_id: student.accessId || student.access_id || '',
+                    pathway: pathwayPayload,
+                    updated_at: new Date()
+                });
+        } catch (pe) {
+            console.warn('student_pathways upsert skipped:', pe.message);
+        }
 
         const testIndex = testStatus.findIndex(t => t.assessmentId === assessmentId);
         if (testIndex >= 0) {
@@ -291,7 +340,8 @@ router.post('/submit', protect, isStudent, async (req, res) => {
         res.json({
             success: true,
             message: 'Assessment completed successfully. Thank you for your participation!',
-            submissionId: submission.id
+            submissionId: submission.id,
+            pathway: pathwayPayload
         });
     } catch (error) {
         console.error('Submit error:', error.message, error.stack);
@@ -370,6 +420,25 @@ router.post('/save-progress', protect, isStudent, async (req, res) => {
     } catch (error) {
         console.error('Save progress error:', error);
         res.status(500).json({ message: 'Server error: ' + error.message });
+    }
+});
+
+router.get('/pathway', protect, isStudent, async (req, res) => {
+    try {
+        const row = await db('student_pathways').where({ student_id: req.student._id }).first();
+        if (!row) {
+            return res.json({ pathway: null, accessId: req.student.accessId || req.student.access_id });
+        }
+        res.json({
+            pathway: row.pathway,
+            accessId: row.access_id || req.student.accessId || req.student.access_id,
+            assessmentId: row.assessment_id,
+            submissionId: row.submission_id,
+            updatedAt: row.updated_at
+        });
+    } catch (error) {
+        console.error('Get pathway error:', error);
+        res.status(500).json({ message: 'Server error' });
     }
 });
 

@@ -173,6 +173,7 @@
 .school-table {
     width: 100%;
     border-collapse: collapse;
+    table-layout: fixed;
 }
 
 .school-table th {
@@ -188,12 +189,12 @@
 }
 
 .school-table th:nth-child(2) {
-    padding-left: 24px;
+    padding-left: 16px;
 }
 
 .school-table td {
     padding: 12px 16px;
-    vertical-align: top;
+    vertical-align: middle;
     border-bottom: 1px solid rgba(0, 0, 0, 0.05);
     color: var(--text-dark);
     font-size: 0.9rem;
@@ -210,7 +211,7 @@
 /* School Column */
 .school-info-cell {
     display: flex;
-    align-items: flex-start;
+    align-items: center;
     gap: 12px;
 }
 
@@ -241,6 +242,23 @@
 .school-details {
     display: flex;
     flex-direction: column;
+    min-width: 0;
+    width: 100%;
+    justify-content: center;
+}
+
+.school-details-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    column-gap: 12px;
+    align-items: center; /* centers pill vs multi-line text */
+}
+
+.school-text-block {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
 }
 
 .school-name-link {
@@ -251,6 +269,65 @@
     align-items: center;
     gap: 8px;
     cursor: pointer;
+    line-height: 1.2;
+}
+
+.school-pill-slot {
+    flex: 0 0 auto;
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    min-width: 132px; /* consistent pill alignment */
+}
+
+.school-name-link {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.school-name-text {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.school-pills {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.pill {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    line-height: 1;
+    border: 1px solid transparent;
+    white-space: nowrap;
+}
+
+.pill-purple {
+    background: #ede9fe;
+    color: var(--primary-purple);
+    border-color: #ddd6fe;
+}
+
+.pill-gray {
+    background: rgba(148, 163, 184, 0.15);
+    color: var(--text-muted);
+    border-color: rgba(148, 163, 184, 0.25);
+}
+
+.pill-muted {
+    background: rgba(148, 163, 184, 0.10);
+    color: var(--text-muted);
+    border-color: rgba(148, 163, 184, 0.16);
 }
 
 .school-name-link:hover {
@@ -272,10 +349,16 @@
 .stats-cell {
     display: flex;
     gap: 16px;
+    justify-content: flex-start;
+    align-items: center;
 }
 
 .mini-stat {
     text-align: center;
+    min-width: 56px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
 }
 
 .mini-stat-value {
@@ -469,4 +552,196 @@
 [data-theme="dark"] .copy-btn:hover {
     background: rgba(255, 255, 255, 0.1);
     color: #a78bfa;
+}
+
+.status-stack {
+    display: flex;
+    flex-direction: row;
+    gap: 8px;
+    align-items: center;
+    flex-wrap: nowrap;
+    white-space: nowrap;
+}
+
+.status-stack .badge {
+    padding: 3px 10px;
+    font-size: 0.7rem;
+    letter-spacing: 0.4px;
+}
+
+/* 3-dots (kebab) menu */
+.row-action-menu {
+    position: relative;
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+}
+
+.school-table td:last-child,
+.school-table th:last-child {
+    text-align: right;
+}
+
+.kebab-btn {
+    width: 32px;
+    height: 32px;
+    border-radius: var(--radius-sm);
+    border: 1px solid transparent;
+    background: transparent;
+    color: var(--text-muted);
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: all var(--transition-fast);
+}
+
+.kebab-btn:hover {
+    background: var(--primary-bg);
+    color: var(--primary-purple);
+}
+
+.kebab-btn.active {
+    background: var(--primary-bg);
+    color: var(--primary-purple);
+    border-color: rgba(0, 0, 0, 0.05);
+}
+
+.kebab-btn:focus-visible {
+    outline: 2px solid rgba(124, 58, 237, 0.35);
+    outline-offset: 2px;
+}
+
+.kebab-menu {
+    position: absolute;
+    top: calc(100% + 6px);
+    right: 0;
+    min-width: 220px;
+    background: var(--primary-white);
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    border-radius: var(--radius-md);
+    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.12);
+    padding: 6px;
+    z-index: 30;
+}
+
+.kebab-menu-portal {
+    position: fixed;
+    top: 0;
+    right: 0;
+    z-index: 9999;
+    min-width: 240px;
+    max-width: min(320px, calc(100vw - 16px));
+    animation: kebabIn 120ms ease-out;
+    transform-origin: top right;
+}
+
+@keyframes kebabIn {
+    from {
+        opacity: 0;
+        transform: translateY(-4px) scale(0.98);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+.credential-email {
+    font-size: 0.85rem;
+    color: var(--text-dark);
+    white-space: normal;
+    overflow-wrap: anywhere;
+    line-height: 1.25;
+}
+
+[data-theme="dark"] .credential-email {
+    color: #e2e8f0;
+}
+
+.kebab-item {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 10px;
+    border: none;
+    background: transparent;
+    border-radius: var(--radius-sm);
+    color: var(--text-dark);
+    cursor: pointer;
+    font-size: 0.9rem;
+    text-align: left;
+    transition: all var(--transition-fast);
+}
+
+.kebab-item:hover {
+    background: var(--primary-bg);
+    color: var(--primary-purple);
+}
+
+.kebab-item:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.kebab-item.danger,
+.kebab-item.danger:hover {
+    color: var(--danger);
+}
+
+.kebab-item.success,
+.kebab-item.success:hover {
+    color: var(--success);
+}
+
+.kebab-item.danger:hover {
+    background: rgba(239, 68, 68, 0.10);
+}
+
+.kebab-item.success:hover {
+    background: rgba(16, 185, 129, 0.10);
+}
+
+.kebab-divider {
+    height: 1px;
+    background: rgba(0, 0, 0, 0.06);
+    margin: 6px 4px;
+}
+
+[data-theme="dark"] .pill-purple {
+    background: rgba(167, 139, 250, 0.14);
+    color: #c4b5fd;
+    border-color: rgba(167, 139, 250, 0.25);
+}
+
+[data-theme="dark"] .pill-gray {
+    background: rgba(148, 163, 184, 0.14);
+    color: #94a3b8;
+    border-color: rgba(148, 163, 184, 0.22);
+}
+
+[data-theme="dark"] .pill-muted {
+    background: rgba(148, 163, 184, 0.10);
+    color: #94a3b8;
+    border-color: rgba(148, 163, 184, 0.16);
+}
+
+[data-theme="dark"] .kebab-menu {
+    background: #1e1b2e;
+    border-color: rgba(255, 255, 255, 0.10);
+    box-shadow: 0 14px 34px rgba(0, 0, 0, 0.45);
+}
+
+[data-theme="dark"] .kebab-item {
+    color: #e2e8f0;
+}
+
+[data-theme="dark"] .kebab-item:hover {
+    background: rgba(255, 255, 255, 0.06);
+    color: #c4b5fd;
+}
+
+[data-theme="dark"] .kebab-divider {
+    background: rgba(255, 255, 255, 0.08);
 }

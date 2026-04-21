@@ -9,18 +9,59 @@ import { faEye, faPencil, faTrash, faStar, faList, faClipboardList } from '@fort
 import api from '../../services/api';
 import './AssessmentManagement.css';
 
-const defaultBuckets = [
-    { label: 'Doing Well', minScore: 8, maxScore: 14 },
-    { label: 'Seeking Support', minScore: 15, maxScore: 22 },
-    { label: 'Priority Support', minScore: 23, maxScore: 32 }
+const defaultPathwayConfig = {
+    pathwayThresholds: {
+        stableMax: 14,
+        emergingMin: 15,
+        emergingMax: 22,
+        supportMin: 23
+    },
+    dailyActivitySlots: 4
+};
+
+const SKILL_BUCKET_OPTIONS = [
+    { value: 'ATTN_STABILITY', label: 'ATTN — Attention Stability' },
+    { value: 'LOAD_REGULATION', label: 'LOAD — Load Regulation' },
+    { value: 'SELF_SAFETY', label: 'SELF — Self Safety' },
+    { value: 'SOCIAL_COMFORT', label: 'SOCIAL — Social Comfort' }
 ];
 
 const defaultSections = [
-    { key: 'A', name: 'Focus & Attention' },
-    { key: 'B', name: 'Self-Esteem & Inner Confidence' },
-    { key: 'C', name: 'Social Confidence & Interaction' },
-    { key: 'D', name: 'Digital Hygiene & Self-Control' }
+    { key: 'A', name: 'Focus & Attention', skillBucketKey: 'ATTN_STABILITY' },
+    { key: 'B', name: 'Self-Esteem & Inner Confidence', skillBucketKey: 'SELF_SAFETY' },
+    { key: 'C', name: 'Social Confidence & Interaction', skillBucketKey: 'SOCIAL_COMFORT' },
+    { key: 'D', name: 'Digital Hygiene & Self-Control', skillBucketKey: 'LOAD_REGULATION' }
 ];
+
+function normalizePathwayBuckets(b) {
+    if (b && typeof b === 'object' && !Array.isArray(b) && b.pathwayThresholds) {
+        return {
+            ...defaultPathwayConfig,
+            ...b,
+            pathwayThresholds: {
+                ...defaultPathwayConfig.pathwayThresholds,
+                ...b.pathwayThresholds
+            }
+        };
+    }
+    return { ...defaultPathwayConfig };
+}
+
+function computeAssessmentTotals(questions, customSections) {
+    const perSection = {};
+    (questions || []).forEach((q) => {
+        const maxOpt = Math.max(0, ...(q.options || []).map((o) => Number(o.marks) || 0));
+        const sec = q.section || 'A';
+        perSection[sec] = (perSection[sec] || 0) + maxOpt;
+    });
+    const total = Object.values(perSection).reduce((a, x) => a + x, 0);
+    const skillMax = { ATTN_STABILITY: 0, LOAD_REGULATION: 0, SELF_SAFETY: 0, SOCIAL_COMFORT: 0 };
+    (customSections || []).forEach((s) => {
+        const sk = s.skillBucketKey || 'ATTN_STABILITY';
+        if (skillMax[sk] !== undefined) skillMax[sk] += perSection[s.key] || 0;
+    });
+    return { perSection, total, skillMax };
+}
 
 const AssessmentManagement = () => {
     const navigate = useNavigate();
@@ -41,7 +82,7 @@ const AssessmentManagement = () => {
         inactivityAlertTime: 40,
         inactivityEndTime: 120,
         questions: [],
-        buckets: defaultBuckets,
+        buckets: { ...defaultPathwayConfig },
         customSections: defaultSections
     });
 
@@ -56,7 +97,7 @@ const AssessmentManagement = () => {
         ]
     });
 
-    const [newSection, setNewSection] = useState({ key: '', name: '' });
+    const [newSection, setNewSection] = useState({ key: '', name: '', skillBucketKey: 'ATTN_STABILITY' });
 
     useEffect(() => {
         fetchAssessments();
@@ -81,7 +122,7 @@ const AssessmentManagement = () => {
             inactivityAlertTime: 40,
             inactivityEndTime: 120,
             questions: [],
-            buckets: defaultBuckets,
+            buckets: { ...defaultPathwayConfig },
             customSections: defaultSections
         });
         setShowModal(true);
@@ -89,16 +130,18 @@ const AssessmentManagement = () => {
 
     const openEditModal = (assessment) => {
         setEditingAssessment(assessment);
+        const mergedSections = (assessment.customSections?.length > 0 ? assessment.customSections : defaultSections).map((s) => ({
+            ...s,
+            skillBucketKey: s.skillBucketKey || 'ATTN_STABILITY'
+        }));
         setFormData({
             title: assessment.title,
             description: assessment.description || '',
             inactivityAlertTime: assessment.inactivityAlertTime || 40,
             inactivityEndTime: assessment.inactivityEndTime || 120,
             questions: assessment.questions || [],
-            buckets: assessment.buckets || defaultBuckets,
-            customSections: assessment.customSections?.length > 0
-                ? assessment.customSections
-                : defaultSections
+            buckets: normalizePathwayBuckets(assessment.buckets),
+            customSections: mergedSections
         });
         setShowModal(true);
     };
@@ -164,9 +207,9 @@ const AssessmentManagement = () => {
         }
         setFormData({
             ...formData,
-            customSections: [...formData.customSections, { ...newSection }]
+            customSections: [...formData.customSections, { ...newSection, skillBucketKey: newSection.skillBucketKey || 'ATTN_STABILITY' }]
         });
-        setNewSection({ key: '', name: '' });
+        setNewSection({ key: '', name: '', skillBucketKey: 'ATTN_STABILITY' });
     };
 
     const removeSection = (key) => {
@@ -179,6 +222,15 @@ const AssessmentManagement = () => {
         setFormData({
             ...formData,
             customSections: formData.customSections.filter(s => s.key !== key)
+        });
+    };
+
+    const updateSectionSkillBucket = (key, skillBucketKey) => {
+        setFormData({
+            ...formData,
+            customSections: formData.customSections.map((s) =>
+                s.key === key ? { ...s, skillBucketKey } : s
+            )
         });
     };
 
@@ -303,8 +355,10 @@ const AssessmentManagement = () => {
                                 <span className="assessment-stat-label">Items</span>
                             </div>
                             <div className="assessment-stat">
-                                <span className="assessment-stat-value">{assessment.inactivityAlertTime || 40}s</span>
-                                <span className="assessment-stat-label">Alert Time</span>
+                                <span className="assessment-stat-value">
+                                    {computeAssessmentTotals(assessment.questions, assessment.customSections || defaultSections).total}
+                                </span>
+                                <span className="assessment-stat-label">Max score</span>
                             </div>
                             <div className="assessment-stat">
                                 <span className="assessment-stat-value">{assessment.customSections?.length || 4}</span>
@@ -313,11 +367,12 @@ const AssessmentManagement = () => {
                         </div>
 
                         <div className="assessment-sections">
-                            {(assessment.customSections?.length > 0 ? assessment.customSections : defaultSections).slice(0, 4).map((section, i) => (
+                            {(assessment.customSections?.length > 0 ? assessment.customSections : defaultSections).slice(0, 6).map((section, i) => (
                                 <div
                                     key={section.key}
                                     className="section-tag"
-                                    style={{ background: `rgba(185, 147, 233, ${0.1 + i * 0.1})` }}
+                                    style={{ background: `rgba(185, 147, 233, ${0.1 + (i % 4) * 0.1})` }}
+                                    title={section.skillBucketKey || ''}
                                 >
                                     {section.key}: {section.name.split(' ')[0]}
                                 </div>
@@ -325,20 +380,27 @@ const AssessmentManagement = () => {
                         </div>
 
                         <div className="assessment-buckets">
-                            <h4>Index Interpretation</h4>
+                            <h4>Skill score bands (per section / bucket)</h4>
                             <div className="bucket-list">
-                                <div className="bucket-item">
-                                    <span className="bucket-dot" style={{ background: '#10B981' }}></span>
-                                    <span>8-14: Doing Well</span>
-                                </div>
-                                <div className="bucket-item">
-                                    <span className="bucket-dot" style={{ background: '#F59E0B' }}></span>
-                                    <span>15-22: Seeking Support</span>
-                                </div>
-                                <div className="bucket-item">
-                                    <span className="bucket-dot" style={{ background: '#EF4444' }}></span>
-                                    <span>23-32: Priority Support</span>
-                                </div>
+                                {(() => {
+                                    const pt = normalizePathwayBuckets(assessment.buckets).pathwayThresholds;
+                                    return (
+                                        <>
+                                            <div className="bucket-item">
+                                                <span className="bucket-dot" style={{ background: '#10B981' }}></span>
+                                                <span>≤{pt.stableMax}: Stable</span>
+                                            </div>
+                                            <div className="bucket-item">
+                                                <span className="bucket-dot" style={{ background: '#F59E0B' }}></span>
+                                                <span>{pt.emergingMin}–{pt.emergingMax}: Emerging</span>
+                                            </div>
+                                            <div className="bucket-item">
+                                                <span className="bucket-dot" style={{ background: '#EF4444' }}></span>
+                                                <span>≥{pt.supportMin}: Support needed</span>
+                                            </div>
+                                        </>
+                                    );
+                                })()}
                             </div>
                         </div>
 
@@ -466,6 +528,114 @@ const AssessmentManagement = () => {
                                     </div>
                                 </div>
 
+                                <div className="form-group">
+                                    <label className="form-label">Pathway & scoring (per skill bucket / section max typically 32)</label>
+                                    <div className="form-row">
+                                        <div className="form-group">
+                                            <label className="form-label">Stable max</label>
+                                            <input
+                                                type="number"
+                                                className="form-input"
+                                                value={formData.buckets.pathwayThresholds.stableMax}
+                                                onChange={(e) =>
+                                                    setFormData({
+                                                        ...formData,
+                                                        buckets: {
+                                                            ...formData.buckets,
+                                                            pathwayThresholds: {
+                                                                ...formData.buckets.pathwayThresholds,
+                                                                stableMax: parseInt(e.target.value, 10) || 0
+                                                            }
+                                                        }
+                                                    })
+                                                }
+                                            />
+                                        </div>
+                                        <div className="form-group">
+                                            <label className="form-label">Emerging min–max</label>
+                                            <div className="form-row">
+                                                <input
+                                                    type="number"
+                                                    className="form-input"
+                                                    value={formData.buckets.pathwayThresholds.emergingMin}
+                                                    onChange={(e) =>
+                                                        setFormData({
+                                                            ...formData,
+                                                            buckets: {
+                                                                ...formData.buckets,
+                                                                pathwayThresholds: {
+                                                                    ...formData.buckets.pathwayThresholds,
+                                                                    emergingMin: parseInt(e.target.value, 10) || 0
+                                                                }
+                                                            }
+                                                        })
+                                                    }
+                                                />
+                                                <input
+                                                    type="number"
+                                                    className="form-input"
+                                                    value={formData.buckets.pathwayThresholds.emergingMax}
+                                                    onChange={(e) =>
+                                                        setFormData({
+                                                            ...formData,
+                                                            buckets: {
+                                                                ...formData.buckets,
+                                                                pathwayThresholds: {
+                                                                    ...formData.buckets.pathwayThresholds,
+                                                                    emergingMax: parseInt(e.target.value, 10) || 0
+                                                                }
+                                                            }
+                                                        })
+                                                    }
+                                                />
+                                            </div>
+                                        </div>
+                                        <div className="form-group">
+                                            <label className="form-label">Support min</label>
+                                            <input
+                                                type="number"
+                                                className="form-input"
+                                                value={formData.buckets.pathwayThresholds.supportMin}
+                                                onChange={(e) =>
+                                                    setFormData({
+                                                        ...formData,
+                                                        buckets: {
+                                                            ...formData.buckets,
+                                                            pathwayThresholds: {
+                                                                ...formData.buckets.pathwayThresholds,
+                                                                supportMin: parseInt(e.target.value, 10) || 0
+                                                            }
+                                                        }
+                                                    })
+                                                }
+                                            />
+                                        </div>
+                                        <div className="form-group">
+                                            <label className="form-label">Daily activity slots (app)</label>
+                                            <input
+                                                type="number"
+                                                className="form-input"
+                                                min={1}
+                                                max={12}
+                                                value={formData.buckets.dailyActivitySlots || 4}
+                                                onChange={(e) =>
+                                                    setFormData({
+                                                        ...formData,
+                                                        buckets: {
+                                                            ...formData.buckets,
+                                                            dailyActivitySlots: parseInt(e.target.value, 10) || 4
+                                                        }
+                                                    })
+                                                }
+                                            />
+                                        </div>
+                                    </div>
+                                    <small className="form-hint">
+                                        Max check-in score (computed from item marks):{' '}
+                                        <strong>{computeAssessmentTotals(formData.questions, formData.customSections).total}</strong>
+                                    </small>
+                                </div>
+
                                 {/* Sections Management */}
                                 <div className="sections-section">
                                     <div className="section-header">
@@ -538,7 +708,7 @@ const AssessmentManagement = () => {
                                         </div>
 
                                         <div className="options-form">
-                                            <label className="form-label">Options (1=low, 4=high)</label>
+                                            <label className="form-label">Options (set label and marks per option)</label>
                                             {currentQuestion.options.map((opt, idx) => (
                                                 <div key={idx} className="option-row">
                                                     <span className="option-mark">{idx + 1}</span>
@@ -552,6 +722,22 @@ const AssessmentManagement = () => {
                                                             setCurrentQuestion({ ...currentQuestion, options: newOptions });
                                                         }}
                                                         placeholder={`Option ${idx + 1}`}
+                                                    />
+                                                    <input
+                                                        type="number"
+                                                        className="form-input"
+                                                        style={{ maxWidth: '88px' }}
+                                                        title="Marks"
+                                                        value={opt.marks}
+                                                        min={0}
+                                                        onChange={(e) => {
+                                                            const newOptions = [...currentQuestion.options];
+                                                            newOptions[idx] = {
+                                                                ...newOptions[idx],
+                                                                marks: parseInt(e.target.value, 10) || 0
+                                                            };
+                                                            setCurrentQuestion({ ...currentQuestion, options: newOptions });
+                                                        }}
                                                     />
                                                 </div>
                                             ))}
@@ -620,6 +806,16 @@ const AssessmentManagement = () => {
                                                 <span className="section-key">{section.key}</span>
                                                 <span className="section-name">{section.name}</span>
                                             </div>
+                                            <select
+                                                className="form-input"
+                                                style={{ maxWidth: '220px' }}
+                                                value={section.skillBucketKey || 'ATTN_STABILITY'}
+                                                onChange={(e) => updateSectionSkillBucket(section.key, e.target.value)}
+                                            >
+                                                {SKILL_BUCKET_OPTIONS.map((o) => (
+                                                    <option key={o.value} value={o.value}>{o.label}</option>
+                                                ))}
+                                            </select>
                                             <button
                                                 className="btn btn-danger btn-sm"
                                                 onClick={() => removeSection(section.key)}
@@ -653,6 +849,18 @@ const AssessmentManagement = () => {
                                                 onChange={(e) => setNewSection({ ...newSection, name: e.target.value })}
                                                 placeholder="Time Management"
                                             />
+                                        </div>
+                                        <div className="form-group">
+                                            <label className="form-label">Skill bucket</label>
+                                            <select
+                                                className="form-input"
+                                                value={newSection.skillBucketKey}
+                                                onChange={(e) => setNewSection({ ...newSection, skillBucketKey: e.target.value })}
+                                            >
+                                                {SKILL_BUCKET_OPTIONS.map((o) => (
+                                                    <option key={o.value} value={o.value}>{o.label}</option>
+                                                ))}
+                                            </select>
                                         </div>
                                     </div>
                                     <button

@@ -8,6 +8,7 @@ import ChangePassword from './pages/ChangePassword';
 import AdminDashboard from './pages/admin/AdminDashboard';
 import SchoolManagement from './pages/admin/SchoolManagement';
 import AssessmentManagement from './pages/admin/AssessmentManagement';
+import AppGameManagement from './pages/admin/AppGameManagement';
 import AdminAnalytics from './pages/admin/Analytics';
 import AdminTickets from './pages/admin/AdminTickets';
 import AdminManagement from './pages/admin/AdminManagement';
@@ -90,6 +91,11 @@ function App() {
             <Route path="/admin/assessments" element={
                 <ProtectedRoute allowedRoles={['admin']}>
                     <AssessmentManagement />
+                </ProtectedRoute>
+            } />
+            <Route path="/admin/app-games" element={
+                <ProtectedRoute allowedRoles={['admin']}>
+                    <AppGameManagement />
                 </ProtectedRoute>
             } />
             <Route path="/admin/analytics" element={

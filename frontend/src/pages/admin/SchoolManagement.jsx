@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useMemo, useRef, useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
@@ -33,6 +34,7 @@ import {
     faChevronDown,
     faChevronRight,
     faBuilding,
+    faEllipsisVertical,
     faTimes
 } from '@fortawesome/free-solid-svg-icons';
 import { Country, State, City } from 'country-state-city';
@@ -65,6 +67,9 @@ const SchoolManagement = () => {
     const navigate = useNavigate();
     const [pagination, setPagination] = useState({ page: 1, limit: 10, total: 0, totalPages: 1 });
     const [expandedSchools, setExpandedSchools] = useState({}); // Track expanded super schools
+    const [openActionMenuId, setOpenActionMenuId] = useState(null);
+    const [actionMenuPos, setActionMenuPos] = useState(null); // { top, right, width } in viewport coords
+    const actionMenuAnchorRefs = useRef(new Map()); // id -> HTMLElement
 
     // Filters
     const [filterState, setFilterState] = useState('');
@@ -92,6 +97,37 @@ const SchoolManagement = () => {
         fetchSchools();
         fetchAssessments();
     }, []);
+
+    useEffect(() => {
+        if (!openActionMenuId) return;
+        const onPointerDown = (e) => {
+            if (e.target.closest?.('.row-action-menu')) return;
+            if (e.target.closest?.('.kebab-menu-portal')) return;
+            setOpenActionMenuId(null);
+        };
+        document.addEventListener('pointerdown', onPointerDown, { capture: true });
+        return () => document.removeEventListener('pointerdown', onPointerDown, { capture: true });
+    }, [openActionMenuId]);
+
+    useEffect(() => {
+        if (!openActionMenuId) return;
+        const reposition = () => {
+            const anchorEl = actionMenuAnchorRefs.current.get(openActionMenuId);
+            if (!anchorEl) return;
+            const rect = anchorEl.getBoundingClientRect();
+            const top = rect.bottom + 6;
+            const right = Math.max(8, window.innerWidth - rect.right);
+            const width = Math.max(220, rect.width);
+            setActionMenuPos({ top, right, width });
+        };
+        reposition();
+        window.addEventListener('resize', reposition);
+        window.addEventListener('scroll', reposition, true);
+        return () => {
+            window.removeEventListener('resize', reposition);
+            window.removeEventListener('scroll', reposition, true);
+        };
+    }, [openActionMenuId]);
 
     const fetchSchools = async (page = 1) => {
         try {
@@ -425,6 +461,120 @@ const SchoolManagement = () => {
         navigate(`/admin/analytics?schoolId=${school._id}`);
     };
 
+    const getBranchesCount = (school) => Array.isArray(school?.branches) ? school.branches.length : 0;
+    const safeName = (school) => (school?.name && String(school.name).trim()) ? String(school.name) : 'Unnamed school';
+
+    const renderRowActionMenu = (school, { isBranchRow = false } = {}) => {
+        const menuId = `${isBranchRow ? 'branch' : 'school'}:${school._id}`;
+        const isOpen = openActionMenuId === menuId;
+        const blocked = !!school.isBlocked;
+        const hasEmail = !!school.email;
+
+        const menu = (
+            <div className="kebab-menu kebab-menu-portal" role="menu" style={actionMenuPos ? { position: 'fixed', top: actionMenuPos.top, right: actionMenuPos.right } : undefined}>
+                {!isBranchRow && (
+                    <button type="button" className="kebab-item" role="menuitem" onClick={() => { setOpenActionMenuId(null); openBranchModal(school); }}>
+                        <FontAwesomeIcon icon={faPlus} /> Add Branch
+                    </button>
+                )}
+
+                <button type="button" className="kebab-item" role="menuitem" onClick={() => { setOpenActionMenuId(null); openModal(school); }}>
+                    <FontAwesomeIcon icon={faPenToSquare} /> {isBranchRow ? 'Edit Branch' : 'Edit School'}
+                </button>
+
+                {!isBranchRow && (
+                    <>
+                        <button type="button" className="kebab-item" role="menuitem" onClick={() => { setOpenActionMenuId(null); openCredentialsModal(school); }}>
+                            <FontAwesomeIcon icon={faKey} /> Edit Credentials
+                        </button>
+
+                        <button type="button" className="kebab-item" role="menuitem" onClick={() => { setOpenActionMenuId(null); openTestsModal(school); }}>
+                            <FontAwesomeIcon icon={faClipboardList} /> Manage Check-ins
+                        </button>
+                    </>
+                )}
+
+                <button type="button" className="kebab-item" role="menuitem" onClick={() => { setOpenActionMenuId(null); handleViewAnalytics(school); }}>
+                    <FontAwesomeIcon icon={faChartLine} /> View Insights
+                </button>
+
+                {!isBranchRow && (
+                    <>
+                        <div className="kebab-divider" />
+
+                        <button
+                            type="button"
+                            className="kebab-item"
+                            role="menuitem"
+                            disabled={!hasEmail}
+                            onClick={() => { setOpenActionMenuId(null); handleSendCredentials(school, false); }}
+                            title={!hasEmail ? 'No email set for this school' : 'Send credentials email'}
+                        >
+                            <FontAwesomeIcon icon={faPaperPlane} /> Send Credentials
+                        </button>
+
+                        <button
+                            type="button"
+                            className="kebab-item"
+                            role="menuitem"
+                            disabled={!hasEmail}
+                            onClick={() => { setOpenActionMenuId(null); handleSendCredentials(school, true); }}
+                            title={!hasEmail ? 'No email set for this school' : 'Generate a new password and send email'}
+                        >
+                            <FontAwesomeIcon icon={faKey} /> Regenerate & Send
+                        </button>
+                    </>
+                )}
+
+                <div className="kebab-divider" />
+
+                <button
+                    type="button"
+                    className={`kebab-item ${blocked ? 'success' : 'danger'}`}
+                    role="menuitem"
+                    onClick={() => { setOpenActionMenuId(null); handleToggleBlock(school); }}
+                >
+                    <FontAwesomeIcon icon={blocked ? faCircleCheck : faBan} /> {blocked ? 'Unblock' : 'Block'}
+                </button>
+
+                {!isBranchRow && (
+                    <button
+                        type="button"
+                        className="kebab-item danger"
+                        role="menuitem"
+                        onClick={() => { setOpenActionMenuId(null); handleDelete(school._id); }}
+                    >
+                        <FontAwesomeIcon icon={faTrash} /> Delete
+                    </button>
+                )}
+            </div>
+        );
+
+        return (
+            <div className="row-action-menu" data-open={isOpen ? 'true' : 'false'}>
+                <button
+                    type="button"
+                    className={`kebab-btn ${isOpen ? 'active' : ''}`}
+                    ref={(el) => {
+                        if (el) actionMenuAnchorRefs.current.set(menuId, el);
+                        else actionMenuAnchorRefs.current.delete(menuId);
+                    }}
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        setOpenActionMenuId(isOpen ? null : menuId);
+                    }}
+                    aria-haspopup="menu"
+                    aria-expanded={isOpen}
+                    title="More actions"
+                >
+                    <FontAwesomeIcon icon={faEllipsisVertical} />
+                </button>
+
+                {isOpen && createPortal(menu, document.body)}
+            </div>
+        );
+    };
+
     if (loading) {
         return (
             <Layout title="School Management">
@@ -550,12 +700,12 @@ const SchoolManagement = () => {
                 <table className="school-table">
                     <thead>
                         <tr>
-                            <th width="25%">School</th>
-                            <th width="20%">School ID</th>
-                            <th width="20%">Stats (Students / Check-ins / Tests)</th>
+                            <th width="32%">School</th>
+                            <th width="14%">School ID</th>
+                            <th width="18%">Stats</th>
                             <th width="20%">Credentials</th>
-                            <th width="10%">Access</th>
-                            <th width="10%">Actions</th>
+                            <th width="13%">Status</th>
+                            <th width="3%"></th>
                         </tr>
                     </thead>
                     <tbody>
@@ -568,33 +718,48 @@ const SchoolManagement = () => {
                                                 {school.logo ? (
                                                     <img src={school.logo} alt={school.name} />
                                                 ) : (
-                                                    <span>{school.name[0]}</span>
+                                                    <span>{safeName(school)[0]}</span>
                                                 )}
                                             </div>
-                                            <div className="school-details">
-                                                <div
-                                                    className="school-name-link"
-                                                    onClick={() => school.branches?.length > 0 && toggleExpand(school._id)}
-                                                    title={school.name}
-                                                >
-                                                    {school.name}
-                                                    {school.branches?.length > 0 && (
-                                                        <FontAwesomeIcon
-                                                            icon={expandedSchools[school._id] ? faChevronDown : faChevronRight}
-                                                            style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}
-                                                        />
-                                                    )}
-                                                </div>
-                                                {school.parentId && (
-                                                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px', marginTop: '2px' }}>
-                                                        <FontAwesomeIcon icon={faBuilding} style={{ fontSize: '0.65rem' }} />
-                                                        <span>{school.parentId.name}</span>
+                                            <div className="school-details school-details-grid">
+                                                <div className="school-text-block">
+                                                    <div
+                                                        className="school-name-link"
+                                                        onClick={() => getBranchesCount(school) > 0 && toggleExpand(school._id)}
+                                                        title={safeName(school)}
+                                                    >
+                                                        <span className="school-name-text">{safeName(school)}</span>
+                                                        {getBranchesCount(school) > 0 && (
+                                                            <FontAwesomeIcon
+                                                                icon={expandedSchools[school._id] ? faChevronDown : faChevronRight}
+                                                                style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}
+                                                            />
+                                                        )}
                                                     </div>
-                                                )}
-                                                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '2px' }}>
-                                                    {school.address?.city}, {school.address?.state}
+                                                    {school.parentId && (
+                                                        <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px', marginTop: '2px' }}>
+                                                            <FontAwesomeIcon icon={faBuilding} style={{ fontSize: '0.65rem' }} />
+                                                            <span>{school.parentId.name}</span>
+                                                        </div>
+                                                    )}
+                                                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                                                        {school.address?.city}, {school.address?.state}
+                                                    </div>
                                                 </div>
-                                                {school.isBlocked && <span style={{ color: 'var(--danger)', fontSize: '0.7rem', fontWeight: 600 }}>BLOCKED</span>}
+                                                <div className="school-pill-slot">
+                                                    <span className="school-pills">
+                                                        {!school.parentId && (
+                                                            <span className={`pill ${getBranchesCount(school) > 0 ? 'pill-purple' : 'pill-muted'}`} title="Number of branches">
+                                                                {getBranchesCount(school)} {getBranchesCount(school) === 1 ? 'Branch' : 'Branches'}
+                                                            </span>
+                                                        )}
+                                                        {school.parentId && (
+                                                            <span className="pill pill-gray" title="This school is a sub-branch">
+                                                                Sub-branch
+                                                            </span>
+                                                        )}
+                                                    </span>
+                                                </div>
                                             </div>
                                         </div>
                                     </td>
@@ -619,77 +784,23 @@ const SchoolManagement = () => {
                                     </td>
                                     <td>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                            <span style={{ fontSize: '0.85rem', color: 'var(--text-dark)', maxWidth: '150px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={school.email}>
+                                            <span className="credential-email" title={school.email}>
                                                 {school.email || 'Not set'}
                                             </span>
-                                            {school.email && (
-                                                <button
-                                                    className="copy-btn"
-                                                    onClick={() => handleSendCredentials(school, false)}
-                                                    title="Resend Credentials Email"
-                                                >
-                                                    <FontAwesomeIcon icon={faPaperPlane} />
-                                                </button>
-                                            )}
                                         </div>
                                     </td>
                                     <td>
-                                        <span className={`badge ${school.isDataVisibleToSchool ? 'badge-success' : 'badge-warning'}`}>
-                                            {school.isDataVisibleToSchool ? 'Visible' : 'Hidden'}
-                                        </span>
+                                        <div className="status-stack">
+                                            <span className={`badge ${school.isDataVisibleToSchool ? 'badge-success' : 'badge-warning'}`}>
+                                                {school.isDataVisibleToSchool ? 'Analytics: On' : 'Analytics: Off'}
+                                            </span>
+                                            <span className={`badge ${school.isBlocked ? 'badge-danger' : 'badge-success'}`}>
+                                                {school.isBlocked ? 'Blocked' : 'Active'}
+                                            </span>
+                                        </div>
                                     </td>
                                     <td>
-                                        <div className="action-cell">
-                                            <button
-                                                className="table-action-btn"
-                                                onClick={() => openBranchModal(school)}
-                                                title="Add Branch"
-                                            >
-                                                <FontAwesomeIcon icon={faPlus} />
-                                            </button>
-                                            <button
-                                                className="table-action-btn edit"
-                                                onClick={() => openModal(school)}
-                                                title="Edit School"
-                                            >
-                                                <FontAwesomeIcon icon={faPenToSquare} />
-                                            </button>
-                                            <button
-                                                className="table-action-btn edit"
-                                                onClick={() => openCredentialsModal(school)}
-                                                title="Edit Credentials"
-                                            >
-                                                <FontAwesomeIcon icon={faKey} />
-                                            </button>
-                                            <button
-                                                className="table-action-btn edit"
-                                                onClick={() => openTestsModal(school)}
-                                                title="Manage Check-ins"
-                                            >
-                                                <FontAwesomeIcon icon={faClipboardList} />
-                                            </button>
-                                            <button
-                                                className="table-action-btn edit"
-                                                onClick={() => handleViewAnalytics(school)}
-                                                title="View Insights"
-                                            >
-                                                <FontAwesomeIcon icon={faChartLine} />
-                                            </button>
-                                            <button
-                                                className={`table-action-btn ${school.isBlocked ? 'success' : 'delete'}`}
-                                                onClick={() => handleToggleBlock(school)}
-                                                title={school.isBlocked ? 'Unblock' : 'Block'}
-                                            >
-                                                <FontAwesomeIcon icon={school.isBlocked ? faCircleCheck : faBan} />
-                                            </button>
-                                            <button
-                                                className="table-action-btn delete"
-                                                onClick={() => handleDelete(school._id)}
-                                                title="Delete School"
-                                            >
-                                                <FontAwesomeIcon icon={faTrash} />
-                                            </button>
-                                        </div>
+                                        {renderRowActionMenu(school)}
                                     </td>
                                 </tr>
                                 {expandedSchools[school._id] && school.branches && school.branches.length > 0 && (
@@ -705,7 +816,7 @@ const SchoolManagement = () => {
                                                             <th>Branch Name</th>
                                                             <th>Branch ID</th>
                                                             <th>Students</th>
-                                                            <th>Actions</th>
+                                                            <th></th>
                                                         </tr>
                                                     </thead>
                                                     <tbody>
@@ -717,19 +828,28 @@ const SchoolManagement = () => {
                                                                             {school.logo ? (
                                                                                 <img src={school.logo} alt={school.name} />
                                                                             ) : (
-                                                                                <span>{school.name[0]}</span>
+                                                                                <span>{safeName(school)[0]}</span>
                                                                             )}
                                                                         </div>
-                                                                        <div className="school-details">
-                                                                            <div className="school-name-link" style={{ fontSize: '0.9rem' }}>
-                                                                                {branch.name}
+                                                                        <div className="school-details school-details-grid">
+                                                                            <div className="school-text-block">
+                                                                                <div className="school-name-link" style={{ fontSize: '0.9rem' }} title={safeName(branch)}>
+                                                                                    <span className="school-name-text">{safeName(branch)}</span>
+                                                                                </div>
+                                                                                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                                                                    <FontAwesomeIcon icon={faSchool} style={{ fontSize: '0.65rem' }} />
+                                                                                    {school.name}
+                                                                                </div>
+                                                                                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                                                                                    {branch.address?.city}, {branch.address?.state}
+                                                                                </div>
                                                                             </div>
-                                                                            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                                                                <FontAwesomeIcon icon={faSchool} style={{ fontSize: '0.65rem' }} />
-                                                                                {school.name}
-                                                                            </div>
-                                                                            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '2px' }}>
-                                                                                {branch.address?.city}, {branch.address?.state}
+                                                                            <div className="school-pill-slot">
+                                                                                <span className="school-pills">
+                                                                                    <span className="pill pill-gray" title="This school is a sub-branch">
+                                                                                        Sub-branch
+                                                                                    </span>
+                                                                                </span>
                                                                             </div>
                                                                         </div>
                                                                     </div>
@@ -741,22 +861,7 @@ const SchoolManagement = () => {
                                                                 </td>
                                                                 <td>{branch.stats?.studentCount || 0}</td>
                                                                 <td>
-                                                                    <div style={{ display: 'flex', gap: '8px' }}>
-                                                                        <button
-                                                                            className="table-action-btn edit"
-                                                                            onClick={() => handleViewAnalytics(branch)}
-                                                                            title="View Insights"
-                                                                        >
-                                                                            <FontAwesomeIcon icon={faChartLine} />
-                                                                        </button>
-                                                                        <button
-                                                                            className="table-action-btn edit"
-                                                                            onClick={() => openModal(branch)}
-                                                                            title="Edit Branch"
-                                                                        >
-                                                                            <FontAwesomeIcon icon={faPenToSquare} />
-                                                                        </button>
-                                                                    </div>
+                                                                    {renderRowActionMenu(branch, { isBranchRow: true })}
                                                                 </td>
                                                             </tr>
                                                         ))}

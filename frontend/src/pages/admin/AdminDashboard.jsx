@@ -2,9 +2,8 @@ import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, AreaChart, Area } from 'recharts';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faSchool, faUserGraduate, faClipboardList, faCheckCircle, faPaperPlane, faHeartPulse, faBrain, faMobileScreenButton, faRobot, faArrowRight, faExclamationCircle } from '@fortawesome/free-solid-svg-icons';
+import { faBrain, faCheckCircle, faExclamationCircle, faHeartPulse, faMobileScreenButton, faRobot, faSchool } from '@fortawesome/free-solid-svg-icons';
 import Layout from '../../components/common/Layout';
-import Background3D from '../../components/common/Background3D';
 import api from '../../services/api';
 import './AdminDashboard.css';
 
@@ -30,7 +29,6 @@ const AdminDashboard = () => {
     if (loading) {
         return (
             <Layout title="Dashboard">
-                <Background3D />
                 <div className="loading-container">
                     <div className="spinner"></div>
                     <p className="loading-text">Loading dashboard...</p>
@@ -60,6 +58,12 @@ const AdminDashboard = () => {
 
     const trendData = data?.wellnessTrends || [];
     const attentionData = data?.attentionNeeded || [];
+    const latestTrend = trendData.length > 0 ? trendData[trendData.length - 1] : null;
+    const avgScore = latestTrend?.score || 0;
+    const submissionsInTrendWindow = trendData.reduce((sum, m) => sum + (m.count || 0), 0);
+    const mostCommonBucket = bucketData.length > 0
+        ? bucketData.reduce((best, cur) => (cur.value > best.value ? cur : best), bucketData[0])
+        : null;
 
     const containerVariants = {
         hidden: { opacity: 0 },
@@ -75,8 +79,7 @@ const AdminDashboard = () => {
     };
 
     return (
-        <Layout title="Admin Platform" subtitle="Live tracking across all networks">
-            <Background3D />
+        <Layout title="Admin Dashboard" subtitle="Platform analytics overview">
             
             <motion.div 
                 className="admin-dashboard-wrapper"
@@ -89,7 +92,7 @@ const AdminDashboard = () => {
                     <motion.div variants={itemVariants} className="stat-card aesthetic-card">
                         <div className="stat-info">
                             <div className="stat-value">{data?.overview?.totalSchools || 0}</div>
-                            <div className="stat-label">Active Schools</div>
+                            <div className="stat-label">Schools</div>
                         </div>
                     </motion.div>
 
@@ -177,12 +180,12 @@ const AdminDashboard = () => {
                         </div>
                     </motion.div>
 
-                    {/* Row 1 & 2 / Col 3 - Luma AI / Photo Card */}
+                    {/* Row 1 & 2 / Col 3 - Analytics Summary */}
                     <motion.div variants={itemVariants} style={{ gridColumn: '3', gridRow: '1 / span 2' }}>
                         <div className="ai-assistant-card image-glass-card" style={{ height: '100%' }}>
                             <div>
-                                <h3 className="chart-title"><FontAwesomeIcon icon={faRobot} /> Network Insights</h3>
-                                <p className="chart-subtitle">Your real-time wellness assistant</p>
+                                <h3 className="chart-title"><FontAwesomeIcon icon={faRobot} /> Analytics</h3>
+                                <p className="chart-subtitle">At-a-glance distribution and health signals</p>
                                 
                                 {bucketData.length > 0 && (
                                     <div style={{ height: 280, position: 'relative' }}>
@@ -212,26 +215,30 @@ const AdminDashboard = () => {
                                         </div>
                                     </div>
                                 )}
-                            </div>
-                            
-                            <div className="glass-interface">
-                                <div className="glass-chip-row">
-                                    <div className="glass-chip">Why is focus dropping?</div>
-                                    <div className="glass-chip">Are schools stable?</div>
-                                    <div className="glass-chip">Generate report</div>
-                                </div>
-                                <div className="glass-search-bar">
-                                    <img src="/assets/avatars/avatar-1.png" alt="Avatar" style={{ width: 24, height: 24, borderRadius: '50%' }} onError={(e) => { e.target.style.display = 'none'; }} />
-                                    <input type="text" placeholder="Ask AI something..." />
-                                    <div className="send-btn">
-                                        <FontAwesomeIcon icon={faPaperPlane} />
+
+                                <div className="analytics-kpis">
+                                    <div className="analytics-kpi">
+                                        <div className="analytics-kpi-label">Avg score (latest month)</div>
+                                        <div className="analytics-kpi-value">{avgScore || '—'}</div>
+                                    </div>
+                                    <div className="analytics-kpi">
+                                        <div className="analytics-kpi-label">Trend submissions (6 mo)</div>
+                                        <div className="analytics-kpi-value">{submissionsInTrendWindow}</div>
+                                    </div>
+                                    <div className="analytics-kpi">
+                                        <div className="analytics-kpi-label">Flagged schools</div>
+                                        <div className="analytics-kpi-value">{attentionData.length}</div>
+                                    </div>
+                                    <div className="analytics-kpi">
+                                        <div className="analytics-kpi-label">Top bucket</div>
+                                        <div className="analytics-kpi-value">{mostCommonBucket ? mostCommonBucket.name : '—'}</div>
                                     </div>
                                 </div>
                             </div>
                         </div>
                     </motion.div>
 
-                    {/* Row 2 / Col 1 - Priority Support List (Image background) */}
+                    {/* Row 2 / Col 1 - Priority Support List */}
                     <motion.div variants={itemVariants} style={{ gridColumn: '1' }}>
                         <div className="integrations-panel image-glass-card" style={{ height: '100%', gridColumn: '1' }}>
                             <h3 className="chart-title">Intervention Required</h3>

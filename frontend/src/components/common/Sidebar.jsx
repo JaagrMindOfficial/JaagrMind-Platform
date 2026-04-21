@@ -10,7 +10,8 @@ import {
     faFileLines,
     faRightFromBracket,
     faUserShield,
-    faHeadset
+    faHeadset,
+    faGamepad
 } from '@fortawesome/free-solid-svg-icons';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
@@ -24,6 +25,7 @@ const adminMenuItems = [
     { path: '/admin', icon: faHouse, label: 'Dashboard', exact: true },
     { path: '/admin/schools', icon: faSchool, label: 'Schools' },
     { path: '/admin/assessments', icon: faClipboardList, label: 'Check-ins' },
+    { path: '/admin/app-games', icon: faGamepad, label: 'App & Game Management' },
     { path: '/admin/analytics', icon: faChartLine, label: 'Insights' },
     { path: '/admin/tickets', icon: faHeadset, label: 'Support Tickets' },
     { path: '/admin/admins', icon: faUserShield, label: 'Admin Management' },

@@ -7,11 +7,12 @@ export default defineConfig(({ mode }) => ({
         port: 5173,
         proxy: {
             '/api': {
-                target: 'http://localhost:5000',
+                // Use 127.0.0.1 so Node resolves IPv4; localhost → ::1 often causes ECONNREFUSED on Windows
+                target: 'http://127.0.0.1:5000',
                 changeOrigin: true
             },
             '/uploads': {
-                target: 'http://localhost:5000',
+                target: 'http://127.0.0.1:5000',
                 changeOrigin: true
             }
         }

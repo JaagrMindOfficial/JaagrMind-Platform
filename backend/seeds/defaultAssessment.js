@@ -60,12 +60,21 @@ const defaultAssessment = {
         { text: 'I can put my phone away when I decide to.', section: 'D', sectionName: 'Digital Hygiene & Self-Control', isPositive: true, options: [{ label: 'Not true for me', marks: 4 }, { label: 'Sometimes true', marks: 3 }, { label: 'Often true', marks: 2 }, { label: 'Almost always true', marks: 1 }] },
         { text: 'I feel comfortable being offline for some time.', section: 'D', sectionName: 'Digital Hygiene & Self-Control', isPositive: true, options: [{ label: 'Not true for me', marks: 4 }, { label: 'Sometimes true', marks: 3 }, { label: 'Often true', marks: 2 }, { label: 'Almost always true', marks: 1 }] }
     ]),
-    buckets: JSON.stringify([
-        { label: 'Skill Stable', minScore: 8, maxScore: 14, color: '#4CAF50' },
-        { label: 'Skill Emerging', minScore: 15, maxScore: 22, color: '#FF9800' },
-        { label: 'Skill Support Needed', minScore: 23, maxScore: 32, color: '#F44336' }
+    buckets: JSON.stringify({
+        pathwayThresholds: {
+            stableMax: 14,
+            emergingMin: 15,
+            emergingMax: 22,
+            supportMin: 23
+        },
+        dailyActivitySlots: 4
+    }),
+    custom_sections: JSON.stringify([
+        { key: 'A', name: 'Focus & Attention', skillBucketKey: 'ATTN_STABILITY' },
+        { key: 'B', name: 'Self-Esteem & Inner Confidence', skillBucketKey: 'SELF_SAFETY' },
+        { key: 'C', name: 'Social Confidence & Interaction', skillBucketKey: 'SOCIAL_COMFORT' },
+        { key: 'D', name: 'Digital Hygiene & Self-Control', skillBucketKey: 'LOAD_REGULATION' }
     ]),
-    custom_sections: JSON.stringify([]),
     is_active: true,
     created_at: new Date()
 };

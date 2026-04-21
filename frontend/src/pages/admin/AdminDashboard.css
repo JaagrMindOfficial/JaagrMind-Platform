@@ -123,7 +123,7 @@
 
 /* Luma AI Background Card (Right column) */
 .ai-assistant-card {
-    background-image: url('/assets/flower_ai_bg.png');
+    background: linear-gradient(135deg, rgba(124, 58, 237, 0.95), rgba(17, 24, 39, 0.92));
     min-height: 480px;
     display: flex;
     flex-direction: column;
@@ -200,13 +200,42 @@
     color: white;
 }
 
-/* Integrations / Priority Support Panel (Bottom Left Wide) */
+/* Priority Support Panel (Bottom Left Wide) */
 .integrations-panel {
-    background-image: url('/assets/abstract_sunset_bg.png');
+    background: linear-gradient(135deg, rgba(15, 23, 42, 0.92), rgba(124, 58, 237, 0.55));
     grid-column: 1 / span 2;
     padding: 32px;
     display: flex;
     flex-direction: column;
+}
+
+.analytics-kpis {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+    margin-top: 16px;
+}
+
+.analytics-kpi {
+    background: rgba(255, 255, 255, 0.12);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: var(--radius-lg);
+    padding: 12px 14px;
+    backdrop-filter: blur(16px);
+}
+
+.analytics-kpi-label {
+    font-size: 0.75rem;
+    color: rgba(255, 255, 255, 0.75);
+    margin-bottom: 6px;
+}
+
+.analytics-kpi-value {
+    font-family: 'Outfit', sans-serif;
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: white;
+    letter-spacing: 0.2px;
 }
 
 .integrations-panel .chart-title {

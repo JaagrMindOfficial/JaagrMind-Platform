@@ -30,9 +30,12 @@ func SetupAuthRoutes(app *fiber.App, service domain.AuthService, userRepo domain
 	api.Post("/reset-password", handler.ResetPassword)
 	api.Post("/forgot-password/request-otp", handler.RequestForgotPasswordOTP)
 	api.Post("/forgot-password/verify-otp", handler.VerifyForgotPasswordOTP)
-	api.Post("/change-password", middleware.Protected(jwtSecret), handler.ChangePassword)
-	api.Post("/enable-parent", middleware.Protected(jwtSecret), handler.EnableParentRole)
-	api.Get("/me", middleware.Protected(jwtSecret), handler.GetMe)
+
+	// Protected routes under /api/auth
+	protected := api.Group("", middleware.Protected(jwtSecret))
+	protected.Post("/change-password", handler.ChangePassword)
+	protected.Post("/enable-parent", handler.EnableParentRole)
+	protected.Get("/me", handler.GetMe)
 }
 
 func (h *AuthHandler) Login(c fiber.Ctx) error {
@@ -283,9 +286,14 @@ func (h *AuthHandler) ApplyInstitution(c fiber.Ctx) error {
 }
 
 func (h *AuthHandler) ChangePassword(c fiber.Ctx) error {
-	userID, ok := c.Locals("user_id").(string)
-	if !ok || userID == "" {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Unauthorized"})
+	var userID string
+	if id, ok := c.Locals("user_id").(string); ok {
+		userID = id
+	} else if c.Locals("user_id") != nil {
+		userID = fmt.Sprintf("%v", c.Locals("user_id"))
+	}
+	if userID == "" {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Authentication required: user session not found"})
 	}
 
 	var req domain.ChangePasswordRequest
@@ -293,21 +301,24 @@ func (h *AuthHandler) ChangePassword(c fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid request body"})
 	}
 
+	req.CurrentPassword = strings.TrimSpace(req.CurrentPassword)
+	req.NewPassword = strings.TrimSpace(req.NewPassword)
+
 	if req.CurrentPassword == "" || req.NewPassword == "" {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Current and new passwords are required"})
 	}
 
-	if len(req.NewPassword) < 8 {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "New password must be at least 8 characters"})
+	if len(req.NewPassword) < 6 {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "New password must be at least 6 characters"})
 	}
 
 	user, err := h.userRepo.GetUserByID(c.Context(), userID)
 	if err != nil || user == nil {
-		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "User not found"})
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "User account not found"})
 	}
 
 	if !h.service.VerifyPassword(user.PasswordHash, req.CurrentPassword) {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Incorrect current password"})
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Incorrect current password. Please verify and try again."})
 	}
 
 	newHash, err := h.service.HashPassword(req.NewPassword)

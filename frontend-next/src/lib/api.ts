@@ -63,10 +63,17 @@ class ApiClient {
     if (res.status === 401) {
       const errorMessage = data?.error || "Invalid credentials or session expired";
 
-      // Only auto-redirect to /login if:
-      // 1. This was an authenticated request (!skipAuth)
-      // 2. We are NOT already on an authentication or onboarding page
-      if (!skipAuth && typeof window !== "undefined") {
+      // Do NOT auto-redirect / auto-logout if:
+      // 1. skipAuth is true
+      // 2. The endpoint is an explicit credential action (e.g. change-password, login, OTP verify)
+      const isAuthEndpoint =
+        path.includes("/auth/change-password") ||
+        path.includes("/auth/login") ||
+        path.includes("/auth/internal/login") ||
+        path.includes("/auth/reset-password") ||
+        path.includes("/auth/forgot-password");
+
+      if (!skipAuth && !isAuthEndpoint && typeof window !== "undefined") {
         const pathname = window.location.pathname;
         const isAuthPage =
           pathname === "/login" ||
@@ -79,7 +86,21 @@ class ApiClient {
         if (!isAuthPage) {
           localStorage.removeItem("token");
           localStorage.removeItem("user");
-          window.location.href = "/login";
+
+          // Route internal-ops / superadmin to internal-ops signin, others to standard login
+          if (
+            pathname.startsWith("/internal-ops") ||
+            pathname.startsWith("/admin") ||
+            pathname.startsWith("/care-desk")
+          ) {
+            window.location.href = `/internal-ops/signin?error=${encodeURIComponent(
+              "Session expired. Please sign in again."
+            )}`;
+          } else {
+            window.location.href = `/login?error=${encodeURIComponent(
+              "Session expired. Please log in again."
+            )}`;
+          }
         }
       }
       throw new Error(errorMessage);

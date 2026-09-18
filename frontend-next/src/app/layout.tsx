@@ -19,6 +19,13 @@ const caveat = Caveat({
 export const metadata: Metadata = {
   title: "JaagrMind • Emotions Made Easy | Adolescent Behavioral Health Platform",
   description: "Next-generation multidimensional student assessment and 4-bucket clinical behavioral regulation platform.",
+  icons: {
+    icon: [
+      { url: "/icon.svg", type: "image/svg+xml" },
+      { url: "/favicon.ico", sizes: "any" },
+    ],
+    apple: "/apple-touch-icon.png",
+  },
 };
 
 export default function RootLayout({

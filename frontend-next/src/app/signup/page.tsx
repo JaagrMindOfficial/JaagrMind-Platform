@@ -296,14 +296,14 @@ function SignupContent() {
                               setInstituteForm({ ...instituteForm, institute_name: e.target.value })
                             }
                             required
-                            className="h-8 text-xs rounded-lg"
+                            className="h-9 text-xs rounded-lg"
                           />
                         </div>
 
                         <div className="space-y-1">
                           <label className="text-[11px] font-semibold text-foreground">School Type</label>
                           <select
-                            className="flex h-8 w-full rounded-lg border border-input bg-transparent px-2.5 py-0.5 text-xs shadow-2xs focus-visible:ring-1 focus-visible:ring-active-mint"
+                            className="flex h-9 w-full rounded-lg border border-input bg-transparent px-2.5 py-1 text-xs shadow-2xs focus-visible:ring-1 focus-visible:ring-active-mint"
                             value={instituteForm.institute_type}
                             onChange={(e) =>
                               setInstituteForm({ ...instituteForm, institute_type: e.target.value })
@@ -318,45 +318,47 @@ function SignupContent() {
                       </div>
 
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        {/* Left Column: City and under it State */}
                         <div className="space-y-1">
                           <label className="text-[11px] font-semibold text-foreground">
-                            City & Region <span className="text-destructive">*</span>
+                            City & State / Region <span className="text-destructive">*</span>
                           </label>
-                          <div className="grid grid-cols-2 gap-1.5">
+                          <div className="space-y-2">
                             <Input
                               placeholder="City"
                               value={instituteForm.city}
                               onChange={(e) => setInstituteForm({ ...instituteForm, city: e.target.value })}
                               required
-                              className="h-8 text-xs rounded-lg"
+                              className="h-9 text-xs rounded-lg"
                             />
                             <Input
-                              placeholder="State"
+                              placeholder="State / Region"
                               value={instituteForm.state}
                               onChange={(e) => setInstituteForm({ ...instituteForm, state: e.target.value })}
                               required
-                              className="h-8 text-xs rounded-lg"
+                              className="h-9 text-xs rounded-lg"
                             />
                           </div>
                         </div>
 
+                        {/* Right Column: Name and under it Role */}
                         <div className="space-y-1">
                           <label className="text-[11px] font-semibold text-foreground">
                             Contact Person & Role <span className="text-destructive">*</span>
                           </label>
-                          <div className="grid grid-cols-2 gap-1.5">
+                          <div className="space-y-2">
                             <Input
-                              placeholder="Name"
+                              placeholder="Contact Person Name"
                               value={instituteForm.contact_name}
                               onChange={(e) => setInstituteForm({ ...instituteForm, contact_name: e.target.value })}
                               required
-                              className="h-8 text-xs rounded-lg"
+                              className="h-9 text-xs rounded-lg"
                             />
                             <Input
-                              placeholder="Designation"
+                              placeholder="Designation / Role"
                               value={instituteForm.designation}
                               onChange={(e) => setInstituteForm({ ...instituteForm, designation: e.target.value })}
-                              className="h-8 text-xs rounded-lg"
+                              className="h-9 text-xs rounded-lg"
                             />
                           </div>
                         </div>
@@ -373,7 +375,7 @@ function SignupContent() {
                             value={instituteForm.email}
                             onChange={(e) => setInstituteForm({ ...instituteForm, email: e.target.value })}
                             required
-                            className="h-8 text-xs rounded-lg"
+                            className="h-9 text-xs rounded-lg"
                           />
                         </div>
 
@@ -387,14 +389,14 @@ function SignupContent() {
                             value={instituteForm.phone}
                             onChange={(e) => setInstituteForm({ ...instituteForm, phone: e.target.value })}
                             required
-                            className="h-8 text-xs rounded-lg"
+                            className="h-9 text-xs rounded-lg"
                           />
                         </div>
 
                         <div className="space-y-1 sm:col-span-1">
                           <label className="text-[11px] font-semibold text-foreground">Student Strength</label>
                           <select
-                            className="flex h-8 w-full rounded-lg border border-input bg-transparent px-2 py-0.5 text-xs shadow-2xs focus-visible:ring-1 focus-visible:ring-active-mint"
+                            className="flex h-9 w-full rounded-lg border border-input bg-transparent px-2 py-1 text-xs shadow-2xs focus-visible:ring-1 focus-visible:ring-active-mint"
                             value={instituteForm.estimated_students}
                             onChange={(e) => setInstituteForm({ ...instituteForm, estimated_students: Number(e.target.value) })}
                           >
@@ -525,7 +527,7 @@ function SignupContent() {
                               value={independentForm.name}
                               onChange={(e) => setIndependentForm({ ...independentForm, name: e.target.value })}
                               required
-                              className="h-8 text-xs rounded-lg"
+                              className="h-9 text-xs rounded-lg"
                             />
                           </div>
 
@@ -538,7 +540,7 @@ function SignupContent() {
                               placeholder="+91..."
                               value={independentForm.phone}
                               onChange={(e) => setIndependentForm({ ...independentForm, phone: e.target.value })}
-                              className="h-8 text-xs rounded-lg"
+                              className="h-9 text-xs rounded-lg"
                             />
                           </div>
                         </div>
@@ -554,7 +556,7 @@ function SignupContent() {
                               value={independentForm.email}
                               onChange={(e) => setIndependentForm({ ...independentForm, email: e.target.value })}
                               required
-                              className="h-8 text-xs rounded-lg"
+                              className="h-9 text-xs rounded-lg"
                             />
                           </div>
 
@@ -569,7 +571,7 @@ function SignupContent() {
                               onChange={(e) => setIndependentForm({ ...independentForm, password: e.target.value })}
                               required
                               minLength={6}
-                              className="h-8 text-xs rounded-lg"
+                              className="h-9 text-xs rounded-lg"
                             />
                           </div>
                         </div>

@@ -190,31 +190,46 @@ function SignupContent() {
           </div>
         </div>
 
-        {/* Primary Pathway Selector Tabs */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        {/* Primary Pathway Selector Tabs (Creative Brand Style) */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
           <button
             type="button"
             onClick={() => {
               setActiveTab("institute");
               setError("");
             }}
-            className={`p-4 rounded-xl border text-left transition-all relative overflow-hidden flex flex-col justify-between ${activeTab === "institute"
-              ? "border-primary bg-primary/5 ring-2 ring-primary/20 shadow-xs"
-              : "border-border hover:border-border/80 bg-card hover:bg-muted/30"
-              }`}
+            className={`p-4 sm:p-5 rounded-2xl border text-left transition-all relative overflow-hidden flex flex-col justify-between cursor-pointer group ${
+              activeTab === "institute"
+                ? "border-active-mint bg-gradient-to-br from-active-mint/10 via-card to-background shadow-md shadow-active-mint/5 ring-2 ring-active-mint/20"
+                : "border-border/80 hover:border-border bg-card/60 hover:bg-card transition-all"
+            }`}
           >
-            <div className="flex items-center justify-between mb-2">
-              <div className="p-2 rounded-lg bg-primary/10 text-primary">
+            {activeTab === "institute" && (
+              <div className="absolute top-0 right-0 h-16 w-16 bg-active-mint/10 rounded-bl-full pointer-events-none" />
+            )}
+            <div className="flex items-center justify-between mb-3 relative z-10">
+              <div className={`p-2.5 rounded-xl transition-colors ${
+                activeTab === "institute" ? "bg-active-mint text-white shadow-xs" : "bg-muted text-muted-foreground group-hover:text-foreground"
+              }`}>
                 <Building2 className="h-5 w-5" />
               </div>
-              <Badge variant="outline" className="text-[10px] font-medium bg-background">
-                Institution
+              <Badge
+                variant="outline"
+                className={`text-[10px] font-semibold tracking-wide ${
+                  activeTab === "institute"
+                    ? "border-active-mint/40 bg-active-mint/10 text-active-mint"
+                    : "border-border bg-background text-muted-foreground"
+                }`}
+              >
+                Campus Partnership
               </Badge>
             </div>
-            <div>
-              <h3 className="font-semibold text-sm text-foreground">School Partnership</h3>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                For K-12 schools & campuses
+            <div className="relative z-10 space-y-1">
+              <h3 className="font-bold text-sm sm:text-base text-foreground flex items-center gap-1.5">
+                Educational Institution
+              </h3>
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                For K-12 schools, campus admins, and multi-branch educational networks.
               </p>
             </div>
           </button>
@@ -225,23 +240,38 @@ function SignupContent() {
               setActiveTab("independent");
               setError("");
             }}
-            className={`p-4 rounded-xl border text-left transition-all relative overflow-hidden flex flex-col justify-between ${activeTab === "independent"
-              ? "border-sky-500 bg-sky-500/5 ring-2 ring-sky-500/20 shadow-xs"
-              : "border-border hover:border-border/80 bg-card hover:bg-muted/30"
-              }`}
+            className={`p-4 sm:p-5 rounded-2xl border text-left transition-all relative overflow-hidden flex flex-col justify-between cursor-pointer group ${
+              activeTab === "independent"
+                ? "border-active-mint bg-gradient-to-br from-active-mint/10 via-card to-background shadow-md shadow-active-mint/5 ring-2 ring-active-mint/20"
+                : "border-border/80 hover:border-border bg-card/60 hover:bg-card transition-all"
+            }`}
           >
-            <div className="flex items-center justify-between mb-2">
-              <div className="p-2 rounded-lg bg-sky-500/10 text-sky-600 dark:text-sky-400">
-                <Users className="h-5 w-5" />
+            {activeTab === "independent" && (
+              <div className="absolute top-0 right-0 h-16 w-16 bg-active-mint/10 rounded-bl-full pointer-events-none" />
+            )}
+            <div className="flex items-center justify-between mb-3 relative z-10">
+              <div className={`p-2.5 rounded-xl transition-colors ${
+                activeTab === "independent" ? "bg-active-mint text-white shadow-xs" : "bg-muted text-muted-foreground group-hover:text-foreground"
+              }`}>
+                <HeartHandshake className="h-5 w-5" />
               </div>
-              <Badge variant="outline" className="text-[10px] font-medium bg-background border-sky-500/30 text-sky-600 dark:text-sky-400">
-                Personal
+              <Badge
+                variant="outline"
+                className={`text-[10px] font-semibold tracking-wide ${
+                  activeTab === "independent"
+                    ? "border-active-mint/40 bg-active-mint/10 text-active-mint"
+                    : "border-border bg-background text-muted-foreground"
+                }`}
+              >
+                Family & Personal
               </Badge>
             </div>
-            <div>
-              <h3 className="font-semibold text-sm text-foreground">Family & Parent</h3>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                For parents and legal guardians.
+            <div className="relative z-10 space-y-1">
+              <h3 className="font-bold text-sm sm:text-base text-foreground flex items-center gap-1.5">
+                Family & Parent Desk
+              </h3>
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                For parents, guardians, and families observing adolescent regulation.
               </p>
             </div>
           </button>
@@ -493,7 +523,7 @@ function SignupContent() {
                     <Button
                       type="submit"
                       disabled={loading}
-                      className="w-full h-10 text-xs font-semibold gap-1.5 mt-2"
+                      className="w-full h-10 text-xs font-semibold gap-1.5 mt-2 bg-active-mint hover:bg-active-mint/90 text-white shadow-xs cursor-pointer"
                     >
                       {loading ? "Submitting Application..." : "Submit School Application"}
                       <ArrowRight className="h-3.5 w-3.5" />
@@ -510,12 +540,12 @@ function SignupContent() {
               <CardHeader className="pb-4 border-b border-border/40">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <Users className="h-4 w-4 text-sky-500" />
+                    <HeartHandshake className="h-4 w-4 text-active-mint" />
                     <CardTitle className="text-base font-semibold">
                       Individual & Family Registration
                     </CardTitle>
                   </div>
-                  <Badge variant="outline" className="text-[10px] font-mono capitalize">
+                  <Badge variant="outline" className="text-[10px] font-mono capitalize border-active-mint/30 bg-active-mint/5 text-active-mint">
                     {independentRole === "relative" ? "Guardian" : independentRole} Account
                   </Badge>
                 </div>
@@ -539,13 +569,14 @@ function SignupContent() {
                           setIndependentRole(roleOption.id as any);
                           setError("");
                         }}
-                        className={`p-2.5 rounded-lg border text-left transition-all flex flex-col gap-1 cursor-pointer ${isSelected
-                          ? "border-sky-500 bg-sky-500/10 text-sky-700 dark:text-sky-300 ring-1 ring-sky-500/30"
-                          : "border-border hover:bg-muted/40 text-muted-foreground hover:text-foreground"
-                          }`}
+                        className={`p-3 rounded-xl border text-left transition-all flex flex-col gap-1 cursor-pointer ${
+                          isSelected
+                            ? "border-active-mint bg-active-mint/10 text-foreground ring-1 ring-active-mint/30 shadow-xs"
+                            : "border-border/80 hover:bg-muted/40 text-muted-foreground hover:text-foreground"
+                        }`}
                       >
                         <div className="flex items-center gap-1.5 font-semibold text-xs text-foreground">
-                          <Icon className="h-3.5 w-3.5 shrink-0" />
+                          <Icon className={`h-3.5 w-3.5 shrink-0 ${isSelected ? "text-active-mint" : "text-muted-foreground"}`} />
                           <span>{roleOption.label}</span>
                         </div>
                         <span className="text-[10px] text-muted-foreground line-clamp-1">
@@ -557,12 +588,12 @@ function SignupContent() {
                 </div>
 
                 {/* Enrolled Student Notice */}
-                <div className="mt-3 p-3 rounded-lg bg-sky-500/10 border border-sky-500/20 text-xs flex items-center justify-between">
+                <div className="mt-3 p-3 rounded-xl bg-active-mint/5 border border-active-mint/20 text-xs flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <GraduationCap className="h-4 w-4 text-sky-600 dark:text-sky-400 shrink-0" />
+                    <GraduationCap className="h-4 w-4 text-active-mint shrink-0" />
                     <span className="text-foreground"><strong>Enrolled Student?</strong> Access check-ins using your School Access ID.</span>
                   </div>
-                  <Link href="/student/login" className="text-primary hover:underline font-semibold flex items-center gap-1 shrink-0 ml-2">
+                  <Link href="/student/login" className="text-active-mint hover:underline font-semibold flex items-center gap-1 shrink-0 ml-2">
                     Student Login <ArrowRight className="h-3 w-3" />
                   </Link>
                 </div>
@@ -704,7 +735,7 @@ function SignupContent() {
                       <Button
                         type="submit"
                         disabled={loading}
-                        className="w-full h-10 text-xs font-semibold gap-1.5 mt-2 bg-sky-600 hover:bg-sky-700 text-white"
+                        className="w-full h-10 text-xs font-semibold gap-1.5 mt-2 bg-active-mint hover:bg-active-mint/90 text-white shadow-xs cursor-pointer"
                       >
                         {loading
                           ? "Creating Account..."

@@ -8,7 +8,14 @@
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --font-sans: var(--font-sans);
+  --font-highlight: var(--font-highlight);
   --font-mono: var(--font-geist-mono);
+  
+  --color-active-mint: #42B677;
+  --color-fresh-mint: #91D17C;
+  --color-deep-teal: #005456;
+  --color-graphite: #222222;
+  --color-warm-ivory: #FFF8F0;
   
   --color-border: var(--border);
   --color-input: var(--input);

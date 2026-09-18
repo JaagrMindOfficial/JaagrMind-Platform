@@ -6,6 +6,7 @@ import (
 	"log"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/jaagrmind/platform-api/internal/services"
 )
 
 func main() {
@@ -16,20 +17,24 @@ func main() {
 	}
 	defer dbPool.Close()
 
-	var userID string
-	err = dbPool.QueryRow(context.Background(), `SELECT id FROM users WHERE email = 'teacher@jaagrmind.com'`).Scan(&userID)
+	authService := services.NewAuthService(nil, "secret")
+	hash, err := authService.HashPassword("admin@123")
 	if err != nil {
-		log.Fatalf("Could not find test user: %v", err)
+		log.Fatalf("Failed to hash password: %v", err)
 	}
 
-	_, err = dbPool.Exec(context.Background(), `
-		INSERT INTO user_roles (user_id, role, entity_id) 
-		VALUES ($1, 'superadmin', NULL)
-		ON CONFLICT DO NOTHING
-	`, userID)
+	fmt.Println("Generated Hash for admin@123:", hash)
+	fmt.Println("Verify check:", authService.VerifyPassword(hash, "admin@123"))
+
+	// Update admin@jaagrmind.com
+	res, err := dbPool.Exec(context.Background(), `
+		UPDATE users 
+		SET password_hash = $1, is_internal = true
+		WHERE LOWER(email) = 'admin@jaagrmind.com'
+	`, hash)
 	if err != nil {
-		log.Fatalf("Failed to add superadmin role: %v", err)
+		log.Fatalf("Failed to update user: %v", err)
 	}
 
-	fmt.Println("Successfully granted superadmin role to teacher@jaagrmind.com")
+	fmt.Printf("Updated rows: %d\n", res.RowsAffected())
 }

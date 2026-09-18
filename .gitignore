@@ -13,7 +13,7 @@ build/
 bin/
 backend-go/bin/
 backend-go/api
-api
+/api
 
 # Logs
 logs/

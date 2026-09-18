@@ -49,27 +49,26 @@ func loadEnv(filepath string) {
 	}
 }
 
-// seedInitialAdmin ensures admin@jaagrmind.com exists with password admin@123 and superadmin privileges
+// seedInitialAdmin ensures admin@jaagrmind.com exists with superadmin privileges.
+// If the user already exists, their current password is preserved unless FORCE_SEED_ADMIN=true.
 func seedInitialAdmin(ctx context.Context, dbPool *pgxpool.Pool, authService domain.AuthService) {
-	hash, err := authService.HashPassword("admin@123")
-	if err != nil {
-		log.Printf("[Seeder] Failed to hash admin credentials: %v\n", err)
-		return
-	}
+	forceSeed := os.Getenv("FORCE_SEED_ADMIN") == "true" || os.Getenv("RESET_ADMIN_PASSWORD") == "true"
 
 	var userID string
-	err = dbPool.QueryRow(ctx, `SELECT id FROM users WHERE LOWER(email) = 'admin@jaagrmind.com'`).Scan(&userID)
+	err := dbPool.QueryRow(ctx, `SELECT id FROM users WHERE LOWER(email) = 'admin@jaagrmind.com'`).Scan(&userID)
 	if err == nil && userID != "" {
-		// Admin exists: update password to admin@123 and ensure is_internal is true
-		_, err = dbPool.Exec(ctx, `
-			UPDATE users 
-			SET password_hash = $1, is_internal = true
-			WHERE id = $2
-		`, hash, userID)
-		if err != nil {
-			log.Printf("[Seeder] Error updating admin credentials: %v\n", err)
+		// Admin exists
+		if forceSeed {
+			hash, err := authService.HashPassword("admin@123")
+			if err == nil {
+				_, _ = dbPool.Exec(ctx, `UPDATE users SET password_hash = $1, is_internal = true WHERE id = $2`, hash, userID)
+				log.Println("[Seeder] FORCE_SEED_ADMIN enabled: admin@jaagrmind.com password reset to admin@123")
+			}
+		} else {
+			log.Println("[Seeder] Admin user admin@jaagrmind.com already exists (preserving existing password)")
 		}
 
+		// Ensure superadmin role is present
 		var roleCount int
 		_ = dbPool.QueryRow(ctx, `SELECT COUNT(*) FROM user_roles WHERE user_id = $1 AND role = 'superadmin'`, userID).Scan(&roleCount)
 		if roleCount == 0 {
@@ -81,12 +80,16 @@ func seedInitialAdmin(ctx context.Context, dbPool *pgxpool.Pool, authService dom
 				log.Printf("[Seeder] Error attaching superadmin role: %v\n", err)
 			}
 		}
-
-		log.Println("[Seeder] Superadmin credentials synchronized: admin@jaagrmind.com / admin@123")
 		return
 	}
 
-	// Admin does not exist: create user and grant superadmin role
+	// Admin does not exist: create initial admin user with admin@123
+	hash, err := authService.HashPassword("admin@123")
+	if err != nil {
+		log.Printf("[Seeder] Failed to hash admin credentials: %v\n", err)
+		return
+	}
+
 	adminID := uuid.New().String()
 	now := time.Now().UTC()
 	_, err = dbPool.Exec(ctx, `

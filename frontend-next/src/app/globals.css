@@ -1,0 +1,270 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-geist-mono);
+  
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+  
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+}
+
+:root {
+  /* 
+   * Linear/Vercel inspired Light Mode
+   * Crisp whites, slate grays, highly functional.
+   */
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.13 0.028 261.692);
+  
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.13 0.028 261.692);
+  
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.13 0.028 261.692);
+  
+  --primary: oklch(0.21 0.034 264.665);
+  --primary-foreground: oklch(0.985 0 0);
+  
+  --secondary: oklch(0.967 0.003 264.542);
+  --secondary-foreground: oklch(0.21 0.034 264.665);
+  
+  --muted: oklch(0.967 0.003 264.542);
+  --muted-foreground: oklch(0.553 0.013 258.079);
+  
+  --accent: oklch(0.967 0.003 264.542);
+  --accent-foreground: oklch(0.21 0.034 264.665);
+  
+  --destructive: oklch(0.577 0.245 27.325);
+  --destructive-foreground: oklch(0.985 0 0);
+  
+  --border: oklch(0.928 0.006 264.531);
+  --input: oklch(0.928 0.006 264.531);
+  --ring: oklch(0.21 0.034 264.665);
+
+  --sidebar: oklch(0.985 0 0);
+  --sidebar-foreground: oklch(0.13 0.028 261.692);
+  --sidebar-primary: oklch(0.21 0.034 264.665);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.967 0.003 264.542);
+  --sidebar-accent-foreground: oklch(0.21 0.034 264.665);
+  --sidebar-border: oklch(0.928 0.006 264.531);
+  --sidebar-ring: oklch(0.21 0.034 264.665);
+  
+  --radius: 0.5rem;
+}
+
+.dark {
+  /* 
+   * Linear/Vercel inspired Dark Mode
+   * Deep blacks, slate borders, very sharp.
+   */
+  --background: oklch(0.13 0.028 261.692);
+  --foreground: oklch(0.985 0 0);
+  
+  --card: oklch(0.13 0.028 261.692);
+  --card-foreground: oklch(0.985 0 0);
+  
+  --popover: oklch(0.13 0.028 261.692);
+  --popover-foreground: oklch(0.985 0 0);
+  
+  --primary: oklch(0.985 0 0);
+  --primary-foreground: oklch(0.21 0.034 264.665);
+  
+  --secondary: oklch(0.278 0.033 256.848);
+  --secondary-foreground: oklch(0.985 0 0);
+  
+  --muted: oklch(0.21 0.034 264.665);
+  --muted-foreground: oklch(0.705 0.015 286.067);
+  
+  --accent: oklch(0.278 0.033 256.848);
+  --accent-foreground: oklch(0.985 0 0);
+  
+  --destructive: oklch(0.396 0.141 25.723);
+  --destructive-foreground: oklch(0.985 0 0);
+  
+  --border: oklch(0.278 0.033 256.848);
+  --input: oklch(0.278 0.033 256.848);
+  --ring: oklch(0.871 0.006 286.286);
+
+  --sidebar: oklch(0.13 0.028 261.692);
+  --sidebar-foreground: oklch(0.985 0 0);
+  --sidebar-primary: oklch(0.985 0 0);
+  --sidebar-primary-foreground: oklch(0.21 0.034 264.665);
+  --sidebar-accent: oklch(0.278 0.033 256.848);
+  --sidebar-accent-foreground: oklch(0.985 0 0);
+  --sidebar-border: oklch(0.278 0.033 256.848);
+  --sidebar-ring: oklch(0.871 0.006 286.286);
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+/* Utility classes — Tactile Neo-Organic design system */
+@layer utilities {
+  .glass {
+    @apply bg-card border border-border shadow-sm;
+  }
+  .gradient-text {
+    @apply text-primary font-semibold;
+  }
+
+  /* Tactile Claymorphic Surfaces */
+  .clay-card {
+    border-radius: 1.5rem;
+    background: var(--card);
+    border: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+    box-shadow: 
+      0 16px 36px -12px rgba(0, 0, 0, 0.08),
+      0 4px 12px -2px rgba(0, 0, 0, 0.04),
+      inset 0 1.5px 0 0 rgba(255, 255, 255, 0.9),
+      inset 0 -1px 0 0 rgba(0, 0, 0, 0.05);
+    transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.25s ease, border-color 0.2s ease;
+  }
+  .dark .clay-card {
+    background: linear-gradient(145deg, color-mix(in srgb, var(--card) 95%, #1e293b), color-mix(in srgb, var(--card) 90%, #0f172a));
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow: 
+      0 20px 45px -15px rgba(0, 0, 0, 0.7),
+      0 6px 18px -3px rgba(0, 0, 0, 0.5),
+      inset 0 1px 0 0 rgba(255, 255, 255, 0.12),
+      inset 0 -1px 0 0 rgba(0, 0, 0, 0.4);
+  }
+
+  /* Neomorphic Recessed Wells (Indicators, Trackers, Day Tablets) */
+  .neo-well {
+    border-radius: 1rem;
+    background: color-mix(in srgb, var(--secondary) 92%, black 2%);
+    border: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
+    box-shadow: 
+      inset 0 3px 6px 0 rgba(0, 0, 0, 0.07),
+      inset 0 1px 2px 0 rgba(0, 0, 0, 0.04),
+      0 1px 0 0 rgba(255, 255, 255, 0.6);
+  }
+  .dark .neo-well {
+    background: color-mix(in srgb, var(--secondary) 75%, #020617);
+    border: 1px solid rgba(255, 255, 255, 0.04);
+    box-shadow: 
+      inset 0 3px 8px 0 rgba(0, 0, 0, 0.6),
+      inset 0 1px 3px 0 rgba(0, 0, 0, 0.4),
+      0 1px 0 0 rgba(255, 255, 255, 0.04);
+  }
+
+  /* Liquid Glass Pill & Dock Surfaces */
+  .liquid-glass {
+    backdrop-filter: blur(28px) saturate(190%);
+    -webkit-backdrop-filter: blur(28px) saturate(190%);
+    background: color-mix(in srgb, var(--card) 80%, transparent);
+    border: 1px solid color-mix(in srgb, var(--border) 75%, transparent);
+    box-shadow: 
+      0 12px 36px -6px rgba(0, 0, 0, 0.09),
+      inset 0 1px 1px 0 rgba(255, 255, 255, 0.6);
+  }
+  .dark .liquid-glass {
+    background: color-mix(in srgb, var(--card) 75%, transparent);
+    border: 1px solid rgba(255, 255, 255, 0.09);
+    box-shadow: 
+      0 16px 42px -8px rgba(0, 0, 0, 0.65),
+      inset 0 1px 1px 0 rgba(255, 255, 255, 0.12);
+  }
+
+  /* Tactile Living Mood Stone & Bezel */
+  .barometer-bezel {
+    border-radius: 9999px;
+    background: radial-gradient(circle at 35% 25%, color-mix(in srgb, var(--card) 95%, white), color-mix(in srgb, var(--card) 98%, #cbd5e1));
+    box-shadow: 
+      0 18px 36px -8px rgba(0, 0, 0, 0.12),
+      0 4px 12px 0 rgba(0, 0, 0, 0.04),
+      inset 0 2px 5px 0 rgba(255, 255, 255, 0.9),
+      inset 0 -3px 8px 0 rgba(0, 0, 0, 0.08);
+  }
+  .dark .barometer-bezel {
+    background: radial-gradient(circle at 35% 25%, #1e293b, #090d16);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    box-shadow: 
+      0 20px 48px -10px rgba(0, 0, 0, 0.8),
+      0 6px 16px 0 rgba(0, 0, 0, 0.5),
+      inset 0 2px 4px 0 rgba(255, 255, 255, 0.15),
+      inset 0 -4px 10px 0 rgba(0, 0, 0, 0.6);
+  }
+
+  /* Tactile Pill Button */
+  .tactile-pill {
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    box-shadow: 
+      0 2px 6px -1px rgba(0, 0, 0, 0.08),
+      inset 0 1px 0 rgba(255, 255, 255, 0.7);
+  }
+  .tactile-pill:active {
+    transform: translateY(1px);
+    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.1);
+  }
+  .dark .tactile-pill {
+    box-shadow: 
+      0 3px 8px -2px rgba(0, 0, 0, 0.5),
+      inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  }
+}
+
+/* Recharts SVG text & grid styling for dark/light mode readability */
+.dark .recharts-text,
+.dark .recharts-polar-angle-axis-tick text,
+.dark .recharts-polar-angle-axis-tick-value,
+.dark .recharts-cartesian-axis-tick-value,
+.dark .recharts-legend-item-text,
+.dark text.recharts-text {
+  fill: #f1f5f9 !important;
+  color: #f1f5f9 !important;
+}
+
+.dark .recharts-polar-grid line,
+.dark .recharts-polar-grid polygon,
+.dark .recharts-cartesian-grid line {
+  stroke: rgba(148, 163, 184, 0.28) !important;
+}

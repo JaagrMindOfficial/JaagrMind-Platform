@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { BrandSidePanel } from "@/components/brand-side-panel";
 import { api } from "@/lib/api";
 import { useAuth } from "@/context/auth-context";
 import {
@@ -159,36 +160,33 @@ function SignupContent() {
   };
 
   return (
-    <div className="min-h-screen bg-background py-10 px-4 flex flex-col items-center justify-center relative">
-      {/* Theme Toggle in Header */}
-      <div className="absolute top-6 right-6">
+    <div className="h-screen max-h-screen overflow-hidden w-screen bg-[#FFF8F0] dark:bg-[#121212] text-[#222222] dark:text-[#FFF8F0] flex flex-col md:flex-row relative select-none">
+      
+      {/* ── Discreet Top-Right Theme Toggle ──────────────────────────── */}
+      <div className="absolute top-5 right-6 z-30">
         <ThemeToggle />
       </div>
 
-      <div className="w-full max-w-2xl space-y-6">
-        {/* Brand Logo & Header */}
-        <div className="text-center space-y-3">
-          <Link href="/" className="inline-block">
-            <img
-              src="/DarkColorLogo.svg"
-              alt="JaagrMind Logo"
-              className="h-10 w-auto dark:hidden mx-auto object-contain"
-            />
-            <img
-              src="/LightColorLogo.svg"
-              alt="JaagrMind Logo"
-              className="h-10 w-auto hidden dark:block mx-auto object-contain"
-            />
-          </Link>
+      {/* ── LEFT SIDE: Brand Kit Architectural Graphics ──────────────── */}
+      <BrandSidePanel subtitle="Join progressive educational institutions and proactive families supporting adolescent mental wellness." />
+
+      {/* ── RIGHT SIDE: Seamless Signup Form ─────────────────────────── */}
+      <div className="w-full md:w-7/12 lg:w-[54%] h-full flex flex-col px-6 sm:px-10 lg:px-14 py-6 overflow-y-auto relative">
+        
+        {/* Subtle Ambient Radial Glow */}
+        <div className="absolute top-1/4 right-1/4 w-80 h-80 bg-[#42B677]/8 rounded-full blur-[120px] pointer-events-none" />
+
+        <div className="max-w-xl w-full mx-auto space-y-5 my-auto relative z-10 py-6">
+          
+          {/* Header */}
           <div className="space-y-1">
-            <h1 className="text-2xl font-bold tracking-tight text-foreground">
-              Create Your JaagrMind Account
-            </h1>
-            <p className="text-xs sm:text-sm text-muted-foreground max-w-md mx-auto">
-              Select whether you are applying on behalf of an educational institution or registering for individual & family access.
+            <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-[#222222] dark:text-[#FFF8F0]">
+              Create your JaagrMind account
+            </h2>
+            <p className="text-xs text-[#222222]/65 dark:text-[#FFF8F0]/65">
+              Select whether you are applying for campus partnership or registering as a parent.
             </p>
           </div>
-        </div>
 
         {/* Primary Pathway Selector Tabs (Creative Brand Style) */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
@@ -750,26 +748,32 @@ function SignupContent() {
               </CardContent>
             </>
           )}
-
-          {/* Footer with Links */}
-          <div className="p-4 bg-muted/20 border-t border-border/40 text-center text-xs text-muted-foreground space-y-2">
-            <div>
-              Already have an account?{" "}
-              <Link href="/login" className="text-primary font-semibold hover:underline">
-                Sign in to Portal
-              </Link>
-            </div>
-            <div className="text-[11px]">
-              Student with a school-issued code?{" "}
-              <Link href="/student/login" className="text-muted-foreground hover:text-foreground font-medium underline">
-                Access Student Assessment Portal &rarr;
-              </Link>
-            </div>
-          </div>
         </Card>
+
+        {/* Footer with Links */}
+        <div className="pt-2 text-center text-xs text-[#222222]/60 dark:text-[#FFF8F0]/60 space-y-1.5">
+          <div>
+            Already have an account?{" "}
+            <Link href="/login" className="text-[#42B677] font-semibold hover:underline">
+              Sign in to Portal
+            </Link>
+          </div>
+          <div className="text-[11px]">
+            Student with a school-issued code?{" "}
+            <Link href="/student/login" className="text-[#222222]/50 dark:text-white/50 hover:text-[#42B677] font-medium underline">
+              Access Student Assessment Portal &rarr;
+            </Link>
+          </div>
+        </div>
       </div>
     </div>
-  );
+
+    {/* ── Discrete Bottom-Right Copyright Overlay ──────────────────── */}
+    <div className="absolute bottom-5 right-6 z-20 text-[11px] font-mono tracking-wider text-[#222222]/40 dark:text-[#FFF8F0]/40 pointer-events-none">
+      JaagrMind © 2026
+    </div>
+  </div>
+);
 }
 
 export default function SignupPage() {

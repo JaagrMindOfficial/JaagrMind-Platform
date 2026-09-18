@@ -119,7 +119,7 @@ function InternalOpsSignInContent() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
-                  placeholder="admin@jaagrmind.com"
+                  placeholder="name@jaagrmind.com"
                   className="text-xs font-mono"
                   autoComplete="email"
                 />
@@ -156,19 +156,6 @@ function InternalOpsSignInContent() {
                 )}
               </Button>
             </form>
-
-            {/* Demo Accounts Hint */}
-            <div className="mt-4 p-2.5 rounded-lg bg-muted/40 border border-border/50 text-[11px] text-muted-foreground space-y-1 font-mono">
-              <p className="text-[10px] font-sans font-semibold uppercase text-foreground">
-                Internal Ops Credentials:
-              </p>
-              <p>
-                <code>admin@jaagrmind.com</code> / <code>admin123</code> (Superadmin)
-              </p>
-              <p>
-                <code>counselor@jaagrmind.com</code> / <code>counsel123</code> (Central Care Desk)
-              </p>
-            </div>
 
             <div className="pt-2 text-center text-[11px] text-muted-foreground">
               Institutional staff or students?{" "}

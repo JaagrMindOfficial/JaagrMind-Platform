@@ -1225,7 +1225,7 @@ func (h *SchoolAPIHandler) UploadLogo(c fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Failed to parse logo file"})
 	}
 
-	url, err := h.storageSvc.UploadFile(c.Context(), file, "logos")
+	url, err := h.storageSvc.UploadFile(c.Context(), file, "jaagrmind-platform/web/schools/logos")
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to upload file to storage"})
 	}

@@ -30,6 +30,9 @@ type oracleStorageService struct {
 }
 
 func NewOracleStorageService() (StorageService, error) {
+	os.Setenv("AWS_REQUEST_CHECKSUM_CALCULATION", "WHEN_REQUIRED")
+	os.Setenv("AWS_RESPONSE_CHECKSUM_CALCULATION", "WHEN_REQUIRED")
+
 	key := os.Getenv("ORACLE_ACCESS_KEY_ID")
 	secret := os.Getenv("ORACLE_SECRET_ACCESS_KEY")
 	region := os.Getenv("ORACLE_REGION")
@@ -85,12 +88,11 @@ func (s *oracleStorageService) UploadFile(ctx context.Context, file *multipart.F
 	objectKey := fmt.Sprintf("%s/%d-%s%s", folder, time.Now().Unix(), uuid.New().String()[:8], ext)
 
 	_, err = s.client.PutObject(ctx, &s3.PutObjectInput{
-		Bucket:      aws.String(s.bucket),
-		Key:         aws.String(objectKey),
-		Body:        bytes.NewReader(buf.Bytes()),
-		ContentType: aws.String(file.Header.Get("Content-Type")),
-		// Oracle S3 doesn't support all ACLs exactly like AWS, so we omit ACLs here
-		// You control bucket visibility via OCI Console.
+		Bucket:        aws.String(s.bucket),
+		Key:           aws.String(objectKey),
+		Body:          bytes.NewReader(buf.Bytes()),
+		ContentType:   aws.String(file.Header.Get("Content-Type")),
+		ContentLength: aws.Int64(int64(buf.Len())),
 	})
 
 	if err != nil {

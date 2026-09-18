@@ -13,34 +13,27 @@ import { api } from "@/lib/api";
 import { useAuth } from "@/context/auth-context";
 import {
   Building2,
-  Sparkles,
-  User,
   Users,
   HeartHandshake,
   CheckCircle2,
   ArrowRight,
   School,
   GraduationCap,
-  ShieldCheck,
-  Phone,
-  Mail,
-  MapPin,
-  HelpCircle,
   Lightbulb,
 } from "lucide-react";
 
 function SignupContent() {
-  const router = useRouter();
   const searchParams = useSearchParams();
+  const router = useRouter();
   const { login } = useAuth();
 
-  // Primary mode: "institute" or "independent"
+  // Tab State: "institute" (Educational Application) or "independent" (Family & Parent)
   const [activeTab, setActiveTab] = useState<"institute" | "independent">("institute");
 
-  // For independent access: "parent" | "relative"
+  // Sub-role selection for independent signups
   const [independentRole, setIndependentRole] = useState<"parent" | "relative">("parent");
 
-  // Form states - Institute
+  // Institute Onboarding Form State
   const [instituteForm, setInstituteForm] = useState({
     institute_name: "",
     institute_type: "K-12 School",
@@ -53,70 +46,55 @@ function SignupContent() {
     estimated_students: 500,
     message: "",
   });
-  const [instituteSubmitted, setInstituteSubmitted] = useState(false);
-  const [instituteAppId, setInstituteAppId] = useState<string | null>(null);
 
-  // Form states - Individual & Family
+  // Independent Signup Form State
   const [independentForm, setIndependentForm] = useState({
     name: "",
     email: "",
     password: "",
     phone: "",
-    grade: "10",
-    child_name: "",
-    school_name: "",
   });
-  const [independentSuccess, setIndependentSuccess] = useState(false);
 
-  // Loading & Error states
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [instituteSubmitted, setInstituteSubmitted] = useState(false);
+  const [instituteAppId, setInstituteAppId] = useState("");
+  const [independentSuccess, setIndependentSuccess] = useState(false);
 
-  // Sync with searchParams if provided
   useEffect(() => {
     const tabParam = searchParams.get("tab");
-    if (tabParam === "independent" || tabParam === "individual" || tabParam === "family" || tabParam === "personal") {
+    if (tabParam === "independent" || tabParam === "individual" || tabParam === "parent") {
       setActiveTab("independent");
-    } else if (tabParam === "institute") {
+    } else if (tabParam === "institute" || tabParam === "school") {
       setActiveTab("institute");
     }
-    const roleParam = searchParams.get("role");
-    if (roleParam === "parent" || roleParam === "relative") {
-      setIndependentRole(roleParam);
-      setActiveTab("independent");
-    } else if (roleParam === "student") {
-      router.push("/student/login");
-      return;
-    }
-  }, [searchParams, router]);
 
-  // Handle Institute Application Submit
+    const roleParam = searchParams.get("role");
+    if (roleParam === "relative" || roleParam === "guardian") {
+      setIndependentRole("relative");
+    }
+  }, [searchParams]);
+
+  // Handle Institutional Application Submission
   const handleInstituteSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError("");
 
     try {
-      const res = await api.post(
-        "/api/auth/apply-institution",
-        {
-          ...instituteForm,
-          estimated_students: Number(instituteForm.estimated_students) || 500,
-        },
-        { skipAuth: true }
-      );
+      const res = await api.post("/api/auth/apply-institution", instituteForm, { skipAuth: true });
       setInstituteSubmitted(true);
       if (res?.application?.id) {
         setInstituteAppId(res.application.id);
       }
     } catch (err: any) {
-      setError(err.message || "Failed to submit institutional application.");
+      setError(err.message || "Failed to submit institutional application. Please try again.");
     } finally {
       setLoading(false);
     }
   };
 
-  // Handle Individual & Family Signup Submit
+  // Handle Independent (Parent / Guardian) Direct Signup
   const handleIndependentSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -137,9 +115,6 @@ function SignupContent() {
           password: independentForm.password,
           phone: independentForm.phone,
           account_type: independentRole,
-          grade: independentForm.grade,
-          child_name: independentForm.child_name,
-          school_name: independentForm.school_name,
         },
         { skipAuth: true }
       );
@@ -153,7 +128,7 @@ function SignupContent() {
         }, 1200);
       }
     } catch (err: any) {
-      setError(err.message || "Failed to create independent account.");
+      setError(err.message || "Failed to create account. Please verify your details.");
     } finally {
       setLoading(false);
     }
@@ -163,569 +138,276 @@ function SignupContent() {
     <div className="h-screen max-h-screen overflow-hidden w-screen bg-[#FFF8F0] dark:bg-[#121212] text-[#222222] dark:text-[#FFF8F0] flex flex-col md:flex-row relative select-none">
       
       {/* ── Discreet Top-Right Theme Toggle ──────────────────────────── */}
-      <div className="absolute top-5 right-6 z-30">
+      <div className="absolute top-4 right-5 z-30">
         <ThemeToggle />
       </div>
 
       {/* ── LEFT SIDE: Brand Kit Architectural Graphics ──────────────── */}
       <BrandSidePanel subtitle="Join progressive educational institutions and proactive families supporting adolescent mental wellness." />
 
-      {/* ── RIGHT SIDE: Seamless Signup Form ─────────────────────────── */}
-      <div className="w-full md:w-7/12 lg:w-[54%] h-full flex flex-col px-6 sm:px-10 lg:px-14 py-6 overflow-y-auto relative">
+      {/* ── RIGHT SIDE: Compact, Non-Scrollable Signup Workspace ─────── */}
+      <div className="w-full md:w-7/12 lg:w-[54%] h-full flex flex-col justify-center px-5 sm:px-8 lg:px-12 py-3 overflow-hidden relative">
         
         {/* Subtle Ambient Radial Glow */}
-        <div className="absolute top-1/4 right-1/4 w-80 h-80 bg-[#42B677]/8 rounded-full blur-[120px] pointer-events-none" />
+        <div className="absolute top-1/4 right-1/4 w-72 h-72 bg-[#42B677]/8 rounded-full blur-[100px] pointer-events-none" />
 
-        <div className="max-w-xl w-full mx-auto space-y-5 my-auto relative z-10 py-6">
+        <div className="max-w-xl w-full mx-auto space-y-3 relative z-10">
           
-          {/* Header */}
-          <div className="space-y-1">
-            <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-[#222222] dark:text-[#FFF8F0]">
+          {/* Compact Header */}
+          <div className="space-y-0.5">
+            <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-[#222222] dark:text-[#FFF8F0]">
               Create your JaagrMind account
             </h2>
-            <p className="text-xs text-[#222222]/65 dark:text-[#FFF8F0]/65">
-              Select whether you are applying for campus partnership or registering as a parent.
+            <p className="text-[11px] text-[#222222]/65 dark:text-[#FFF8F0]/65">
+              Select your onboarding pathway below to proceed.
             </p>
           </div>
 
-        {/* Primary Pathway Selector Tabs (Creative Brand Style) */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-          <button
-            type="button"
-            onClick={() => {
-              setActiveTab("institute");
-              setError("");
-            }}
-            className={`p-4 sm:p-5 rounded-2xl border text-left transition-all relative overflow-hidden flex flex-col justify-between cursor-pointer group ${
-              activeTab === "institute"
-                ? "border-active-mint bg-gradient-to-br from-active-mint/10 via-card to-background shadow-md shadow-active-mint/5 ring-2 ring-active-mint/20"
-                : "border-border/80 hover:border-border bg-card/60 hover:bg-card transition-all"
-            }`}
-          >
-            {activeTab === "institute" && (
-              <div className="absolute top-0 right-0 h-16 w-16 bg-active-mint/10 rounded-bl-full pointer-events-none" />
-            )}
-            <div className="flex items-center justify-between mb-3 relative z-10">
-              <div className={`p-2.5 rounded-xl transition-colors ${
-                activeTab === "institute" ? "bg-active-mint text-white shadow-xs" : "bg-muted text-muted-foreground group-hover:text-foreground"
-              }`}>
-                <Building2 className="h-5 w-5" />
-              </div>
-              <Badge
-                variant="outline"
-                className={`text-[10px] font-semibold tracking-wide ${
-                  activeTab === "institute"
-                    ? "border-active-mint/40 bg-active-mint/10 text-active-mint"
-                    : "border-border bg-background text-muted-foreground"
-                }`}
-              >
-                Campus Partnership
-              </Badge>
-            </div>
-            <div className="relative z-10 space-y-1">
-              <h3 className="font-bold text-sm sm:text-base text-foreground flex items-center gap-1.5">
-                Educational Institution
-              </h3>
-              <p className="text-xs text-muted-foreground leading-relaxed">
-                For K-12 schools, campus admins, and multi-branch educational networks.
-              </p>
-            </div>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => {
-              setActiveTab("independent");
-              setError("");
-            }}
-            className={`p-4 sm:p-5 rounded-2xl border text-left transition-all relative overflow-hidden flex flex-col justify-between cursor-pointer group ${
-              activeTab === "independent"
-                ? "border-active-mint bg-gradient-to-br from-active-mint/10 via-card to-background shadow-md shadow-active-mint/5 ring-2 ring-active-mint/20"
-                : "border-border/80 hover:border-border bg-card/60 hover:bg-card transition-all"
-            }`}
-          >
-            {activeTab === "independent" && (
-              <div className="absolute top-0 right-0 h-16 w-16 bg-active-mint/10 rounded-bl-full pointer-events-none" />
-            )}
-            <div className="flex items-center justify-between mb-3 relative z-10">
-              <div className={`p-2.5 rounded-xl transition-colors ${
-                activeTab === "independent" ? "bg-active-mint text-white shadow-xs" : "bg-muted text-muted-foreground group-hover:text-foreground"
-              }`}>
-                <HeartHandshake className="h-5 w-5" />
-              </div>
-              <Badge
-                variant="outline"
-                className={`text-[10px] font-semibold tracking-wide ${
-                  activeTab === "independent"
-                    ? "border-active-mint/40 bg-active-mint/10 text-active-mint"
-                    : "border-border bg-background text-muted-foreground"
-                }`}
-              >
-                Family & Personal
-              </Badge>
-            </div>
-            <div className="relative z-10 space-y-1">
-              <h3 className="font-bold text-sm sm:text-base text-foreground flex items-center gap-1.5">
-                Family & Parent Desk
-              </h3>
-              <p className="text-xs text-muted-foreground leading-relaxed">
-                For parents, guardians, and families observing adolescent regulation.
-              </p>
-            </div>
-          </button>
-        </div>
-
-        {/* Dynamic Card Body */}
-        <Card className="border-border shadow-xs">
-          {/* TAB 1: Educational Institute Application */}
-          {activeTab === "institute" && (
-            <>
-              <CardHeader className="pb-4 border-b border-border/40">
-                <div className="flex items-center gap-2">
-                  <School className="h-4 w-4 text-primary" />
-                  <CardTitle className="text-base font-semibold">
-                    School Onboarding & Partnership Application
-                  </CardTitle>
+          {/* Compact Primary Pathway Tabs */}
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                setActiveTab("institute");
+                setError("");
+              }}
+              className={`p-2 px-3 rounded-xl border text-left transition-all flex items-center justify-between cursor-pointer ${
+                activeTab === "institute"
+                  ? "border-active-mint bg-active-mint/10 text-foreground ring-1 ring-active-mint/30 shadow-2xs"
+                  : "border-[#222222]/15 dark:border-white/10 bg-white/60 dark:bg-[#181818]/60 hover:bg-white/80"
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                <div className={`p-1.5 rounded-lg ${activeTab === "institute" ? "bg-active-mint text-white" : "bg-muted text-muted-foreground"}`}>
+                  <Building2 className="h-3.5 w-3.5" />
                 </div>
-                <CardDescription className="text-xs">
-                  Apply to set up your dedicated school portal with multi-class rosters, tier-governed check-ins, and campus wellness analytics.
-                </CardDescription>
-              </CardHeader>
+                <div>
+                  <h3 className="font-bold text-xs text-foreground leading-tight">Educational Institution</h3>
+                  <p className="text-[10px] text-muted-foreground hidden sm:block">K-12 Campus Partnership</p>
+                </div>
+              </div>
+              <Badge variant="outline" className="text-[9px] px-1.5 py-0 border-active-mint/30 text-active-mint hidden sm:inline-flex">
+                Campus
+              </Badge>
+            </button>
 
-              <CardContent className="pt-6">
-                {instituteSubmitted ? (
-                  <div className="text-center py-8 px-4 space-y-4">
-                    <div className="h-14 w-14 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mx-auto ring-8 ring-emerald-500/5">
-                      <CheckCircle2 className="h-7 w-7" />
-                    </div>
-                    <div className="space-y-1.5 max-w-md mx-auto">
-                      <h3 className="text-lg font-semibold text-foreground">
-                        Application Successfully Submitted!
-                      </h3>
-                      <p className="text-xs text-muted-foreground leading-relaxed">
-                        Thank you for applying to onboard{" "}
-                        <strong className="text-foreground">{instituteForm.institute_name}</strong>. Our institutional support team will review your application and contact you at{" "}
-                        <span className="font-mono text-foreground">{instituteForm.email}</span> within 24 hours to coordinate administrator credential activation.
-                      </p>
-                      {instituteAppId && (
-                        <div className="pt-2">
-                          <span className="text-[11px] font-mono px-2 py-1 rounded bg-muted text-muted-foreground border border-border/70">
-                            Reference ID: {instituteAppId.slice(0, 13)}...
-                          </span>
-                        </div>
-                      )}
-                    </div>
-                    <div className="pt-4 flex items-center justify-center gap-3">
-                      <Link href="/login">
-                        <Button variant="outline" size="sm" className="text-xs">
-                          Return to Login
-                        </Button>
-                      </Link>
-                      <Button
-                        size="sm"
-                        variant="default"
-                        className="text-xs"
-                        onClick={() => {
-                          setInstituteSubmitted(false);
-                          setInstituteForm({
-                            institute_name: "",
-                            institute_type: "K-12 School",
-                            city: "",
-                            state: "",
-                            contact_name: "",
-                            designation: "Principal / Administrator",
-                            email: "",
-                            phone: "",
-                            estimated_students: 500,
-                            message: "",
-                          });
-                        }}
-                      >
-                        Submit Another Inquiry
-                      </Button>
-                    </div>
-                  </div>
-                ) : (
-                  <form onSubmit={handleInstituteSubmit} className="space-y-4">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div className="space-y-1.5">
-                        <label className="text-xs font-medium text-foreground flex items-center gap-1">
-                          Institute Name <span className="text-destructive">*</span>
-                        </label>
-                        <Input
-                          placeholder="e.g. National Public School"
-                          value={instituteForm.institute_name}
-                          onChange={(e) =>
-                            setInstituteForm({ ...instituteForm, institute_name: e.target.value })
-                          }
-                          required
-                          className="text-xs"
-                        />
-                      </div>
+            <button
+              type="button"
+              onClick={() => {
+                setActiveTab("independent");
+                setError("");
+              }}
+              className={`p-2 px-3 rounded-xl border text-left transition-all flex items-center justify-between cursor-pointer ${
+                activeTab === "independent"
+                  ? "border-active-mint bg-active-mint/10 text-foreground ring-1 ring-active-mint/30 shadow-2xs"
+                  : "border-[#222222]/15 dark:border-white/10 bg-white/60 dark:bg-[#181818]/60 hover:bg-white/80"
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                <div className={`p-1.5 rounded-lg ${activeTab === "independent" ? "bg-active-mint text-white" : "bg-muted text-muted-foreground"}`}>
+                  <HeartHandshake className="h-3.5 w-3.5" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-xs text-foreground leading-tight">Family & Parent Desk</h3>
+                  <p className="text-[10px] text-muted-foreground hidden sm:block">Home Care & Radar</p>
+                </div>
+              </div>
+              <Badge variant="outline" className="text-[9px] px-1.5 py-0 border-active-mint/30 text-active-mint hidden sm:inline-flex">
+                Family
+              </Badge>
+            </button>
+          </div>
 
-                      <div className="space-y-1.5">
-                        <label className="text-xs font-medium text-foreground">School Type</label>
-                        <select
-                          className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-xs shadow-xs transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                          value={instituteForm.institute_type}
-                          onChange={(e) =>
-                            setInstituteForm({ ...instituteForm, institute_type: e.target.value })
-                          }
-                        >
-                          <option value="K-12 School" className="bg-popover text-popover-foreground">K-12 School (Complete Campus)</option>
-                          <option value="Senior Secondary High School" className="bg-popover text-popover-foreground">Senior Secondary High School (Grades 9-12)</option>
-                          <option value="Secondary School" className="bg-popover text-popover-foreground">Secondary School (Grades 6-10)</option>
-                          <option value="Primary & Middle School" className="bg-popover text-popover-foreground">Primary & Middle School (Grades 1-8)</option>
-                        </select>
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div className="space-y-1.5">
-                        <label className="text-xs font-medium text-foreground flex items-center gap-1">
-                          City <span className="text-destructive">*</span>
-                        </label>
-                        <Input
-                          placeholder="e.g. Bangalore, Hyderabad, Delhi"
-                          value={instituteForm.city}
-                          onChange={(e) =>
-                            setInstituteForm({ ...instituteForm, city: e.target.value })
-                          }
-                          required
-                          className="text-xs"
-                        />
-                      </div>
-
-                      <div className="space-y-1.5">
-                        <label className="text-xs font-medium text-foreground flex items-center gap-1">
-                          State / Region <span className="text-destructive">*</span>
-                        </label>
-                        <Input
-                          placeholder="e.g. Karnataka, Telangana, Maharashtra"
-                          value={instituteForm.state}
-                          onChange={(e) =>
-                            setInstituteForm({ ...instituteForm, state: e.target.value })
-                          }
-                          required
-                          className="text-xs"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div className="space-y-1.5">
-                        <label className="text-xs font-medium text-foreground flex items-center gap-1">
-                          Designated Contact Person <span className="text-destructive">*</span>
-                        </label>
-                        <Input
-                          placeholder="e.g. Dr. Priya Sharma"
-                          value={instituteForm.contact_name}
-                          onChange={(e) =>
-                            setInstituteForm({ ...instituteForm, contact_name: e.target.value })
-                          }
-                          required
-                          className="text-xs"
-                        />
-                      </div>
-
-                      <div className="space-y-1.5">
-                        <label className="text-xs font-medium text-foreground">Designation / Role</label>
-                        <Input
-                          placeholder="e.g. Principal, Head of Counseling, Director"
-                          value={instituteForm.designation}
-                          onChange={(e) =>
-                            setInstituteForm({ ...instituteForm, designation: e.target.value })
-                          }
-                          className="text-xs"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div className="space-y-1.5">
-                        <label className="text-xs font-medium text-foreground flex items-center gap-1">
-                          Official Email <span className="text-destructive">*</span>
-                        </label>
-                        <Input
-                          type="email"
-                          placeholder="e.g. principal@school.edu.in"
-                          value={instituteForm.email}
-                          onChange={(e) =>
-                            setInstituteForm({ ...instituteForm, email: e.target.value })
-                          }
-                          required
-                          className="text-xs"
-                        />
-                      </div>
-
-                      <div className="space-y-1.5">
-                        <label className="text-xs font-medium text-foreground flex items-center gap-1">
-                          Phone / WhatsApp <span className="text-destructive">*</span>
-                        </label>
-                        <Input
-                          type="tel"
-                          placeholder="e.g. +91 98765 43210"
-                          value={instituteForm.phone}
-                          onChange={(e) =>
-                            setInstituteForm({ ...instituteForm, phone: e.target.value })
-                          }
-                          required
-                          className="text-xs"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div className="space-y-1.5">
-                        <label className="text-xs font-medium text-foreground">
-                          Approx. Student Strength
-                        </label>
-                        <select
-                          className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-xs shadow-xs transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                          value={instituteForm.estimated_students}
-                          onChange={(e) =>
-                            setInstituteForm({
-                              ...instituteForm,
-                              estimated_students: Number(e.target.value),
-                            })
-                          }
-                        >
-                          <option value="250" className="bg-popover text-popover-foreground">Under 500 Students</option>
-                          <option value="1000" className="bg-popover text-popover-foreground">500 – 1,500 Students</option>
-                          <option value="2500" className="bg-popover text-popover-foreground">1,500 – 3,500 Students</option>
-                          <option value="5000" className="bg-popover text-popover-foreground">3,500+ Students (Multi-Campus)</option>
-                        </select>
-                      </div>
-
-                      <div className="space-y-1.5">
-                        <label className="text-xs font-medium text-foreground">
-                          Special Requirements (Optional)
-                        </label>
-                        <Input
-                          placeholder="e.g. Board exam stress, Tiered grade routing"
-                          value={instituteForm.message}
-                          onChange={(e) =>
-                            setInstituteForm({ ...instituteForm, message: e.target.value })
-                          }
-                          className="text-xs"
-                        />
-                      </div>
-                    </div>
-
-                    {error && (
-                      <p className="text-xs text-destructive text-center font-medium bg-destructive/10 p-2 rounded-md">
-                        {error}
-                      </p>
-                    )}
-
-                    <Button
-                      type="submit"
-                      disabled={loading}
-                      className="w-full h-10 text-xs font-semibold gap-1.5 mt-2 bg-active-mint hover:bg-active-mint/90 text-white shadow-xs cursor-pointer"
-                    >
-                      {loading ? "Submitting Application..." : "Submit School Application"}
-                      <ArrowRight className="h-3.5 w-3.5" />
-                    </Button>
-                  </form>
-                )}
-              </CardContent>
-            </>
-          )}
-
-          {/* TAB 2: Individual & Family (Student, Parent, Relative) */}
-          {activeTab === "independent" && (
-            <>
-              <CardHeader className="pb-4 border-b border-border/40">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <HeartHandshake className="h-4 w-4 text-active-mint" />
-                    <CardTitle className="text-base font-semibold">
-                      Individual & Family Registration
+          {/* Dynamic Card Body (Ultra-Compact) */}
+          <Card className="border-[#222222]/15 dark:border-white/10 bg-white/85 dark:bg-[#181818]/85 backdrop-blur-md rounded-2xl shadow-sm overflow-hidden">
+            
+            {/* TAB 1: Educational Institute Application */}
+            {activeTab === "institute" && (
+              <>
+                <CardHeader className="px-4 py-2 border-b border-[#222222]/10 dark:border-white/10 flex flex-row items-center justify-between space-y-0">
+                  <div className="flex items-center gap-1.5">
+                    <School className="h-3.5 w-3.5 text-active-mint" />
+                    <CardTitle className="text-xs font-bold text-foreground">
+                      School Partnership Onboarding
                     </CardTitle>
                   </div>
-                  <Badge variant="outline" className="text-[10px] font-mono capitalize border-active-mint/30 bg-active-mint/5 text-active-mint">
-                    {independentRole === "relative" ? "Guardian" : independentRole} Account
-                  </Badge>
-                </div>
-                <CardDescription className="text-xs">
-                  Personal check-ins, focus reflection, and student wellness support.
-                </CardDescription>
+                  <span className="text-[10px] text-muted-foreground">Admin credential activation</span>
+                </CardHeader>
 
-                {/* Sub-role Selector */}
-                <div className="grid grid-cols-2 gap-2.5 pt-3">
-                  {[
-                    { id: "parent", label: "Parent", icon: Users, desc: "Monitor child wellness & developmental progress" },
-                    { id: "relative", label: "Legal Guardian / Relative", icon: HeartHandshake, desc: "Student support & home care" },
-                  ].map((roleOption) => {
-                    const Icon = roleOption.icon;
-                    const isSelected = independentRole === roleOption.id;
-                    return (
-                      <button
-                        key={roleOption.id}
-                        type="button"
-                        onClick={() => {
-                          setIndependentRole(roleOption.id as any);
-                          setError("");
-                        }}
-                        className={`p-3 rounded-xl border text-left transition-all flex flex-col gap-1 cursor-pointer ${
-                          isSelected
-                            ? "border-active-mint bg-active-mint/10 text-foreground ring-1 ring-active-mint/30 shadow-xs"
-                            : "border-border/80 hover:bg-muted/40 text-muted-foreground hover:text-foreground"
-                        }`}
-                      >
-                        <div className="flex items-center gap-1.5 font-semibold text-xs text-foreground">
-                          <Icon className={`h-3.5 w-3.5 shrink-0 ${isSelected ? "text-active-mint" : "text-muted-foreground"}`} />
-                          <span>{roleOption.label}</span>
+                <CardContent className="p-3.5 sm:p-4">
+                  {instituteSubmitted ? (
+                    <div className="text-center py-6 px-3 space-y-2.5">
+                      <div className="h-10 w-10 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mx-auto ring-4 ring-emerald-500/5">
+                        <CheckCircle2 className="h-5 w-5" />
+                      </div>
+                      <div className="space-y-1 max-w-sm mx-auto">
+                        <h3 className="text-sm font-bold text-foreground">
+                          Application Submitted!
+                        </h3>
+                        <p className="text-[11px] text-muted-foreground leading-snug">
+                          Thank you for registering <strong className="text-foreground">{instituteForm.institute_name}</strong>. Our institutional desk will reach out at <span className="font-mono text-foreground">{instituteForm.email}</span> within 24 hours.
+                        </p>
+                        {instituteAppId && (
+                          <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-muted text-muted-foreground border inline-block mt-1">
+                            Ref ID: {instituteAppId.slice(0, 10)}...
+                          </span>
+                        )}
+                      </div>
+                      <div className="pt-2 flex items-center justify-center gap-2">
+                        <Link href="/login">
+                          <Button variant="outline" size="sm" className="h-8 text-xs rounded-xl">
+                            Return to Login
+                          </Button>
+                        </Link>
+                        <Button
+                          size="sm"
+                          className="h-8 text-xs bg-active-mint hover:bg-active-mint/90 text-white rounded-xl"
+                          onClick={() => {
+                            setInstituteSubmitted(false);
+                            setInstituteForm({
+                              institute_name: "",
+                              institute_type: "K-12 School",
+                              city: "",
+                              state: "",
+                              contact_name: "",
+                              designation: "Principal / Administrator",
+                              email: "",
+                              phone: "",
+                              estimated_students: 500,
+                              message: "",
+                            });
+                          }}
+                        >
+                          New Inquiry
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <form onSubmit={handleInstituteSubmit} className="space-y-2">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        <div className="space-y-1">
+                          <label className="text-[11px] font-semibold text-foreground">
+                            Institute Name <span className="text-destructive">*</span>
+                          </label>
+                          <Input
+                            placeholder="e.g. National Public School"
+                            value={instituteForm.institute_name}
+                            onChange={(e) =>
+                              setInstituteForm({ ...instituteForm, institute_name: e.target.value })
+                            }
+                            required
+                            className="h-8 text-xs rounded-lg"
+                          />
                         </div>
-                        <span className="text-[10px] text-muted-foreground line-clamp-1">
-                          {roleOption.desc}
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
 
-                {/* Enrolled Student Notice */}
-                <div className="mt-3 p-3 rounded-xl bg-active-mint/5 border border-active-mint/20 text-xs flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <GraduationCap className="h-4 w-4 text-active-mint shrink-0" />
-                    <span className="text-foreground"><strong>Enrolled Student?</strong> Access check-ins using your School Access ID.</span>
-                  </div>
-                  <Link href="/student/login" className="text-active-mint hover:underline font-semibold flex items-center gap-1 shrink-0 ml-2">
-                    Student Login <ArrowRight className="h-3 w-3" />
-                  </Link>
-                </div>
-              </CardHeader>
-
-              <CardContent className="pt-6">
-                {independentSuccess ? (
-                  <div className="text-center py-8 space-y-3">
-                    <div className="h-12 w-12 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mx-auto">
-                      <CheckCircle2 className="h-6 w-6" />
-                    </div>
-                    <div className="space-y-1">
-                      <h3 className="text-base font-semibold text-foreground">
-                        Account Created Successfully!
-                      </h3>
-                      <p className="text-xs text-muted-foreground">
-                        Welcome to JaagrMind! Redirecting to your dashboard...
-                      </p>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    {/* Google OAuth Button */}
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => {
-                        const apiBase = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
-                        window.location.href = `${apiBase}/api/auth/google/login?role=${independentRole}&intent=signup`;
-                      }}
-                      className="w-full flex items-center justify-center gap-2.5 h-10 border-border hover:bg-muted/50 font-medium text-xs transition-all shadow-xs"
-                    >
-                      <svg className="h-4 w-4 shrink-0" viewBox="0 0 24 24">
-                        <path
-                          fill="#4285F4"
-                          d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.66-5.17 3.66-9.17z"
-                        />
-                        <path
-                          fill="#34A853"
-                          d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.26v3.15C3.26 21.36 7.36 24 12 24z"
-                        />
-                        <path
-                          fill="#FBBC05"
-                          d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.26C.46 8.16 0 9.97 0 12s.46 3.84 1.26 5.42l4.02-3.15z"
-                        />
-                        <path
-                          fill="#EA4335"
-                          d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.36 0 3.26 2.64 1.26 6.58l4.02 3.15c.95-2.83 3.6-4.98 6.72-4.98z"
-                        />
-                      </svg>
-                      <span>Sign up with Google</span>
-                    </Button>
-
-                    <div className="relative flex items-center justify-center">
-                      <div className="border-t border-border w-full" />
-                      <span className="bg-card px-2 text-[10px] uppercase font-mono tracking-wider text-muted-foreground shrink-0">
-                        Or register with email
-                      </span>
-                      <div className="border-t border-border w-full" />
-                    </div>
-
-                    <form onSubmit={handleIndependentSubmit} className="space-y-4">
-                      <div className="space-y-1.5">
-                        <label className="text-xs font-medium text-foreground">
-                          Full Name <span className="text-destructive">*</span>
-                        </label>
-                        <Input
-                          placeholder="e.g. Rajesh Sharma"
-                          value={independentForm.name}
-                          onChange={(e) =>
-                            setIndependentForm({ ...independentForm, name: e.target.value })
-                          }
-                          required
-                          className="text-xs"
-                        />
+                        <div className="space-y-1">
+                          <label className="text-[11px] font-semibold text-foreground">School Type</label>
+                          <select
+                            className="flex h-8 w-full rounded-lg border border-input bg-transparent px-2.5 py-0.5 text-xs shadow-2xs focus-visible:ring-1 focus-visible:ring-active-mint"
+                            value={instituteForm.institute_type}
+                            onChange={(e) =>
+                              setInstituteForm({ ...instituteForm, institute_type: e.target.value })
+                            }
+                          >
+                            <option value="K-12 School" className="bg-popover text-popover-foreground">K-12 Campus</option>
+                            <option value="Senior Secondary High School" className="bg-popover text-popover-foreground">High School (9-12)</option>
+                            <option value="Secondary School" className="bg-popover text-popover-foreground">Secondary (6-10)</option>
+                            <option value="Primary & Middle School" className="bg-popover text-popover-foreground">Middle School (1-8)</option>
+                          </select>
+                        </div>
                       </div>
 
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div className="space-y-1.5">
-                          <label className="text-xs font-medium text-foreground">
-                            Email Address <span className="text-destructive">*</span>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        <div className="space-y-1">
+                          <label className="text-[11px] font-semibold text-foreground">
+                            City & Region <span className="text-destructive">*</span>
+                          </label>
+                          <div className="grid grid-cols-2 gap-1.5">
+                            <Input
+                              placeholder="City"
+                              value={instituteForm.city}
+                              onChange={(e) => setInstituteForm({ ...instituteForm, city: e.target.value })}
+                              required
+                              className="h-8 text-xs rounded-lg"
+                            />
+                            <Input
+                              placeholder="State"
+                              value={instituteForm.state}
+                              onChange={(e) => setInstituteForm({ ...instituteForm, state: e.target.value })}
+                              required
+                              className="h-8 text-xs rounded-lg"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="space-y-1">
+                          <label className="text-[11px] font-semibold text-foreground">
+                            Contact Person & Role <span className="text-destructive">*</span>
+                          </label>
+                          <div className="grid grid-cols-2 gap-1.5">
+                            <Input
+                              placeholder="Name"
+                              value={instituteForm.contact_name}
+                              onChange={(e) => setInstituteForm({ ...instituteForm, contact_name: e.target.value })}
+                              required
+                              className="h-8 text-xs rounded-lg"
+                            />
+                            <Input
+                              placeholder="Designation"
+                              value={instituteForm.designation}
+                              onChange={(e) => setInstituteForm({ ...instituteForm, designation: e.target.value })}
+                              className="h-8 text-xs rounded-lg"
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                        <div className="space-y-1 sm:col-span-1">
+                          <label className="text-[11px] font-semibold text-foreground">
+                            Official Email <span className="text-destructive">*</span>
                           </label>
                           <Input
                             type="email"
-                            placeholder="e.g. yourname@example.com"
-                            value={independentForm.email}
-                            onChange={(e) =>
-                              setIndependentForm({ ...independentForm, email: e.target.value })
-                            }
+                            placeholder="admin@school.edu"
+                            value={instituteForm.email}
+                            onChange={(e) => setInstituteForm({ ...instituteForm, email: e.target.value })}
                             required
-                            className="text-xs"
+                            className="h-8 text-xs rounded-lg"
                           />
                         </div>
 
-                        <div className="space-y-1.5">
-                          <label className="text-xs font-medium text-foreground">
-                            Create Password <span className="text-destructive">*</span>
+                        <div className="space-y-1 sm:col-span-1">
+                          <label className="text-[11px] font-semibold text-foreground">
+                            Phone / WhatsApp <span className="text-destructive">*</span>
                           </label>
                           <Input
-                            type="password"
-                            placeholder="Minimum 6 characters"
-                            value={independentForm.password}
-                            onChange={(e) =>
-                              setIndependentForm({ ...independentForm, password: e.target.value })
-                            }
+                            type="tel"
+                            placeholder="+91..."
+                            value={instituteForm.phone}
+                            onChange={(e) => setInstituteForm({ ...instituteForm, phone: e.target.value })}
                             required
-                            minLength={6}
-                            className="text-xs"
+                            className="h-8 text-xs rounded-lg"
                           />
                         </div>
-                      </div>
 
-                      <div className="p-2.5 rounded-lg bg-sky-500/5 border border-sky-500/20 flex items-center gap-2 text-xs text-muted-foreground">
-                        <Lightbulb className="h-4 w-4 text-sky-500 shrink-0" />
-                        <span>You can add and manage profiles for all your children directly inside your parent dashboard after signup.</span>
-                      </div>
-
-                      <div className="space-y-1.5">
-                        <label className="text-xs font-medium text-foreground">
-                          Mobile Number (Optional)
-                        </label>
-                        <Input
-                          type="tel"
-                          placeholder="e.g. +91 98765 43210"
-                          value={independentForm.phone}
-                          onChange={(e) =>
-                            setIndependentForm({ ...independentForm, phone: e.target.value })
-                          }
-                          className="text-xs"
-                        />
+                        <div className="space-y-1 sm:col-span-1">
+                          <label className="text-[11px] font-semibold text-foreground">Student Strength</label>
+                          <select
+                            className="flex h-8 w-full rounded-lg border border-input bg-transparent px-2 py-0.5 text-xs shadow-2xs focus-visible:ring-1 focus-visible:ring-active-mint"
+                            value={instituteForm.estimated_students}
+                            onChange={(e) => setInstituteForm({ ...instituteForm, estimated_students: Number(e.target.value) })}
+                          >
+                            <option value="250" className="bg-popover text-popover-foreground">&lt; 500</option>
+                            <option value="1000" className="bg-popover text-popover-foreground">500 – 1.5k</option>
+                            <option value="2500" className="bg-popover text-popover-foreground">1.5k – 3.5k</option>
+                            <option value="5000" className="bg-popover text-popover-foreground">3.5k+</option>
+                          </select>
+                        </div>
                       </div>
 
                       {error && (
-                        <p className="text-xs text-destructive text-center font-medium bg-destructive/10 p-2 rounded-md">
+                        <p className="text-[11px] text-destructive text-center font-medium bg-destructive/10 p-1.5 rounded-lg">
                           {error}
                         </p>
                       )}
@@ -733,47 +415,220 @@ function SignupContent() {
                       <Button
                         type="submit"
                         disabled={loading}
-                        className="w-full h-10 text-xs font-semibold gap-1.5 mt-2 bg-active-mint hover:bg-active-mint/90 text-white shadow-xs cursor-pointer"
+                        className="w-full h-8.5 text-xs font-semibold gap-1.5 mt-1 bg-active-mint hover:bg-active-mint/90 text-white rounded-xl shadow-xs cursor-pointer"
                       >
-                        {loading
-                          ? "Creating Account..."
-                          : independentRole === "parent"
-                            ? "Create Parent Account"
-                            : "Create Guardian Account"}
+                        {loading ? "Submitting Application..." : "Submit Campus Application"}
                         <ArrowRight className="h-3.5 w-3.5" />
                       </Button>
                     </form>
-                  </div>
-                )}
-              </CardContent>
-            </>
-          )}
-        </Card>
+                  )}
+                </CardContent>
+              </>
+            )}
 
-        {/* Footer with Links */}
-        <div className="pt-2 text-center text-xs text-[#222222]/60 dark:text-[#FFF8F0]/60 space-y-1.5">
-          <div>
-            Already have an account?{" "}
-            <Link href="/login" className="text-[#42B677] font-semibold hover:underline">
-              Sign in to Portal
-            </Link>
-          </div>
-          <div className="text-[11px]">
-            Student with a school-issued code?{" "}
-            <Link href="/student/login" className="text-[#222222]/50 dark:text-white/50 hover:text-[#42B677] font-medium underline">
-              Access Student Assessment Portal &rarr;
-            </Link>
+            {/* TAB 2: Individual & Family (Parent / Guardian) */}
+            {activeTab === "independent" && (
+              <>
+                <CardHeader className="px-4 py-2 border-b border-[#222222]/10 dark:border-white/10 flex flex-row items-center justify-between space-y-0">
+                  <div className="flex items-center gap-1.5">
+                    <HeartHandshake className="h-3.5 w-3.5 text-active-mint" />
+                    <CardTitle className="text-xs font-bold text-foreground">
+                      Family Desk Registration
+                    </CardTitle>
+                  </div>
+
+                  {/* Sub-role Toggle in Header */}
+                  <div className="flex items-center gap-1 bg-muted/60 p-0.5 rounded-lg">
+                    <button
+                      type="button"
+                      onClick={() => setIndependentRole("parent")}
+                      className={`text-[10px] font-semibold px-2 py-0.5 rounded-md transition-all cursor-pointer ${
+                        independentRole === "parent" ? "bg-white dark:bg-[#222] text-active-mint shadow-2xs" : "text-muted-foreground hover:text-foreground"
+                      }`}
+                    >
+                      Parent
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setIndependentRole("relative")}
+                      className={`text-[10px] font-semibold px-2 py-0.5 rounded-md transition-all cursor-pointer ${
+                        independentRole === "relative" ? "bg-white dark:bg-[#222] text-active-mint shadow-2xs" : "text-muted-foreground hover:text-foreground"
+                      }`}
+                    >
+                      Guardian
+                    </button>
+                  </div>
+                </CardHeader>
+
+                <CardContent className="p-3.5 sm:p-4">
+                  {independentSuccess ? (
+                    <div className="text-center py-6 space-y-2">
+                      <div className="h-10 w-10 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mx-auto">
+                        <CheckCircle2 className="h-5 w-5" />
+                      </div>
+                      <h3 className="text-sm font-bold text-foreground">
+                        Account Created Successfully!
+                      </h3>
+                      <p className="text-[11px] text-muted-foreground">
+                        Welcome to JaagrMind! Redirecting to your family dashboard...
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="space-y-2.5">
+                      {/* Google OAuth Button */}
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => {
+                          const apiBase = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
+                          window.location.href = `${apiBase}/api/auth/google/login?role=${independentRole}&intent=signup`;
+                        }}
+                        className="w-full flex items-center justify-center gap-2 h-8.5 border-border hover:bg-muted/50 font-semibold text-xs rounded-xl shadow-2xs cursor-pointer"
+                      >
+                        <svg className="h-3.5 w-3.5 shrink-0" viewBox="0 0 24 24">
+                          <path
+                            fill="#4285F4"
+                            d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.66-5.17 3.66-9.17z"
+                          />
+                          <path
+                            fill="#34A853"
+                            d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.26v3.15C3.26 21.36 7.36 24 12 24z"
+                          />
+                          <path
+                            fill="#FBBC05"
+                            d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.26C.46 8.16 0 9.97 0 12s.46 3.84 1.26 5.42l4.02-3.15z"
+                          />
+                          <path
+                            fill="#EA4335"
+                            d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.36 0 3.26 2.64 1.26 6.58l4.02 3.15c.95-2.83 3.6-4.98 6.72-4.98z"
+                          />
+                        </svg>
+                        <span>Sign up with Google</span>
+                      </Button>
+
+                      <div className="relative flex items-center justify-center">
+                        <div className="border-t border-[#222222]/10 dark:border-white/10 w-full" />
+                        <span className="bg-white dark:bg-[#181818] px-2 text-[9px] uppercase font-mono tracking-wider text-muted-foreground shrink-0">
+                          Or register with email
+                        </span>
+                        <div className="border-t border-[#222222]/10 dark:border-white/10 w-full" />
+                      </div>
+
+                      <form onSubmit={handleIndependentSubmit} className="space-y-2">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                          <div className="space-y-1">
+                            <label className="text-[11px] font-semibold text-foreground">
+                              Full Name <span className="text-destructive">*</span>
+                            </label>
+                            <Input
+                              placeholder="e.g. Rajesh Sharma"
+                              value={independentForm.name}
+                              onChange={(e) => setIndependentForm({ ...independentForm, name: e.target.value })}
+                              required
+                              className="h-8 text-xs rounded-lg"
+                            />
+                          </div>
+
+                          <div className="space-y-1">
+                            <label className="text-[11px] font-semibold text-foreground">
+                              Mobile Number (Optional)
+                            </label>
+                            <Input
+                              type="tel"
+                              placeholder="+91..."
+                              value={independentForm.phone}
+                              onChange={(e) => setIndependentForm({ ...independentForm, phone: e.target.value })}
+                              className="h-8 text-xs rounded-lg"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                          <div className="space-y-1">
+                            <label className="text-[11px] font-semibold text-foreground">
+                              Email Address <span className="text-destructive">*</span>
+                            </label>
+                            <Input
+                              type="email"
+                              placeholder="parent@example.com"
+                              value={independentForm.email}
+                              onChange={(e) => setIndependentForm({ ...independentForm, email: e.target.value })}
+                              required
+                              className="h-8 text-xs rounded-lg"
+                            />
+                          </div>
+
+                          <div className="space-y-1">
+                            <label className="text-[11px] font-semibold text-foreground">
+                              Password <span className="text-destructive">*</span>
+                            </label>
+                            <Input
+                              type="password"
+                              placeholder="Min 6 characters"
+                              value={independentForm.password}
+                              onChange={(e) => setIndependentForm({ ...independentForm, password: e.target.value })}
+                              required
+                              minLength={6}
+                              className="h-8 text-xs rounded-lg"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="p-2 rounded-lg bg-active-mint/5 border border-active-mint/20 flex items-center gap-2 text-[10px] text-muted-foreground">
+                          <Lightbulb className="h-3.5 w-3.5 text-active-mint shrink-0" />
+                          <span>You can link and manage all children directly inside your parent dashboard after registration.</span>
+                        </div>
+
+                        {error && (
+                          <p className="text-[11px] text-destructive text-center font-medium bg-destructive/10 p-1.5 rounded-lg">
+                            {error}
+                          </p>
+                        )}
+
+                        <Button
+                          type="submit"
+                          disabled={loading}
+                          className="w-full h-8.5 text-xs font-semibold gap-1.5 mt-1 bg-active-mint hover:bg-active-mint/90 text-white rounded-xl shadow-xs cursor-pointer"
+                        >
+                          {loading
+                            ? "Creating Account..."
+                            : independentRole === "parent"
+                              ? "Create Parent Account"
+                              : "Create Guardian Account"}
+                          <ArrowRight className="h-3.5 w-3.5" />
+                        </Button>
+                      </form>
+                    </div>
+                  )}
+                </CardContent>
+              </>
+            )}
+          </Card>
+
+          {/* Compact Footer Links */}
+          <div className="text-center text-xs text-[#222222]/60 dark:text-[#FFF8F0]/60 space-y-0.5 pt-0.5">
+            <div>
+              Already have an account?{" "}
+              <Link href="/login" className="text-active-mint font-semibold hover:underline">
+                Sign in to Portal
+              </Link>
+            </div>
+            <div className="text-[10px]">
+              Enrolled student?{" "}
+              <Link href="/student/login" className="text-[#222222]/50 dark:text-white/50 hover:text-active-mint font-medium underline">
+                Access Student Assessment &rarr;
+              </Link>
+            </div>
           </div>
         </div>
       </div>
-    </div>
 
-    {/* ── Discrete Bottom-Right Copyright Overlay ──────────────────── */}
-    <div className="absolute bottom-5 right-6 z-20 text-[11px] font-mono tracking-wider text-[#222222]/40 dark:text-[#FFF8F0]/40 pointer-events-none">
-      JaagrMind © 2026
+      {/* ── Discrete Bottom-Right Copyright Overlay ──────────────────── */}
+      <div className="absolute bottom-4 right-5 z-20 text-[10px] font-mono tracking-wider text-[#222222]/40 dark:text-[#FFF8F0]/40 pointer-events-none">
+        JaagrMind © 2026
+      </div>
     </div>
-  </div>
-);
+  );
 }
 
 export default function SignupPage() {

@@ -186,16 +186,6 @@ function LoginContent() {
                 )}
               </Button>
             </form>
-
-            {/* Demo Accounts Quick Guide */}
-            <div className="pt-2 p-2.5 rounded-xl bg-[#222222]/5 dark:bg-white/5 border border-[#222222]/10 dark:border-white/10 text-[10px] text-[#222222]/70 dark:text-white/70 space-y-0.5 font-mono">
-              <span className="font-sans font-bold uppercase text-[9px] text-[#42B677] block">
-                Quick Demo Access:
-              </span>
-              <p><code>oakwood@jaagrmind.com</code> / <code>school123</code> (School Admin)</p>
-              <p><code>counselor@oakwood.edu</code> / <code>counsel123</code> (Counselor)</p>
-              <p><code>parent@example.com</code> / <code>parent123</code> (Parent)</p>
-            </div>
           </div>
 
           {/* Quick Links Footer below Card */}

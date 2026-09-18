@@ -9,6 +9,11 @@ node_modules/
 # Build outputs
 dist/
 build/
+.next/
+bin/
+backend-go/bin/
+backend-go/api
+api
 
 # Logs
 logs/
@@ -44,3 +49,16 @@ ftd.zip
 backend/seedAdmin.js
 frontend/.env.development
 frontend/.env.production
+ARCHITECTURE.md
+CHANGELOG.md
+FRONTEND_UI_REQUIREMENTS.md
+MIGRATION_PLAN.md
+README.md
+.gitignore
+.agents
+
+
+enterprise_screenshots
+backend-go/ROLES_ARCHITECTURE.md
+frontend-next/AGENTS.md
+frontend-next/CLAUDE.md

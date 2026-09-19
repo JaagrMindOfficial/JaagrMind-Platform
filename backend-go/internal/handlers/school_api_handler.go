@@ -54,6 +54,7 @@ func SetupSchoolAPIRoutes(app fiber.Router, userRepo domain.UserRepository, scho
 	schoolAPI.Post("/counselors/:id/provision-access", handler.ProvisionCounselorAccess)
 	schoolAPI.Get("/parent-inquiries", handler.GetSchoolParentInquiries)
 	schoolAPI.Put("/parent-inquiries/:id", handler.UpdateSchoolParentInquiry)
+	schoolAPI.Post("/parent-inquiries/:id/claim", handler.ClaimSchoolParentInquiry)
 	schoolAPI.Get("/parent-inquiries/:id/messages", handler.GetSchoolInquiryMessages)
 	schoolAPI.Post("/parent-inquiries/:id/reply", handler.ReplySchoolInquiry)
 	schoolAPI.Get("/students", handler.GetStudents)
@@ -1781,8 +1782,55 @@ func (h *SchoolAPIHandler) AddSchoolCounselor(c fiber.Ctx) error {
 	}
 
 	req.SchoolID = schoolID
-	if strings.TrimSpace(req.Name) == "" || strings.TrimSpace(req.Email) == "" {
+	req.Name = strings.TrimSpace(req.Name)
+	req.Email = strings.ToLower(strings.TrimSpace(req.Email))
+	if req.Name == "" || req.Email == "" {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Counselor Name and Email are required"})
+	}
+
+	// Single School & Role Conflict Check:
+	// A counselor can serve exactly one school or be an internal counselor.
+	existing, existingSchoolName, _ := h.parentRepo.GetCounselorByEmail(c.Context(), req.Email)
+	if existing != nil {
+		if existing.SchoolID == schoolID {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"error": fmt.Sprintf("Counselor '%s' (%s) is already registered for this school.", existing.Name, req.Email),
+			})
+		}
+		if existing.SchoolID != "" {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"error": fmt.Sprintf("Counselor '%s' (%s) is already assigned to %s. Currently, each counselor can serve exactly one school.", existing.Name, req.Email, existingSchoolName),
+			})
+		}
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": fmt.Sprintf("User '%s' is registered as an Internal Platform Counselor. Internal platform counselors cannot be assigned to individual schools.", req.Email),
+		})
+	}
+
+	existingUser, _ := h.userRepo.GetUserByEmail(c.Context(), req.Email)
+	if existingUser != nil {
+		if existingUser.IsInternal {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"error": fmt.Sprintf("User '%s' is registered as an Internal Platform Counselor. Internal platform counselors cannot be assigned to individual schools.", req.Email),
+			})
+		}
+		for _, r := range existingUser.Roles {
+			if r.Role == domain.RoleCounselor {
+				if r.EntityID == schoolID {
+					return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+						"error": fmt.Sprintf("Counselor '%s' (%s) is already registered for this school.", existingUser.Name, req.Email),
+					})
+				} else if r.EntityID != "" {
+					sName := "another institution"
+					if exSchool, err := h.schoolRepo.GetByID(c.Context(), r.EntityID); err == nil && exSchool != nil && exSchool.Name != "" {
+						sName = exSchool.Name
+					}
+					return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+						"error": fmt.Sprintf("Counselor '%s' (%s) is already assigned to %s. Currently, each counselor can serve exactly one school.", existingUser.Name, req.Email, sName),
+					})
+				}
+			}
+		}
 	}
 
 	created, err := h.parentRepo.AddSchoolCounselor(c.Context(), req)
@@ -1836,8 +1884,48 @@ func (h *SchoolAPIHandler) UpdateSchoolCounselor(c fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid request body"})
 	}
 
-	if strings.TrimSpace(req.Name) == "" || strings.TrimSpace(req.Email) == "" {
+	req.Name = strings.TrimSpace(req.Name)
+	req.Email = strings.ToLower(strings.TrimSpace(req.Email))
+	if req.Name == "" || req.Email == "" {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Counselor Name and Email are required"})
+	}
+
+	// Single School & Role Conflict Check on Update:
+	existing, existingSchoolName, _ := h.parentRepo.GetCounselorByEmail(c.Context(), req.Email)
+	if existing != nil && existing.ID != counselorID {
+		if existing.SchoolID == schoolID {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"error": fmt.Sprintf("Counselor '%s' (%s) is already registered for this school.", existing.Name, req.Email),
+			})
+		}
+		if existing.SchoolID != "" {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"error": fmt.Sprintf("Counselor '%s' (%s) is already assigned to %s. Currently, each counselor can serve exactly one school.", existing.Name, req.Email, existingSchoolName),
+			})
+		}
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": fmt.Sprintf("User '%s' is registered as an Internal Platform Counselor. Internal platform counselors cannot be assigned to individual schools.", req.Email),
+		})
+	}
+
+	existingUser, _ := h.userRepo.GetUserByEmail(c.Context(), req.Email)
+	if existingUser != nil {
+		if existingUser.IsInternal {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"error": fmt.Sprintf("User '%s' is registered as an Internal Platform Counselor. Internal platform counselors cannot be assigned to individual schools.", req.Email),
+			})
+		}
+		for _, r := range existingUser.Roles {
+			if r.Role == domain.RoleCounselor && r.EntityID != "" && r.EntityID != schoolID {
+				sName := "another institution"
+				if exSchool, err := h.schoolRepo.GetByID(c.Context(), r.EntityID); err == nil && exSchool != nil && exSchool.Name != "" {
+					sName = exSchool.Name
+				}
+				return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+					"error": fmt.Sprintf("Counselor '%s' (%s) is already assigned to %s. Currently, each counselor can serve exactly one school.", existingUser.Name, req.Email, sName),
+				})
+			}
+		}
 	}
 
 	updated, err := h.parentRepo.UpdateSchoolCounselor(c.Context(), counselorID, schoolID, req)
@@ -1939,6 +2027,43 @@ func (h *SchoolAPIHandler) UpdateSchoolParentInquiry(c fiber.Ctx) error {
 	return c.JSON(fiber.Map{"success": true, "message": "Inquiry updated successfully", "status": status})
 }
 
+func (h *SchoolAPIHandler) ClaimSchoolParentInquiry(c fiber.Ctx) error {
+	inquiryID := c.Params("id")
+	if inquiryID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Inquiry ID is required"})
+	}
+
+	user := h.getAuthenticatedUser(c)
+	if user == nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Unauthorized"})
+	}
+
+	counselor, _, err := h.parentRepo.GetCounselorByEmail(c.Context(), user.Email)
+	if err != nil || counselor == nil {
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "Counselor profile not found for this account"})
+	}
+
+	claimedByName, alreadyClaimed, err := h.parentRepo.ClaimInquiry(c.Context(), inquiryID, counselor.ID)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to claim inquiry: " + err.Error()})
+	}
+
+	if alreadyClaimed {
+		return c.Status(fiber.StatusConflict).JSON(fiber.Map{
+			"success": false,
+			"error":   fmt.Sprintf("This inquiry has already been claimed by %s.", claimedByName),
+			"claimed_by": claimedByName,
+		})
+	}
+
+	return c.JSON(fiber.Map{
+		"success":    true,
+		"message":    "Inquiry successfully claimed and assigned to you",
+		"claimed_by": claimedByName,
+		"counselor_id": counselor.ID,
+	})
+}
+
 func (h *SchoolAPIHandler) GetSchoolInquiryMessages(c fiber.Ctx) error {
 	inquiryID := c.Params("id")
 	if inquiryID == "" {
@@ -2036,6 +2161,23 @@ func (h *SchoolAPIHandler) ProvisionCounselorAccess(c fiber.Ctx) error {
 
 	existingUser, _ := h.userRepo.GetUserByEmail(c.Context(), found.Email)
 	if existingUser != nil {
+		if existingUser.IsInternal {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"error": fmt.Sprintf("User '%s' is registered as an Internal Platform Counselor. Internal platform counselors cannot be provisioned as school counselors.", found.Email),
+			})
+		}
+		for _, r := range existingUser.Roles {
+			if r.Role == domain.RoleCounselor && r.EntityID != "" && r.EntityID != schoolID {
+				sName := "another institution"
+				if exSchool, err := h.schoolRepo.GetByID(c.Context(), r.EntityID); err == nil && exSchool != nil && exSchool.Name != "" {
+					sName = exSchool.Name
+				}
+				return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+					"error": fmt.Sprintf("Counselor '%s' (%s) is already active as a counselor for %s. A counselor can serve exactly one school.", found.Name, found.Email, sName),
+				})
+			}
+		}
+
 		_ = h.userRepo.UpdatePassword(c.Context(), existingUser.ID, hash)
 		_ = h.userRepo.AddRole(c.Context(), existingUser.ID, domain.RoleCounselor, schoolID)
 

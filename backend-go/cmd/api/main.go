@@ -258,7 +258,7 @@ func main() {
 
 	// ── Care Desk API (superadmin & central counselor) ────────
 	careDeskAPI := app.Group("/api/care-desk", middleware.RoleGuard(jwtSecret, domain.RoleSuperAdmin, domain.RoleCounselor))
-	handlers.SetupCareDeskAPIRoutes(careDeskAPI, parentRepo, userRepo, authService)
+	handlers.SetupCareDeskAPIRoutes(careDeskAPI, parentRepo, userRepo, authService, assessmentRepo, counselorRepo)
 
 	port := os.Getenv("PORT")
 	if port == "" {

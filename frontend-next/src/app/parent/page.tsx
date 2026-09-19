@@ -9,7 +9,6 @@ import { ParentCounselorDialog } from "@/components/parent/parent-counselor-dial
 import { ParentAddChildDialog } from "@/components/parent/parent-add-child-dialog";
 import { ParentEditChildDialog } from "@/components/parent/parent-edit-child-dialog";
 import { ParentStandardCheckins, type StudentGradeCheckin } from "@/components/parent/parent-standard-checkins";
-import { ParentCheckinDialog } from "@/components/parent/parent-checkin-dialog";
 import { ParentConversationThreadDialog, type ParentInquiryItem } from "@/components/parent/parent-conversation-thread-dialog";
 import { StudentDossierDialog } from "@/components/student-dossier-dialog";
 import { MeetingCard } from "@/components/parent/meeting-card";
@@ -55,8 +54,8 @@ export default function ParentDashboardPage() {
   const [threadModalOpen, setThreadModalOpen] = useState(false);
 
   const handleStartCheckin = (checkin: StudentGradeCheckin) => {
-    setSelectedCheckin(checkin);
-    setCheckinModalOpen(true);
+    if (!activeChild?.id) return;
+    router.push(`/parent/assessment?childId=${activeChild.id}&test=${checkin.id}`);
   };
 
   const fetchInquiries = async () => {
@@ -554,17 +553,6 @@ export default function ParentDashboardPage() {
         onOpenChange={setEditChildModalOpen}
         child={activeChild}
         onChildUpdated={(updated) => fetchOverview(updated.id)}
-      />
-
-      <ParentCheckinDialog
-        open={checkinModalOpen}
-        onOpenChange={setCheckinModalOpen}
-        checkin={selectedCheckin}
-        studentId={activeChild.id}
-        childName={activeChild.name}
-        preferredName={activeChild.nickname || activeChild.name}
-        grade={activeChild.grade}
-        onSuccess={() => fetchOverview(activeChild.id)}
       />
 
       {/* Full Clinical Student Dossier Dialog */}

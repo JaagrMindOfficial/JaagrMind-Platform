@@ -45,6 +45,7 @@ import {
   TrendingUp,
   TrendingDown,
   Minus,
+  ShieldCheck,
 } from "lucide-react";
 import { useAuth } from "@/context/auth-context";
 import { api } from "@/lib/api";
@@ -127,6 +128,7 @@ export default function CounselorPortalPage() {
   // Student Dossier Dialog State
   const [isDossierOpen, setIsDossierOpen] = useState(false);
   const [dossierStudent, setDossierStudent] = useState<StudentProfileData | null>(null);
+  const [claimingInquiryId, setClaimingInquiryId] = useState<string | null>(null);
 
   // Fetch data
   const fetchData = async () => {
@@ -193,6 +195,30 @@ export default function CounselorPortalPage() {
     setCaseSuccessMsg("");
     setIsCaseModalOpen(true);
     loadCaseMessages(inq.id);
+  };
+
+  const handleClaimCase = async (inqId: string) => {
+    try {
+      setClaimingInquiryId(inqId);
+      const res: any = await api.post(`/api/school/parent-inquiries/${inqId}/claim`, {});
+      if (res?.success) {
+        await fetchData();
+        const found = inquiries.find((i) => i.id === inqId);
+        if (found) {
+          handleOpenCase({
+            ...found,
+            counselor_id: res.counselor_id,
+            counselor_name: res.claimed_by,
+            status: "in_progress",
+          });
+        }
+      }
+    } catch (err: any) {
+      alert(err.message || "Failed to claim case.");
+      await fetchData();
+    } finally {
+      setClaimingInquiryId(null);
+    }
   };
 
   const loadCaseMessages = async (inquiryId: string) => {
@@ -667,6 +693,20 @@ export default function CounselorPortalPage() {
                             Resolved
                           </Badge>
                         )}
+
+                        {/* Concurrency / Claim Badge */}
+                        {inq.counselor_name ? (
+                          <div className="text-[10px] text-muted-foreground font-medium flex items-center gap-1 pt-1">
+                            <ShieldCheck className="h-3 w-3 text-sky-500 shrink-0" />
+                            <span className="truncate max-w-[120px]">{inq.counselor_name}</span>
+                          </div>
+                        ) : (
+                          <div className="text-[10px] text-amber-600 dark:text-amber-400 font-medium flex items-center gap-1 pt-1">
+                            <Clock className="h-3 w-3 text-amber-500 shrink-0" />
+                            <span>Open • Unassigned</span>
+                          </div>
+                        )}
+
                         {inq.meeting_link && (
                           <div className="pt-1">
                             <span className="inline-flex items-center gap-1 text-[10px] text-sky-600 dark:text-sky-400 font-mono">
@@ -692,20 +732,32 @@ export default function CounselorPortalPage() {
                             size="sm"
                             variant="outline"
                             onClick={() => handleOpenDossier(inq.student_id, inq.student_name)}
-                            className="h-7 px-2 text-xs gap-1 border-border font-medium hover:bg-secondary/40"
+                            className="h-7 px-2 text-xs gap-1 border-border font-medium hover:bg-secondary/40 cursor-pointer"
                             title="Open Student Dossier"
                           >
                             <FolderOpen className="h-3 w-3 text-primary" />
                             <span className="hidden sm:inline">Dossier</span>
                           </Button>
 
-                          <Button
-                            size="sm"
-                            onClick={() => handleOpenCase(inq)}
-                            className="h-7 px-2.5 text-xs bg-primary hover:bg-primary/90 text-primary-foreground font-medium shadow-xs"
-                          >
-                            <span>Take Action</span>
-                          </Button>
+                          {!inq.counselor_id ? (
+                            <Button
+                              size="sm"
+                              disabled={claimingInquiryId === inq.id}
+                              onClick={() => handleClaimCase(inq.id)}
+                              className="h-7 px-2.5 text-xs bg-amber-600 hover:bg-amber-700 text-white font-medium shadow-xs cursor-pointer gap-1"
+                            >
+                              {claimingInquiryId === inq.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <ShieldCheck className="h-3 w-3" />}
+                              <span>Claim Case</span>
+                            </Button>
+                          ) : (
+                            <Button
+                              size="sm"
+                              onClick={() => handleOpenCase(inq)}
+                              className="h-7 px-2.5 text-xs bg-primary hover:bg-primary/90 text-primary-foreground font-medium shadow-xs cursor-pointer"
+                            >
+                              <span>Take Action</span>
+                            </Button>
+                          )}
                         </div>
                       </TableCell>
                     </TableRow>

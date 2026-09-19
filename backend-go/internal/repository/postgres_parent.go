@@ -959,26 +959,18 @@ func (r *postgresParent) CreateNoteToCounselor(ctx context.Context, parentID, st
 		studentName = "Student"
 	}
 
-	// If student is connected to a school, check if school has a counselor
+	// If student is connected to a school, route to school counselors queue
 	if schoolID != "" {
-		var scID string
-		err := r.db.QueryRow(ctx, `
-			SELECT id FROM school_counselors 
-			WHERE (school_id = $1::uuid OR branch_id = $1::uuid) AND is_active = true 
-			ORDER BY created_at ASC LIMIT 1
-		`, schoolID).Scan(&scID)
-		if err == nil && scID != "" {
-			counselorID = &scID
-			counselorType = "school_counselor"
-			targetRecipient = "school_counselor"
+		counselorType = "school_counselor"
+		targetRecipient = "school_counselor"
+		// counselorID remains nil so any school counselor can claim it on review
 
-			// Also create in counselor_notes for the school
-			noteBody := fmt.Sprintf("[%s] %s\n\nParent Message: %s\n(Confidential Home Note)", time.Now().Format("02 Jan 2006"), subject, note)
-			_, _ = r.db.Exec(ctx, `
-				INSERT INTO counselor_notes (student_id, school_id, author_name, intervention_type, status, notes, created_at)
-				VALUES ($1, $2, $3, 'parent_note', 'active', $4, NOW())
-			`, studentID, schoolID, parentName, noteBody)
-		}
+		// Also create in counselor_notes for the school
+		noteBody := fmt.Sprintf("[%s] %s\n\nParent Message: %s\n(Confidential Home Note)", time.Now().Format("02 Jan 2006"), subject, note)
+		_, _ = r.db.Exec(ctx, `
+			INSERT INTO counselor_notes (student_id, school_id, author_name, intervention_type, status, notes, created_at)
+			VALUES ($1, $2, $3, 'parent_note', 'active', $4, NOW())
+		`, studentID, schoolID, parentName, noteBody)
 	}
 
 	// Always insert into parent_counselor_inquiries so Super Admin and system track it!
@@ -1660,5 +1652,67 @@ func minInt(a, b int) int {
 	}
 	return b
 }
+
+func (r *postgresParent) GetCounselorByEmail(ctx context.Context, email string) (*domain.SchoolCounselor, string, error) {
+	var c domain.SchoolCounselor
+	var schoolID, branchID, schoolName string
+	err := r.db.QueryRow(ctx, `
+		SELECT sc.id, COALESCE(sc.school_id::text, ''), COALESCE(sc.branch_id::text, ''),
+		       sc.name, sc.email, COALESCE(sc.phone, ''), sc.role,
+		       COALESCE(sc.branch_name, ''), COALESCE(sc.available_hours, ''),
+		       sc.is_active, sc.created_at::text,
+		       COALESCE(s.name, '')
+		FROM school_counselors sc
+		LEFT JOIN schools s ON s.id = sc.school_id
+		WHERE LOWER(sc.email) = LOWER($1)
+		LIMIT 1
+	`, strings.TrimSpace(email)).Scan(
+		&c.ID, &schoolID, &branchID,
+		&c.Name, &c.Email, &c.Phone, &c.Role,
+		&c.BranchName, &c.AvailableHours,
+		&c.IsActive, &c.CreatedAt,
+		&schoolName,
+	)
+	if err != nil {
+		return nil, "", err
+	}
+	c.SchoolID = schoolID
+	c.BranchID = branchID
+	return &c, schoolName, nil
+}
+
+func (r *postgresParent) ClaimInquiry(ctx context.Context, inquiryID, counselorID string) (claimedByName string, alreadyClaimed bool, err error) {
+	var myName string
+	_ = r.db.QueryRow(ctx, `SELECT name FROM school_counselors WHERE id = $1::uuid`, counselorID).Scan(&myName)
+
+	// Atomic update: only updates if counselor_id is NULL or already equals this counselorID
+	res, err := r.db.Exec(ctx, `
+		UPDATE parent_counselor_inquiries
+		SET counselor_id = $1::uuid,
+		    status = CASE WHEN status = 'pending' THEN 'in_progress' ELSE status END,
+		    updated_at = NOW()
+		WHERE id = $2::uuid AND (counselor_id IS NULL OR counselor_id = $1::uuid)
+	`, counselorID, inquiryID)
+	if err != nil {
+		return "", false, err
+	}
+
+	if res.RowsAffected() == 0 {
+		var currentClaimant string
+		_ = r.db.QueryRow(ctx, `
+			SELECT COALESCE(sc.name, 'Another practitioner')
+			FROM parent_counselor_inquiries p
+			LEFT JOIN school_counselors sc ON sc.id = p.counselor_id
+			WHERE p.id = $1::uuid
+		`, inquiryID).Scan(&currentClaimant)
+		if currentClaimant == "" {
+			currentClaimant = "Another practitioner"
+		}
+		return currentClaimant, true, nil
+	}
+
+	return myName, false, nil
+}
+
 
 

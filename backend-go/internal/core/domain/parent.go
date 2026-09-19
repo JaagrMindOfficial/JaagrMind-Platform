@@ -243,5 +243,9 @@ type ParentRepository interface {
 	// Two-Way Messaging Thread
 	GetInquiryMessages(ctx context.Context, inquiryID string) ([]InquiryMessage, error)
 	AddInquiryMessage(ctx context.Context, inquiryID, senderID, senderName, senderRole, message string) (*InquiryMessage, error)
+
+	// Counselor checks and Claim concurrency
+	GetCounselorByEmail(ctx context.Context, email string) (*SchoolCounselor, string, error)
+	ClaimInquiry(ctx context.Context, inquiryID, counselorID string) (claimedByName string, alreadyClaimed bool, err error)
 }
 

@@ -512,6 +512,9 @@ func AutoMigrate(ctx context.Context, db *pgxpool.Pool) error {
 			END IF;
 		END $$;
 
+		-- Ensure each counselor email is strictly unique across the platform
+		CREATE UNIQUE INDEX IF NOT EXISTS idx_school_counselors_unique_email ON school_counselors (LOWER(email));
+
 		-- Sync historical columns if present from earlier migrations
 		DO $$ 
 		BEGIN

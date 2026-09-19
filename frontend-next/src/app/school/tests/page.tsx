@@ -853,6 +853,7 @@ export default function SchoolTestsPage() {
 
                             {/* Actions */}
                             <TableCell className="text-right">
+                              <div className="flex items-center justify-end gap-1">
                                 {(isDone || isReassigned) && (
                                   <Button
                                     variant="ghost"

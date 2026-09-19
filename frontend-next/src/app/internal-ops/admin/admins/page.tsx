@@ -13,7 +13,7 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
-import { Plus, UserPlus, Copy, Check, Loader2, HeartHandshake, Building2, Mail, Phone, User } from "lucide-react"
+import { Plus, UserPlus, Copy, Check, Loader2, HeartHandshake, Building2, Mail, Phone, User, AlertCircle } from "lucide-react"
 import { api } from "@/lib/api"
 import {
   Dialog,
@@ -55,16 +55,28 @@ export default function AdminsPage() {
   const [counselorName, setCounselorName] = useState("")
   const [counselorEmail, setCounselorEmail] = useState("")
   const [counselorPhone, setCounselorPhone] = useState("")
-  const [counselorRole, setCounselorRole] = useState("JaagrMind Central Counselor")
+  const [counselorRole, setCounselorRole] = useState("Internal Platform Counselor")
+  const [counselorType, setCounselorType] = useState<"internal" | "school">("internal")
   const [counselorSchoolId, setCounselorSchoolId] = useState("")
+  const [schools, setSchools] = useState<any[]>([])
   const [onboarding, setOnboarding] = useState(false)
   const [onboardResult, setOnboardResult] = useState<{ temp_password: string; portal_url: string; email: string; name: string } | null>(null)
+  const [onboardError, setOnboardError] = useState("")
   const [copied, setCopied] = useState(false)
 
   useEffect(() => {
     fetchAdmins()
     fetchCounselors()
   }, [])
+
+  const fetchSchools = async () => {
+    try {
+      const data = await api.get("/api/admin/schools")
+      setSchools(Array.isArray(data) ? data : [])
+    } catch (e) {
+      console.error("Failed to fetch schools", e)
+    }
+  }
 
   const fetchAdmins = async () => {
     try {
@@ -90,13 +102,20 @@ export default function AdminsPage() {
 
   const handleOnboard = async (e: React.FormEvent) => {
     e.preventDefault()
+    setOnboardError("")
+    if (counselorType === "school" && !counselorSchoolId) {
+      setOnboardError("Please select a partner school to assign this School Counselor to.")
+      return
+    }
     setOnboarding(true)
     try {
-      const data = await api.post("/api/admin/counselors", {
+      const data: any = await api.post("/api/admin/counselors", {
         name: counselorName,
         email: counselorEmail,
         phone: counselorPhone,
-        role: "JaagrMind Central Counselor",
+        role: counselorType === "school" ? "School Wellness Counselor" : "Internal Platform Counselor",
+        counselor_type: counselorType,
+        school_id: counselorType === "school" ? counselorSchoolId : "",
       })
       setOnboardResult({
         temp_password: data.temp_password,
@@ -105,8 +124,9 @@ export default function AdminsPage() {
         name: data.name,
       })
       fetchCounselors()
-    } catch (error) {
+    } catch (error: any) {
       console.error("Failed to onboard counselor", error)
+      setOnboardError(error.message || error.error || "Failed to onboard counselor.")
     } finally {
       setOnboarding(false)
     }
@@ -124,8 +144,10 @@ export default function AdminsPage() {
     setCounselorName("")
     setCounselorEmail("")
     setCounselorPhone("")
-    setCounselorRole("JaagrMind Central Counselor")
+    setCounselorRole("Internal Platform Counselor")
+    setCounselorType("internal")
     setCounselorSchoolId("")
+    setOnboardError("")
     setOnboardResult(null)
     setIsOnboardOpen(false)
   }
@@ -155,6 +177,76 @@ export default function AdminsPage() {
 
             {!onboardResult ? (
               <form onSubmit={handleOnboard} className="space-y-4 py-2">
+                {onboardError && (
+                  <div className="p-3 bg-destructive/10 text-destructive border border-destructive/20 rounded-lg text-xs flex items-start gap-2">
+                    <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
+                    <span>{onboardError}</span>
+                  </div>
+                )}
+
+                {/* Counselor Type Toggle */}
+                <div className="space-y-2">
+                  <label className="text-xs font-semibold text-foreground">Counselor Type & Affiliation *</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setCounselorType("internal")
+                        setCounselorSchoolId("")
+                        setCounselorRole("Internal Platform Counselor")
+                      }}
+                      className={`p-2.5 rounded-lg border text-left transition-all cursor-pointer ${
+                        counselorType === "internal"
+                          ? "border-primary bg-primary/10 text-primary font-semibold ring-1 ring-primary/20"
+                          : "border-border/80 bg-background text-muted-foreground hover:bg-muted/40"
+                      }`}
+                    >
+                      <div className="text-xs">Internal Platform</div>
+                      <div className="text-[10px] opacity-80 mt-0.5">Central Care Desk</div>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setCounselorType("school")
+                        setCounselorRole("School Wellness Counselor")
+                        if (schools.length === 0) fetchSchools()
+                      }}
+                      className={`p-2.5 rounded-lg border text-left transition-all cursor-pointer ${
+                        counselorType === "school"
+                          ? "border-primary bg-primary/10 text-primary font-semibold ring-1 ring-primary/20"
+                          : "border-border/80 bg-background text-muted-foreground hover:bg-muted/40"
+                      }`}
+                    >
+                      <div className="text-xs">School Counselor</div>
+                      <div className="text-[10px] opacity-80 mt-0.5">Assigned to 1 School</div>
+                    </button>
+                  </div>
+                </div>
+
+                {/* School Selector (when School Counselor is selected) */}
+                {counselorType === "school" && (
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-foreground">Assign to School Campus *</label>
+                    <select
+                      value={counselorSchoolId}
+                      onChange={(e) => setCounselorSchoolId(e.target.value)}
+                      required
+                      className="w-full h-9 rounded-md border border-input bg-background px-3 py-1 text-xs text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                    >
+                      <option value="">-- Select Partner School --</option>
+                      {schools.map((sc) => (
+                        <option key={sc.id} value={sc.id}>
+                          {sc.name} ({sc.school_code || sc.city || "Campus"})
+                        </option>
+                      ))}
+                    </select>
+                    <p className="text-[10px] text-muted-foreground italic">
+                      Strict constraint: Each counselor can serve exactly one school campus.
+                    </p>
+                  </div>
+                )}
+
                 <div className="space-y-2">
                   <label className="text-sm font-medium">Counselor Name *</label>
                   <Input 
@@ -184,18 +276,22 @@ export default function AdminsPage() {
                 </div>
                 <div className="space-y-1.5 p-3 rounded-lg bg-muted/40 border border-border/60">
                   <div className="flex items-center justify-between">
-                    <span className="text-xs font-semibold text-foreground">Role: Central Care Desk Counselor</span>
+                    <span className="text-xs font-semibold text-foreground">
+                      Role: {counselorType === "school" ? "School Wellness Counselor" : "Internal Care Desk Counselor"}
+                    </span>
                     <Badge variant="outline" className="text-[10px] font-mono text-sky-600 dark:text-sky-400 bg-sky-500/10 border-sky-500/20">
-                      JaagrMind Platform
+                      {counselorType === "school" ? "School Portal" : "JaagrMind Internal"}
                     </Badge>
                   </div>
                   <p className="text-[11px] text-muted-foreground leading-relaxed">
-                    Platform counselors provide central wellbeing oversight and direct parent dialogues for independent learners. Institutional school counselors are managed directly by school administrators on their campus portal.
+                    {counselorType === "school"
+                      ? "This counselor will access the School Counselor Portal via general public login to manage their assigned school's student dossiers and parent inquiries."
+                      : "This counselor will access the Central Care Desk via Internal-Ops sign-in to review unassigned independent family inquiries."}
                   </p>
                 </div>
                 <DialogFooter>
-                  <Button type="submit" disabled={onboarding} className="w-full sm:w-auto">
-                    {onboarding ? "Creating..." : "Create Central Counselor Account"}
+                  <Button type="submit" disabled={onboarding} className="w-full sm:w-auto cursor-pointer">
+                    {onboarding ? "Provisioning..." : `Provision ${counselorType === "school" ? "School" : "Central"} Counselor`}
                   </Button>
                 </DialogFooter>
               </form>

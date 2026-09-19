@@ -1071,6 +1071,7 @@ func (h *AdminAPIHandler) OnboardAdminCounselor(c fiber.Ctx) error {
 		Email          string `json:"email"`
 		Phone          string `json:"phone"`
 		Role           string `json:"role"`
+		CounselorType  string `json:"counselor_type"` // "internal" | "school"
 		SchoolID       string `json:"school_id"`
 		BranchName     string `json:"branch_name"`
 		AvailableHours string `json:"available_hours"`
@@ -1085,18 +1086,107 @@ func (h *AdminAPIHandler) OnboardAdminCounselor(c fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Name and email are required"})
 	}
 
-	// Platform Superadmin strictly onboards JaagrMind Central Care Desk counselors.
-	// School-level counselors are managed by individual school admins on their school portals.
-	req.Role = "JaagrMind Central Counselor"
-	req.SchoolID = ""
-	if req.BranchName == "" {
-		req.BranchName = "National Care Desk"
+	if req.CounselorType == "" {
+		if req.SchoolID != "" {
+			req.CounselorType = "school"
+		} else {
+			req.CounselorType = "internal"
+		}
 	}
+
+	var schoolName string
+	if req.CounselorType == "school" {
+		if strings.TrimSpace(req.SchoolID) == "" {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Please select a school to assign this School Counselor to."})
+		}
+		sc, err := h.schoolRepo.GetByID(c.Context(), req.SchoolID)
+		if err != nil || sc == nil {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Selected school does not exist"})
+		}
+		schoolName = sc.Name
+		req.Role = "School Wellness Counselor"
+	} else {
+		req.SchoolID = ""
+		req.Role = "Internal Platform Counselor"
+		if req.BranchName == "" {
+			req.BranchName = "National Care Desk"
+		}
+	}
+
 	if req.AvailableHours == "" {
 		req.AvailableHours = "Mon-Fri, 9:00 AM - 5:00 PM"
 	}
 
-	// 1. Create or register in school_counselors
+	// Single School & Dual-Assignment Conflict Check:
+	existing, existingSchoolName, _ := h.parentRepo.GetCounselorByEmail(c.Context(), req.Email)
+	if existing != nil {
+		if req.CounselorType == "internal" {
+			if existing.SchoolID != "" {
+				return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+					"error": fmt.Sprintf("Counselor '%s' (%s) is already assigned to %s. A counselor cannot serve both a school and the central platform.", existing.Name, req.Email, existingSchoolName),
+				})
+			}
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"error": fmt.Sprintf("Counselor '%s' (%s) is already registered as an Internal Platform Counselor.", existing.Name, req.Email),
+			})
+		} else { // req.CounselorType == "school"
+			if existing.SchoolID == "" {
+				return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+					"error": fmt.Sprintf("User '%s' is registered as an Internal Platform Counselor and cannot be reassigned to an individual school.", req.Email),
+				})
+			}
+			if existing.SchoolID == req.SchoolID {
+				return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+					"error": fmt.Sprintf("Counselor '%s' is already assigned to this school (%s).", existing.Name, schoolName),
+				})
+			}
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"error": fmt.Sprintf("Counselor '%s' (%s) is already assigned to %s. Currently, each counselor can serve exactly one school.", existing.Name, req.Email, existingSchoolName),
+			})
+		}
+	}
+
+	existingUser, _ := h.userRepo.GetUserByEmail(c.Context(), req.Email)
+	if existingUser != nil {
+		if req.CounselorType == "internal" {
+			for _, r := range existingUser.Roles {
+				if r.Role == domain.RoleCounselor && r.EntityID != "" {
+					sName := "a partner school"
+					if exSchool, err := h.schoolRepo.GetByID(c.Context(), r.EntityID); err == nil && exSchool != nil && exSchool.Name != "" {
+						sName = exSchool.Name
+					}
+					return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+						"error": fmt.Sprintf("User '%s' is already assigned as a counselor to %s. A counselor cannot serve both a school and the central platform.", req.Email, sName),
+					})
+				}
+			}
+		} else { // school
+			if existingUser.IsInternal {
+				return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+					"error": fmt.Sprintf("User '%s' is registered as an Internal Platform Counselor and cannot be reassigned to an individual school.", req.Email),
+				})
+			}
+			for _, r := range existingUser.Roles {
+				if r.Role == domain.RoleCounselor {
+					if r.EntityID == req.SchoolID {
+						return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+							"error": fmt.Sprintf("User '%s' is already registered as a counselor for this school (%s).", req.Email, schoolName),
+						})
+					} else if r.EntityID != "" {
+						sName := "another institution"
+						if exSchool, err := h.schoolRepo.GetByID(c.Context(), r.EntityID); err == nil && exSchool != nil && exSchool.Name != "" {
+							sName = exSchool.Name
+						}
+						return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+							"error": fmt.Sprintf("Counselor '%s' (%s) is already assigned to %s. Currently, each counselor can serve exactly one school.", existingUser.Name, req.Email, sName),
+						})
+					}
+				}
+			}
+		}
+	}
+
+	// 1. Create in school_counselors
 	created, err := h.parentRepo.AddSchoolCounselor(c.Context(), domain.SchoolCounselor{
 		SchoolID:       req.SchoolID,
 		Name:           req.Name,
@@ -1117,26 +1207,32 @@ func (h *AdminAPIHandler) OnboardAdminCounselor(c fiber.Ctx) error {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to hash password"})
 	}
 
-	portalURL := "/care-desk"
-	if req.SchoolID != "" {
-		portalURL = "/counselor"
+	portalURL := "/internal-ops/signin"
+	isInternal := true
+	if req.CounselorType == "school" {
+		portalURL = "/login"
+		isInternal = false
 	}
 
-	existingUser, _ := h.userRepo.GetUserByEmail(c.Context(), req.Email)
+	existingUser, _ = h.userRepo.GetUserByEmail(c.Context(), req.Email)
 	if existingUser != nil {
 		_ = h.userRepo.UpdatePassword(c.Context(), existingUser.ID, hash)
 		_ = h.userRepo.AddRole(c.Context(), existingUser.ID, domain.RoleCounselor, req.SchoolID)
-		_ = h.userRepo.SetUserInternal(c.Context(), existingUser.ID, true)
+		_ = h.userRepo.SetUserInternal(c.Context(), existingUser.ID, isInternal)
 
 		if h.emailSvc != nil {
-			go func(toEmail, counselorName, tempPass, pURL, schoolID, role string) {
-				_ = h.emailSvc.SendCentralCounselorOnboardingEmail(toEmail, counselorName, tempPass, pURL)
-			}(req.Email, req.Name, tempPassword, portalURL, req.SchoolID, req.Role)
+			go func(toEmail, counselorName, tempPass, pURL, sID, role, sName string, isInt bool) {
+				if isInt {
+					_ = h.emailSvc.SendCentralCounselorOnboardingEmail(toEmail, counselorName, tempPass, pURL)
+				} else {
+					_ = h.emailSvc.SendSchoolCounselorOnboardingEmail(toEmail, counselorName, sName, role, tempPass)
+				}
+			}(req.Email, req.Name, tempPassword, portalURL, req.SchoolID, req.Role, schoolName, isInternal)
 		}
 
 		return c.JSON(fiber.Map{
 			"success":       true,
-			"message":       "Central Counselor credentials refreshed successfully",
+			"message":       "Counselor credentials refreshed successfully",
 			"counselor":     created,
 			"email":         req.Email,
 			"name":          req.Name,
@@ -1150,6 +1246,11 @@ func (h *AdminAPIHandler) OnboardAdminCounselor(c fiber.Ctx) error {
 		"role":         req.Role,
 		"affiliation":  "jaagrmind_central",
 	}
+	if req.CounselorType == "school" {
+		metadata["affiliation"] = "school_counselor"
+		metadata["school_id"] = req.SchoolID
+		metadata["school_name"] = schoolName
+	}
 
 	newUser, err := h.userRepo.CreateIndependentUser(c.Context(), req.Email, req.Name, hash, req.Phone, metadata)
 	if err != nil {
@@ -1159,12 +1260,16 @@ func (h *AdminAPIHandler) OnboardAdminCounselor(c fiber.Ctx) error {
 	if err := h.userRepo.AddRole(c.Context(), newUser.ID, domain.RoleCounselor, req.SchoolID); err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to assign counselor role: " + err.Error()})
 	}
-	_ = h.userRepo.SetUserInternal(c.Context(), newUser.ID, true)
+	_ = h.userRepo.SetUserInternal(c.Context(), newUser.ID, isInternal)
 
 	if h.emailSvc != nil {
-		go func(toEmail, counselorName, tempPass, pURL string) {
-			_ = h.emailSvc.SendCentralCounselorOnboardingEmail(toEmail, counselorName, tempPass, pURL)
-		}(req.Email, req.Name, tempPassword, portalURL)
+		go func(toEmail, counselorName, tempPass, pURL, sName, role string, isInt bool) {
+			if isInt {
+				_ = h.emailSvc.SendCentralCounselorOnboardingEmail(toEmail, counselorName, tempPass, pURL)
+			} else {
+				_ = h.emailSvc.SendSchoolCounselorOnboardingEmail(toEmail, counselorName, sName, role, tempPass)
+			}
+		}(req.Email, req.Name, tempPassword, portalURL, schoolName, req.Role, isInternal)
 	}
 
 	return c.Status(fiber.StatusCreated).JSON(fiber.Map{

@@ -131,6 +131,7 @@ interface StudentDossierDialogProps {
   student: StudentProfileData | null
   isSuperAdmin?: boolean
   isParent?: boolean
+  isCareDesk?: boolean
 }
 
 export function StudentDossierDialog({
@@ -139,6 +140,7 @@ export function StudentDossierDialog({
   student,
   isSuperAdmin = false,
   isParent = false,
+  isCareDesk = false,
 }: StudentDossierDialogProps) {
   const { resolvedTheme } = useTheme()
   const isDark = resolvedTheme === "dark"
@@ -174,7 +176,7 @@ export function StudentDossierDialog({
   }, [isOpen, student?.id])
 
   const fetchAssignedCheckins = async () => {
-    if (!student?.id || isParent) return
+    if (!student?.id || isParent || isCareDesk) return
     setLoadingCheckins(true)
     try {
       const endpoint = isSuperAdmin
@@ -208,6 +210,8 @@ export function StudentDossierDialog({
     try {
       const endpoint = isParent
         ? `/api/parent/student/${student.id}/attempts`
+        : isCareDesk
+        ? `/api/care-desk/students/${student.id}/attempts`
         : isSuperAdmin
         ? `/api/admin/analytics/student/${student.id}/attempts`
         : `/api/school/analytics/student/${student.id}/attempts`
@@ -225,7 +229,10 @@ export function StudentDossierDialog({
     if (!student?.id || isParent) return
     setLoadingNotes(true)
     try {
-      const data = await api.get(`/api/school/students/${student.id}/notes`)
+      const endpoint = isCareDesk
+        ? `/api/care-desk/students/${student.id}/notes`
+        : `/api/school/students/${student.id}/notes`
+      const data = await api.get(endpoint)
       setCounselorNotes(Array.isArray(data) ? data : [])
     } catch {
       setCounselorNotes([])

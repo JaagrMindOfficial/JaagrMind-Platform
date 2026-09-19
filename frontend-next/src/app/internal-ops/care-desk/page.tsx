@@ -43,11 +43,15 @@ import {
   ShieldCheck,
   Copy,
   KeyRound,
+  FolderOpen,
+  Eye,
+  Lock,
 } from "lucide-react";
 import { useAuth } from "@/context/auth-context";
 import { api } from "@/lib/api";
 import { parseMeetingLink } from "@/lib/meeting-utils";
 import { type InquiryMessageItem } from "@/components/parent/parent-conversation-thread-dialog";
+import { StudentDossierDialog, StudentProfileData } from "@/components/student-dossier-dialog";
 
 interface CentralInquiry {
   id: string;
@@ -111,6 +115,11 @@ export default function CareDeskPage() {
   const [caseSuccessMsg, setCaseSuccessMsg] = useState("");
   const [caseError, setCaseError] = useState("");
 
+  // Student Dossier & Concurrency Claim State
+  const [isDossierOpen, setIsDossierOpen] = useState(false);
+  const [dossierStudent, setDossierStudent] = useState<StudentProfileData | null>(null);
+  const [claimingId, setClaimingId] = useState<string | null>(null);
+
   // Counselor Onboarding Modal State
   const [isOnboardModalOpen, setIsOnboardModalOpen] = useState(false);
   const [onboardName, setOnboardName] = useState("");
@@ -153,15 +162,65 @@ export default function CareDeskPage() {
   // Open Clinical Case Review Modal
   const handleOpenCase = (inq: CentralInquiry) => {
     setSelectedCase(inq);
-    setCaseStatus(inq.status || "pending");
+    setCaseStatus((inq.status as any) || "pending");
     setMeetingDate(inq.meeting_date || "");
     setMeetingTime(inq.meeting_time || "");
     setMeetingLink(inq.meeting_link || "");
-    setReplyText("");
-    setCaseError("");
     setCaseSuccessMsg("");
+    setCaseError("");
+    setReplyText("");
     setIsCaseModalOpen(true);
     loadCaseMessages(inq.id);
+  };
+
+  const handleClaimCase = async (inquiryId: string) => {
+    try {
+      setClaimingId(inquiryId);
+      const res: any = await api.post(`/api/care-desk/inquiries/${inquiryId}/claim`, {});
+      if (res?.success) {
+        await fetchData();
+        if (selectedCase && selectedCase.id === inquiryId) {
+          setSelectedCase((prev) =>
+            prev
+              ? {
+                  ...prev,
+                  counselor_id: res.counselor_id,
+                  counselor_name: res.claimed_by,
+                  status: "in_progress",
+                }
+              : null
+          );
+        }
+      }
+    } catch (err: any) {
+      alert(err.message || "Failed to claim inquiry.");
+      await fetchData();
+    } finally {
+      setClaimingId(null);
+    }
+  };
+
+  const handleOpenDossier = (studentId: string, studentName: string, schoolName?: string) => {
+    if (!studentId) return;
+    setDossierStudent({
+      id: studentId,
+      access_id: "STUDENT-PROFILE",
+      name: studentName,
+      grade: "—",
+      section: "—",
+      school_id: "",
+      school_name: schoolName || "Independent Family",
+      archetype: "sprinter",
+      focus_score: 72,
+      resilience_score: 70,
+      academic_tenacity: 74,
+      stress_adaptability: 68,
+      primary_friction: "Family-Reported Psychological Concern",
+      momentum_trend: "stable",
+      last_check_in_date: new Date().toISOString(),
+      check_in_count: 1,
+    });
+    setIsDossierOpen(true);
   };
 
   const loadCaseMessages = async (inquiryId: string) => {
@@ -595,7 +654,18 @@ export default function CareDeskPage() {
                       </TableCell>
 
                       <TableCell className="text-xs font-medium text-foreground">
-                        {inq.student_name}
+                        <div>{inq.student_name}</div>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleOpenDossier(inq.student_id, inq.student_name, inq.school_name);
+                          }}
+                          className="text-[10px] text-sky-600 dark:text-sky-400 hover:underline flex items-center gap-1 mt-0.5 cursor-pointer"
+                        >
+                          <FolderOpen className="h-3 w-3" />
+                          <span>View Dossier</span>
+                        </button>
                       </TableCell>
 
                       <TableCell className="text-xs text-muted-foreground">
@@ -629,6 +699,19 @@ export default function CareDeskPage() {
                               : "Needs Review"}
                           </Badge>
 
+                          {/* Concurrency / Claim Badge */}
+                          {inq.counselor_name ? (
+                            <div className="text-[10px] text-muted-foreground font-medium flex items-center gap-1">
+                              <ShieldCheck className="h-3 w-3 text-sky-500 shrink-0" />
+                              <span className="truncate max-w-[120px]">{inq.counselor_name}</span>
+                            </div>
+                          ) : (
+                            <div className="text-[10px] text-amber-600 dark:text-amber-400 font-medium flex items-center gap-1">
+                              <Clock className="h-3 w-3 text-amber-500 shrink-0" />
+                              <span>Open • Unassigned</span>
+                            </div>
+                          )}
+
                           {meetingInfo && (
                             <div>
                               <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium border ${meetingInfo.badgeClass}`}>
@@ -645,13 +728,38 @@ export default function CareDeskPage() {
                       </TableCell>
 
                       <TableCell className="text-right">
-                        <Button
-                          size="sm"
-                          onClick={() => handleOpenCase(inq)}
-                          className="h-7 px-3 text-xs bg-primary hover:bg-primary/90 text-primary-foreground font-medium shadow-xs"
-                        >
-                          Review & Schedule
-                        </Button>
+                        <div className="flex items-center justify-end gap-1.5">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleOpenDossier(inq.student_id, inq.student_name, inq.school_name)}
+                            className="h-7 px-2 text-xs gap-1 border-border font-medium hover:bg-muted/50 cursor-pointer"
+                            title="Open Student Clinical Dossier"
+                          >
+                            <FolderOpen className="h-3 w-3 text-primary" />
+                            <span className="hidden sm:inline">Dossier</span>
+                          </Button>
+
+                          {!inq.counselor_id ? (
+                            <Button
+                              size="sm"
+                              disabled={claimingId === inq.id}
+                              onClick={() => handleClaimCase(inq.id)}
+                              className="h-7 px-2.5 text-xs bg-amber-600 hover:bg-amber-700 text-white font-medium shadow-xs cursor-pointer gap-1"
+                            >
+                              {claimingId === inq.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <ShieldCheck className="h-3 w-3" />}
+                              <span>Claim & Review</span>
+                            </Button>
+                          ) : (
+                            <Button
+                              size="sm"
+                              onClick={() => handleOpenCase(inq)}
+                              className="h-7 px-3 text-xs bg-primary hover:bg-primary/90 text-primary-foreground font-medium shadow-xs cursor-pointer"
+                            >
+                              Review & Schedule
+                            </Button>
+                          )}
+                        </div>
                       </TableCell>
                     </TableRow>
                   );
@@ -677,10 +785,24 @@ export default function CareDeskPage() {
             <DialogTitle className="text-lg font-bold text-foreground">
               {selectedCase?.subject}
             </DialogTitle>
-            <DialogDescription className="text-xs">
-              Student: <span className="font-semibold text-foreground">{selectedCase?.student_name}</span> &bull; Parent:{" "}
-              <span className="font-semibold text-foreground">{selectedCase?.parent_name}</span> ({selectedCase?.parent_email})
-            </DialogDescription>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-1">
+              <DialogDescription className="text-xs">
+                Student: <span className="font-semibold text-foreground">{selectedCase?.student_name}</span> &bull; Parent:{" "}
+                <span className="font-semibold text-foreground">{selectedCase?.parent_name}</span> ({selectedCase?.parent_email})
+              </DialogDescription>
+              {selectedCase && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleOpenDossier(selectedCase.student_id, selectedCase.student_name, selectedCase.school_name)}
+                  className="h-7 text-xs gap-1.5 border-sky-500/30 text-sky-600 dark:text-sky-400 bg-sky-500/5 hover:bg-sky-500/10 cursor-pointer self-start sm:self-auto"
+                >
+                  <FolderOpen className="h-3.5 w-3.5" />
+                  <span>View Student Dossier</span>
+                </Button>
+              )}
+            </div>
           </DialogHeader>
 
           {selectedCase && (
@@ -1095,6 +1217,14 @@ export default function CareDeskPage() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Full Clinical Student Dossier Dialog */}
+      <StudentDossierDialog
+        isOpen={isDossierOpen}
+        onClose={() => setIsDossierOpen(false)}
+        student={dossierStudent}
+        isCareDesk={true}
+      />
     </div>
   );
 }

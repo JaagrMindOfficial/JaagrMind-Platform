@@ -1217,7 +1217,7 @@ export default function SchoolCounselorsPage() {
               Connect New School Counselor
             </DialogTitle>
             <DialogDescription className="text-xs text-muted-foreground">
-              Enter details for your campus counselor. Once connected, parents of enrolled students will see this contact on their portal.
+              Enter details for your campus counselor. Note: Under platform policy, each counselor can serve exactly one school. Once connected, parents of enrolled students will see this contact on their portal.
             </DialogDescription>
           </DialogHeader>
 
@@ -1320,9 +1320,10 @@ export default function SchoolCounselorsPage() {
               </div>
 
               {addError && (
-                <p className="text-xs text-destructive text-center font-medium bg-destructive/10 p-2 rounded-md">
-                  {addError}
-                </p>
+                <div className="p-3 bg-destructive/10 text-destructive border border-destructive/20 rounded-lg text-xs flex items-start gap-2">
+                  <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
+                  <span>{addError}</span>
+                </div>
               )}
 
               <DialogFooter className="pt-2">
@@ -1491,9 +1492,10 @@ export default function SchoolCounselorsPage() {
               </div>
 
               {editError && (
-                <p className="text-xs text-destructive text-center font-medium bg-destructive/10 p-2 rounded-md">
-                  {editError}
-                </p>
+                <div className="p-3 bg-destructive/10 text-destructive border border-destructive/20 rounded-lg text-xs flex items-start gap-2">
+                  <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
+                  <span>{editError}</span>
+                </div>
               )}
 
               <DialogFooter className="pt-2">

@@ -130,6 +130,7 @@ interface StudentDossierDialogProps {
   onClose: () => void
   student: StudentProfileData | null
   isSuperAdmin?: boolean
+  isParent?: boolean
 }
 
 export function StudentDossierDialog({
@@ -137,6 +138,7 @@ export function StudentDossierDialog({
   onClose,
   student,
   isSuperAdmin = false,
+  isParent = false,
 }: StudentDossierDialogProps) {
   const { resolvedTheme } = useTheme()
   const isDark = resolvedTheme === "dark"
@@ -172,7 +174,7 @@ export function StudentDossierDialog({
   }, [isOpen, student?.id])
 
   const fetchAssignedCheckins = async () => {
-    if (!student?.id) return
+    if (!student?.id || isParent) return
     setLoadingCheckins(true)
     try {
       const endpoint = isSuperAdmin
@@ -204,7 +206,9 @@ export function StudentDossierDialog({
     if (!student?.id) return
     setLoading(true)
     try {
-      const endpoint = isSuperAdmin
+      const endpoint = isParent
+        ? `/api/parent/student/${student.id}/attempts`
+        : isSuperAdmin
         ? `/api/admin/analytics/student/${student.id}/attempts`
         : `/api/school/analytics/student/${student.id}/attempts`
 
@@ -218,7 +222,7 @@ export function StudentDossierDialog({
   }
 
   const fetchNotes = async () => {
-    if (!student?.id) return
+    if (!student?.id || isParent) return
     setLoadingNotes(true)
     try {
       const data = await api.get(`/api/school/students/${student.id}/notes`)
@@ -841,7 +845,8 @@ export function StudentDossierDialog({
             )}
           </div>
 
-          {/* Confidential Counselor Action Log & Case Notes */}
+          {/* Confidential Counselor Action Log & Case Notes (School Counselor Scoped) */}
+          {!isParent && (
           <div className="space-y-3 pt-2">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
               <div className="flex items-center gap-2">
@@ -1004,6 +1009,7 @@ export function StudentDossierDialog({
               </div>
             )}
           </div>
+          )}
         </div>
 
         <div className="pt-4 border-t border-border/40 flex justify-end">

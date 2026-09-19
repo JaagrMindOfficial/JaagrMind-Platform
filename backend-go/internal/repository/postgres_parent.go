@@ -11,6 +11,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/jaagrmind/platform-api/internal/core/domain"
+	"github.com/jaagrmind/platform-api/internal/services"
 )
 
 type postgresParent struct {
@@ -231,41 +232,274 @@ func (r *postgresParent) GetParentOverview(ctx context.Context, parentID string,
 				}
 			}
 
-			var latestSecScoresJSON []byte
+			var latestSecScoresJSON, latestDiagJSON []byte
 			var latestScore int
+			var completedAt time.Time
+			var trackID, trackName, primBucket, secBucket string
+			var isBalMode bool
+
+			var focus, resil, tenacity, stress int
 			err := r.db.QueryRow(ctx, `
-				SELECT section_scores, total_score
+				SELECT 
+					COALESCE(section_scores, '{}'::jsonb),
+					COALESCE(behavioral_diagnostics, '{}'::jsonb),
+					COALESCE(total_score, 0),
+					COALESCE(completed_at, NOW()),
+					COALESCE(pathway_track_id, ''),
+					COALESCE(pathway_track_name, ''),
+					COALESCE(primary_bucket, ''),
+					COALESCE(secondary_bucket, ''),
+					COALESCE(is_balance_mode, false)
 				FROM student_results
 				WHERE student_id = $1::uuid
 				ORDER BY completed_at DESC
 				LIMIT 1
-			`, activeChild.ID).Scan(&latestSecScoresJSON, &latestScore)
-			if err == nil && len(latestSecScoresJSON) > 0 {
-				var secScores map[string]int
-				if err := json.Unmarshal(latestSecScoresJSON, &secScores); err == nil {
-					if sA, ok := secScores["A"]; ok && sA > 0 {
-						pillars.FocusEndurance = minInt(100, sA*100/16)
+			`, activeChild.ID).Scan(
+				&latestSecScoresJSON, &latestDiagJSON, &latestScore, &completedAt,
+				&trackID, &trackName, &primBucket, &secBucket, &isBalMode,
+			)
+
+			if err == nil {
+				var diag map[string]interface{}
+				_ = json.Unmarshal(latestDiagJSON, &diag)
+
+				if diag != nil {
+					if f, ok := toInt(diag["focusScore"]); ok {
+						focus = f
 					}
-					if sB, ok := secScores["B"]; ok && sB > 0 {
-						pillars.EmotionalResilience = minInt(100, sB*100/16)
-						pillars.SelfExpression = minInt(100, (sB*100/16)+4)
+					if res, ok := toInt(diag["resilienceScore"]); ok {
+						resil = res
 					}
-					if sC, ok := secScores["C"]; ok && sC > 0 {
-						pillars.SocialEase = minInt(100, sC*100/16)
+					if ten, ok := toInt(diag["academicTenacity"]); ok {
+						tenacity = ten
 					}
-					if sD, ok := secScores["D"]; ok && sD > 0 {
-						pillars.RestAndEnergy = minInt(100, sD*100/16)
+					if st, ok := toInt(diag["stressAdaptability"]); ok {
+						stress = st
 					}
-					if latestScore >= 75 {
-						pillars.Superpowers = []string{"Rapid Initiation & Focus", "High Stress Adaptability", "Helpful Peer Communicator"}
-					} else if latestScore >= 55 {
-						pillars.Superpowers = []string{"Steady Study Cadence", "Reflective Thinker", "Thoughtful Peer Friend"}
+				}
+
+				attn, load, safety, social := parseBucketScores(latestSecScoresJSON, focus, resil, tenacity, stress)
+				attnStab := rawScoreToStability(attn)
+				socialStab := rawScoreToStability(social)
+				loadStab := rawScoreToStability(load)
+				safetyStab := rawScoreToStability(safety)
+
+				pillars.FocusEndurance = int(attnStab)
+				pillars.RestAndEnergy = int(loadStab)
+				pillars.EmotionalResilience = int(safetyStab)
+				pillars.SocialEase = int(socialStab)
+				pillars.SelfExpression = int(safetyStab)
+
+				if latestScore >= 75 {
+					pillars.Superpowers = []string{"Rapid Initiation & Focus", "High Stress Adaptability", "Helpful Peer Communicator"}
+				} else if latestScore >= 55 {
+					pillars.Superpowers = []string{"Steady Study Cadence", "Reflective Thinker", "Thoughtful Peer Friend"}
+				} else {
+					pillars.Superpowers = []string{"Empathetic Listener", "Thoughtful Questioner"}
+				}
+				pillars.GrowthObservation = fmt.Sprintf("%s is studying with steady focus. Daily rhythm is tracking at %d%% peace of mind.", firstName, atmosphere.EquilibriumScore)
+			}
+		}
+	}
+
+	// 5. Clinical Dossier (Matching School System with 4 Core Regulation Buckets)
+	var dossier *domain.StudentAnalyticsProfile
+	if activeChild.ID != "" && activeChild.ID != "self-registered" {
+		dossier = &domain.StudentAnalyticsProfile{
+			ID:                 activeChild.ID,
+			AccessID:           activeChild.AccessID,
+			Name:               activeChild.Name,
+			Grade:              activeChild.Grade,
+			Section:            activeChild.Section,
+			SchoolID:           activeChild.SchoolID,
+			SchoolName:         activeChild.SchoolName,
+			Archetype:          "Unassessed",
+			OverallStatus:      "Pending Assessment",
+			AttnTier:           "Pending Assessment",
+			LoadTier:           "Pending Assessment",
+			SelfSafetyTier:     "Pending Assessment",
+			SocialTier:         "Pending Assessment",
+			RegulationProfile:  "Pending Assessment",
+			PrimaryFriction:    "Awaiting Assessment",
+			MomentumTrend:      "stable",
+			CheckInCount:       0,
+			LastCheckInDate:    "",
+			RadarDimensions: map[string]float64{
+				"Attention & Focus Flow":       0,
+				"Social Comfort & Belonging":   0,
+				"Calm & Stress Reset":          0,
+				"Inner Grounding & Confidence": 0,
+			},
+		}
+
+		var checkinCount int
+		_ = r.db.QueryRow(ctx, `SELECT COUNT(*) FROM student_results WHERE student_id = $1::uuid`, activeChild.ID).Scan(&checkinCount)
+		if checkinCount > 0 {
+			dossier.CheckInCount = checkinCount
+
+			var secJSON, diagJSON []byte
+			var compAt time.Time
+			var tID, tName, pBuck, sBuck string
+			var isBal bool
+			var totScore int
+
+			row := r.db.QueryRow(ctx, `
+				SELECT 
+					COALESCE(section_scores, '{}'::jsonb),
+					COALESCE(behavioral_diagnostics, '{}'::jsonb),
+					COALESCE(total_score, 0),
+					COALESCE(completed_at, NOW()),
+					COALESCE(pathway_track_id, ''),
+					COALESCE(pathway_track_name, ''),
+					COALESCE(primary_bucket, ''),
+					COALESCE(secondary_bucket, ''),
+					COALESCE(is_balance_mode, false)
+				FROM student_results
+				WHERE student_id = $1::uuid
+				ORDER BY completed_at DESC
+				LIMIT 1
+			`, activeChild.ID)
+
+			if err := row.Scan(&secJSON, &diagJSON, &totScore, &compAt, &tID, &tName, &pBuck, &sBuck, &isBal); err == nil {
+				dossier.LastCheckInDate = compAt.Format("02 Jan 2006")
+
+				var dMap map[string]interface{}
+				_ = json.Unmarshal(diagJSON, &dMap)
+				fScore, rScore, tScore, sScore := 0, 0, 0, 0
+				if dMap != nil {
+					if f, ok := toInt(dMap["focusScore"]); ok {
+						fScore = f
 					}
-					pillars.GrowthObservation = fmt.Sprintf("%s is studying with steady focus. The best help at home is winding down screen time 30 minutes before bed so %s wakes up refreshed.", firstName, firstName)
+					if res, ok := toInt(dMap["resilienceScore"]); ok {
+						rScore = res
+					}
+					if ten, ok := toInt(dMap["academicTenacity"]); ok {
+						tScore = ten
+					}
+					if st, ok := toInt(dMap["stressAdaptability"]); ok {
+						sScore = st
+					}
+					if pf, ok := dMap["primaryFriction"].(string); ok && pf != "" {
+						dossier.PrimaryFriction = pf
+					}
+					if mt, ok := dMap["momentumTrend"].(string); ok && mt != "" {
+						dossier.MomentumTrend = mt
+					}
+					if arch, ok := dMap["archetype"].(string); ok && arch != "" {
+						dossier.Archetype = arch
+					}
+				}
+
+				attn, load, safety, social := parseBucketScores(secJSON, fScore, rScore, tScore, sScore)
+				dossier.AttnStabilityScore = attn
+				dossier.LoadRegulationScore = load
+				dossier.SelfSafetyScore = safety
+				dossier.SocialComfortScore = social
+
+				dossier.AttnTier = getBucketTier(attn)
+				dossier.LoadTier = getBucketTier(load)
+				dossier.SelfSafetyTier = getBucketTier(safety)
+				dossier.SocialTier = getBucketTier(social)
+
+				if dossier.AttnTier == "Support Needed" || dossier.LoadTier == "Support Needed" || dossier.SelfSafetyTier == "Support Needed" || dossier.SocialTier == "Support Needed" {
+					dossier.OverallStatus = "Support Needed"
+				} else if dossier.AttnTier == "Emerging" || dossier.LoadTier == "Emerging" || dossier.SelfSafetyTier == "Emerging" || dossier.SocialTier == "Emerging" {
+					dossier.OverallStatus = "Emerging"
+				} else {
+					dossier.OverallStatus = "Stable"
+				}
+
+				if tID == "" {
+					bMap := map[domain.BucketType]int{
+						domain.BucketAttnStability:  attn,
+						domain.BucketLoadRegulation: load,
+						domain.BucketSelfSafety:     safety,
+						domain.BucketSocialComfort:  social,
+					}
+					track, _ := services.EvaluatePathwayBuckets(bMap)
+					dossier.PathwayTrackID = track.TrackID
+					dossier.PathwayTrackName = track.TrackName
+					dossier.PrimaryBucket = string(track.PrimaryBucket)
+					dossier.SecondaryBucket = string(track.SecondaryBucket)
+					dossier.IsBalanceMode = track.IsBalanceMode
+				} else {
+					dossier.PathwayTrackID = tID
+					dossier.PathwayTrackName = tName
+					dossier.PrimaryBucket = pBuck
+					dossier.SecondaryBucket = sBuck
+					dossier.IsBalanceMode = isBal
+				}
+
+				if dossier.IsBalanceMode {
+					dossier.RegulationProfile = "All-Round Balance Mode"
+				} else {
+					switch dossier.PrimaryBucket {
+					case string(domain.BucketAttnStability):
+						dossier.RegulationProfile = "Attention & Focus Flow"
+					case string(domain.BucketLoadRegulation):
+						dossier.RegulationProfile = "Calm & Stress Reset"
+					case string(domain.BucketSelfSafety):
+						dossier.RegulationProfile = "Inner Grounding & Confidence"
+					case string(domain.BucketSocialComfort):
+						dossier.RegulationProfile = "Social Comfort & Belonging"
+					default:
+						dossier.RegulationProfile = "Calm & Stress Reset"
+					}
+				}
+
+				attnStab := rawScoreToStability(attn)
+				socialStab := rawScoreToStability(social)
+				loadStab := rawScoreToStability(load)
+				safetyStab := rawScoreToStability(safety)
+
+				dossier.RadarDimensions = map[string]float64{
+					"Attention & Focus Flow":       attnStab,
+					"Social Comfort & Belonging":   socialStab,
+					"Calm & Stress Reset":          loadStab,
+					"Inner Grounding & Confidence": safetyStab,
+					"Focus & Cognitive":            attnStab,
+					"Emotional Awareness":          safetyStab,
+					"Peer Engagement":              socialStab,
+					"Academic Tenacity":            attnStab,
+					"Stress Adaptability":          loadStab,
+					"Self-Regulation":              safetyStab,
 				}
 			}
 		}
 	}
+
+	// 6. Recent Check-ins for child
+	var recentCheckins []domain.ParentMilestoneCheckin
+	if activeChild.ID != "" && activeChild.ID != "self-registered" {
+		rRows, rErr := r.db.Query(ctx, `
+			SELECT sr.id::text, COALESCE(a.title, 'Wellbeing Reflection'),
+			       TO_CHAR(sr.completed_at, 'Mon DD, YYYY'),
+			       COALESCE(sr.total_score, 0),
+			       COALESCE(sr.assigned_bucket, 'Stable'),
+			       COALESCE(sr.pathway_track_name, 'Balance Track')
+			FROM student_results sr
+			LEFT JOIN assessments a ON a.id = sr.assessment_id
+			WHERE sr.student_id = $1::uuid
+			ORDER BY sr.completed_at DESC
+			LIMIT 5
+		`, activeChild.ID)
+		if rErr == nil {
+			defer rRows.Close()
+			for rRows.Next() {
+				var mc domain.ParentMilestoneCheckin
+				var trackName string
+				if err := rRows.Scan(&mc.ID, &mc.Title, &mc.Date, &mc.Score, &mc.AssignedBucket, &trackName); err == nil {
+					mc.Status = "completed"
+					mc.ParentTakeaway = fmt.Sprintf("Pathway: %s", trackName)
+					recentCheckins = append(recentCheckins, mc)
+				}
+			}
+		}
+	}
+	if recentCheckins == nil {
+		recentCheckins = []domain.ParentMilestoneCheckin{}
+	}
+
 
 	// 7. Counselor Resolution
 	// If student is connected to a school, check if that school (or branch) has an assigned counselor in school_counselors.
@@ -417,6 +651,8 @@ func (r *postgresParent) GetParentOverview(ctx context.Context, parentID string,
 		AllChildren:      children,
 		Atmosphere:       atmosphere,
 		Pillars:          pillars,
+		Dossier:          dossier,
+		RecentCheckins:   recentCheckins,
 		StandardCheckins: standardCheckins,
 		Counselor:        counselor,
 	}, nil
@@ -1223,13 +1459,35 @@ func (r *postgresParent) SubmitStudentCheckin(ctx context.Context, parentID stri
 		}
 	}
 
+	// 4 Buckets: Each 8-32.
+	// Section A = ATTN_STABILITY
+	// Section B = SELF_SAFETY
+	// Section C = SOCIAL_COMFORT
+	// Section D = LOAD_REGULATION
+	attnScore := 8 + minInt(24, sectionScores["A"]*3)
+	safetyScore := 8 + minInt(24, sectionScores["B"]*3)
+	socialScore := 8 + minInt(24, sectionScores["C"]*3)
+	loadScore := 8 + minInt(24, sectionScores["D"]*3)
+
+	bMap := map[domain.BucketType]int{
+		domain.BucketAttnStability:  attnScore,
+		domain.BucketSelfSafety:     safetyScore,
+		domain.BucketSocialComfort:  socialScore,
+		domain.BucketLoadRegulation: loadScore,
+	}
+	track, _ := services.EvaluatePathwayBuckets(bMap)
+
 	assignedBucket := "Skill Stable"
-	if percentage >= 70 {
-		assignedBucket = "Sprinter (High Resilience)"
-	} else if percentage >= 50 {
-		assignedBucket = "Pacer (Steady Progress)"
+	if track.IsBalanceMode {
+		assignedBucket = "Balance Mode"
+	} else if track.PrimaryBucket == domain.BucketLoadRegulation {
+		assignedBucket = "Calm & Stress Reset"
+	} else if track.PrimaryBucket == domain.BucketSelfSafety {
+		assignedBucket = "Inner Grounding"
+	} else if track.PrimaryBucket == domain.BucketAttnStability {
+		assignedBucket = "Attention Flow"
 	} else {
-		assignedBucket = "Seeker (Support Recommended)"
+		assignedBucket = "Social Comfort"
 	}
 
 	secScoresJSON, _ := json.Marshal(sectionScores)
@@ -1252,13 +1510,16 @@ func (r *postgresParent) SubmitStudentCheckin(ctx context.Context, parentID stri
 		INSERT INTO student_results (
 			student_id, school_id, assessment_id, status,
 			total_score, section_scores, section_buckets,
-			assigned_bucket, answers, time_taken, origin, completed_at
+			assigned_bucket, answers, time_taken, origin, completed_at,
+			pathway_track_id, pathway_track_name, primary_bucket, secondary_bucket, is_balance_mode
 		) VALUES (
 			$1::uuid, CASE WHEN $2 = '' THEN NULL ELSE $2::uuid END, $3::uuid, 'complete',
 			$4, $5, $6,
-			$7, $8, $9, 'parent', NOW()
+			$7, $8, $9, 'parent', NOW(),
+			$10, $11, $12, $13, $14
 		)
-	`, req.StudentID, scIDStr, req.AssessmentID, percentage, secScoresJSON, secBucketsJSON, assignedBucket, answersJSON, req.TimeTaken)
+	`, req.StudentID, scIDStr, req.AssessmentID, percentage, secScoresJSON, secBucketsJSON, assignedBucket, answersJSON, req.TimeTaken,
+		track.TrackID, track.TrackName, string(track.PrimaryBucket), string(track.SecondaryBucket), track.IsBalanceMode)
 
 	if err != nil {
 		return nil, fmt.Errorf("failed to record check-in results: %w", err)
@@ -1269,6 +1530,127 @@ func (r *postgresParent) SubmitStudentCheckin(ctx context.Context, parentID stri
 		Score:          percentage,
 		AssignedBucket: assignedBucket,
 		Message:        fmt.Sprintf("Check-in for '%s' recorded successfully!", title),
+	}, nil
+}
+
+func (r *postgresParent) GetStudentAttempts(ctx context.Context, parentID, studentID string) ([]domain.StudentResult, error) {
+	// Verify parent owns this child
+	var exists bool
+	err := r.db.QueryRow(ctx, `
+		SELECT EXISTS(
+			SELECT 1 FROM parent_students
+			WHERE parent_id = $1::uuid AND student_id = $2::uuid
+		)
+	`, parentID, studentID).Scan(&exists)
+	if err != nil || !exists {
+		return nil, fmt.Errorf("student not found or unauthorized")
+	}
+
+	rows, err := r.db.Query(ctx, `
+		SELECT sr.id, sr.student_id, COALESCE(sr.school_id::text, ''), sr.assessment_id,
+		       COALESCE(sr.status, 'complete'), COALESCE(sr.total_score, 0),
+		       COALESCE(sr.section_scores, '{}'::jsonb), COALESCE(sr.section_buckets, '{}'::jsonb),
+		       COALESCE(sr.primary_skill_area, ''), COALESCE(sr.secondary_skill_area, ''),
+		       COALESCE(sr.assigned_bucket, ''), COALESCE(sr.answers, '[]'::jsonb),
+		       COALESCE(sr.mood, '{}'::jsonb), COALESCE(sr.time_taken, 0),
+		       COALESCE(sr.behavioral_diagnostics, '{}'::jsonb), sr.completed_at,
+		       COALESCE(sr.pathway_track_id, ''), COALESCE(sr.pathway_track_name, ''),
+		       COALESCE(sr.primary_bucket, ''), COALESCE(sr.secondary_bucket, ''),
+		       COALESCE(sr.is_balance_mode, false), COALESCE(sr.origin, 'school')
+		FROM student_results sr
+		WHERE sr.student_id = $1::uuid
+		ORDER BY sr.completed_at DESC
+	`, studentID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var results []domain.StudentResult
+	for rows.Next() {
+		var sr domain.StudentResult
+		var secScoresRaw, secBucketsRaw, answersRaw, moodRaw, diagRaw []byte
+		if err := rows.Scan(
+			&sr.ID, &sr.StudentID, &sr.SchoolID, &sr.AssessmentID,
+			&sr.Status, &sr.TotalScore, &secScoresRaw, &secBucketsRaw,
+			&sr.PrimarySkillArea, &sr.SecondarySkillArea, &sr.AssignedBucket,
+			&answersRaw, &moodRaw, &sr.TimeTaken, &diagRaw, &sr.CompletedAt,
+			&sr.PathwayTrackID, &sr.PathwayTrackName, &sr.PrimaryBucket, &sr.SecondaryBucket,
+			&sr.IsBalanceMode, &sr.Origin,
+		); err != nil {
+			continue
+		}
+		_ = json.Unmarshal(secScoresRaw, &sr.SectionScores)
+		_ = json.Unmarshal(secBucketsRaw, &sr.SectionBuckets)
+		_ = json.Unmarshal(answersRaw, &sr.Answers)
+		_ = json.Unmarshal(diagRaw, &sr.BehavioralDiagnostics)
+
+		if sr.Origin == "parent" {
+			sr.OriginLabel = "Home / Parent Check-in"
+		} else if sr.Origin == "student" {
+			sr.OriginLabel = "Student Direct"
+		} else {
+			sr.OriginLabel = "School Session"
+		}
+
+		results = append(results, sr)
+	}
+
+	if results == nil {
+		results = []domain.StudentResult{}
+	}
+	return results, nil
+}
+
+func (r *postgresParent) GetStudentDossier(ctx context.Context, parentID, studentID string) (*domain.StudentAnalyticsProfile, error) {
+	// Verify parent owns this child
+	var s domain.ChildSummary
+	err := r.db.QueryRow(ctx, `
+		SELECT s.id, s.name, COALESCE(s.nickname, ''), s.grade, s.section, s.access_id,
+		       COALESCE(s.school_id::text, ''), COALESCE(sc.name, 'Independent / Home Study'),
+		       COALESCE(sc.school_code, 'HOME'), COALESCE(ps.relationship, 'parent')
+		FROM parent_students ps
+		JOIN students s ON s.id = ps.student_id
+		LEFT JOIN schools sc ON sc.id = s.school_id
+		WHERE ps.parent_id = $1::uuid AND ps.student_id = $2::uuid
+	`, parentID, studentID).Scan(
+		&s.ID, &s.Name, &s.Nickname, &s.Grade, &s.Section, &s.AccessID,
+		&s.SchoolID, &s.SchoolName, &s.SchoolCode, &s.Relationship,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("child not found or unauthorized")
+	}
+
+	overview, err := r.GetParentOverview(ctx, parentID, studentID)
+	if err != nil {
+		return nil, err
+	}
+	if overview.Dossier != nil {
+		return overview.Dossier, nil
+	}
+
+	return &domain.StudentAnalyticsProfile{
+		ID:                 studentID,
+		Name:               s.Name,
+		Grade:              s.Grade,
+		Section:            s.Section,
+		AccessID:           s.AccessID,
+		SchoolName:         s.SchoolName,
+		OverallStatus:      "Pending Assessment",
+		AttnTier:           "Pending Assessment",
+		LoadTier:           "Pending Assessment",
+		SelfSafetyTier:     "Pending Assessment",
+		SocialTier:         "Pending Assessment",
+		RegulationProfile:  "Pending Assessment",
+		PrimaryFriction:    "Awaiting Assessment",
+		MomentumTrend:      "stable",
+		CheckInCount:       0,
+		RadarDimensions: map[string]float64{
+			"Attention & Focus Flow":       0,
+			"Social Comfort & Belonging":   0,
+			"Calm & Stress Reset":          0,
+			"Inner Grounding & Confidence": 0,
+		},
 	}, nil
 }
 

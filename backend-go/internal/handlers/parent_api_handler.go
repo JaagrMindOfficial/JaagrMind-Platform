@@ -37,6 +37,8 @@ func SetupParentAPIRoutes(
 	api.Get("/inquiries/:id/messages", h.GetInquiryMessages)
 	api.Post("/inquiries/:id/reply", h.ReplyToInquiry)
 	api.Post("/student-checkin/submit", h.SubmitStudentCheckin)
+	api.Get("/student/:studentId/attempts", h.GetStudentAttempts)
+	api.Get("/student/:studentId/dossier", h.GetStudentDossier)
 }
 
 func (h *ParentAPIHandler) GetOverview(c fiber.Ctx) error {
@@ -265,6 +267,42 @@ func (h *ParentAPIHandler) ReplyToInquiry(c fiber.Ctx) error {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 	}
 	return c.Status(fiber.StatusCreated).JSON(msg)
+}
+
+func (h *ParentAPIHandler) GetStudentAttempts(c fiber.Ctx) error {
+	parentID, ok := c.Locals("user_id").(string)
+	if !ok || parentID == "" {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Unauthorized"})
+	}
+
+	studentID := c.Params("studentId")
+	if studentID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Student ID is required"})
+	}
+
+	attempts, err := h.parentRepo.GetStudentAttempts(c.Context(), parentID, studentID)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+	}
+	return c.JSON(attempts)
+}
+
+func (h *ParentAPIHandler) GetStudentDossier(c fiber.Ctx) error {
+	parentID, ok := c.Locals("user_id").(string)
+	if !ok || parentID == "" {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Unauthorized"})
+	}
+
+	studentID := c.Params("studentId")
+	if studentID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Student ID is required"})
+	}
+
+	dossier, err := h.parentRepo.GetStudentDossier(c.Context(), parentID, studentID)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+	}
+	return c.JSON(dossier)
 }
 
 

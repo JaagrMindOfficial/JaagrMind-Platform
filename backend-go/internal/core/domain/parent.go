@@ -173,6 +173,7 @@ type ParentOverviewResponse struct {
 	AllChildren          []ChildSummary           `json:"all_children"`
 	Atmosphere           EmotionalAtmosphere      `json:"atmosphere"`
 	Pillars              PillarScores             `json:"pillars"`
+	Dossier              *StudentAnalyticsProfile `json:"dossier,omitempty"`
 	StandardCheckins     []StudentGradeCheckin    `json:"standard_checkins"`
 	ConversationStarters []ConversationPrompt     `json:"conversation_starters,omitempty"`
 	RecentCheckins       []ParentMilestoneCheckin `json:"recent_checkins,omitempty"`
@@ -220,6 +221,8 @@ type ParentRepository interface {
 	UpdateChild(ctx context.Context, parentID string, req ParentUpdateChildRequest) (*ChildSummary, error)
 	CreateNoteToCounselor(ctx context.Context, parentID, studentID, subject, note string, isConfidential bool) error
 	SubmitStudentCheckin(ctx context.Context, parentID string, req ParentSubmitCheckinRequest) (*ParentSubmitCheckinResponse, error)
+	GetStudentAttempts(ctx context.Context, parentID, studentID string) ([]StudentResult, error)
+	GetStudentDossier(ctx context.Context, parentID, studentID string) (*StudentAnalyticsProfile, error)
 
 	// Counselor management for School Admin & Super Admin
 	GetAllCounselors(ctx context.Context) ([]SchoolCounselor, error)

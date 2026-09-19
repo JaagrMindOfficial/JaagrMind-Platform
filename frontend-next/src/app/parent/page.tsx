@@ -4,13 +4,14 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ParentHeader } from "@/components/parent/parent-header";
 import { ParentAtmosphereBarometer } from "@/components/parent/parent-atmosphere-barometer";
-import { ParentGrowthRadar } from "@/components/parent/parent-growth-radar";
+import { ParentRegulationDossier } from "@/components/parent/parent-regulation-dossier";
 import { ParentCounselorDialog } from "@/components/parent/parent-counselor-dialog";
 import { ParentAddChildDialog } from "@/components/parent/parent-add-child-dialog";
 import { ParentEditChildDialog } from "@/components/parent/parent-edit-child-dialog";
 import { ParentStandardCheckins, type StudentGradeCheckin } from "@/components/parent/parent-standard-checkins";
 import { ParentCheckinDialog } from "@/components/parent/parent-checkin-dialog";
 import { ParentConversationThreadDialog, type ParentInquiryItem } from "@/components/parent/parent-conversation-thread-dialog";
+import { StudentDossierDialog } from "@/components/student-dossier-dialog";
 import { MeetingCard } from "@/components/parent/meeting-card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -26,9 +27,10 @@ import {
   Pencil,
   School,
   MessageSquare,
-  Video,
-  Calendar,
   CheckCircle2,
+  FolderOpen,
+  ArrowUpRight,
+  ShieldCheck,
 } from "lucide-react";
 
 export default function ParentDashboardPage() {
@@ -43,6 +45,7 @@ export default function ParentDashboardPage() {
   const [counselorModalOpen, setCounselorModalOpen] = useState(false);
   const [addChildModalOpen, setAddChildModalOpen] = useState(false);
   const [editChildModalOpen, setEditChildModalOpen] = useState(false);
+  const [fullDossierModalOpen, setFullDossierModalOpen] = useState(false);
   const [selectedCheckin, setSelectedCheckin] = useState<StudentGradeCheckin | null>(null);
   const [checkinModalOpen, setCheckinModalOpen] = useState(false);
 
@@ -170,7 +173,7 @@ export default function ParentDashboardPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-background via-card/10 to-background flex flex-col antialiased selection:bg-emerald-500/20 relative overflow-x-hidden">
-      {/* Subtle atmospheric ambient glows */}
+      {/* Ambient background glows */}
       <div className="absolute top-0 right-1/4 w-96 h-96 bg-emerald-500/5 dark:bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
       <div className="absolute top-1/2 left-0 w-80 h-80 bg-sky-500/5 dark:bg-sky-500/10 rounded-full blur-3xl pointer-events-none" />
 
@@ -185,7 +188,7 @@ export default function ParentDashboardPage() {
       />
 
       {/* Main Dashboard Canvas */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8 relative z-10">
+      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-9 relative z-10">
         {!hasChildren ? (
           <section className="space-y-6">
             <div className="clay-card p-8 sm:p-12 text-center max-w-2xl mx-auto space-y-6 relative overflow-hidden">
@@ -197,7 +200,7 @@ export default function ParentDashboardPage() {
                   Welcome to Your Family Space, {overview.parent_name ? overview.parent_name.split(" ")[0] : "Parent"}
                 </h2>
                 <p className="text-sm text-muted-foreground max-w-md mx-auto leading-relaxed">
-                  Connect your child using their School Access Code or add an independent student profile to view their daily wellbeing rhythm, focus cadence, and care support.
+                  Connect your child using their School Access Code or add an independent student profile to view their 4-bucket clinical regulation rhythm, focus cadence, and care support.
                 </p>
               </div>
 
@@ -216,19 +219,19 @@ export default function ParentDashboardPage() {
                 <div className="p-3.5 rounded-xl neo-well space-y-1">
                   <span className="text-[11px] font-bold text-foreground flex items-center gap-1.5">
                     <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
-                    School Link
+                    School Sync
                   </span>
                   <p className="text-[11px] text-muted-foreground">
-                    Instantly sync with school check-ins using campus access code.
+                    Direct sync with campus check-ins and educator regulation track.
                   </p>
                 </div>
                 <div className="p-3.5 rounded-xl neo-well space-y-1">
                   <span className="text-[11px] font-bold text-foreground flex items-center gap-1.5">
                     <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
-                    Independent Study
+                    4 Core Buckets
                   </span>
                   <p className="text-[11px] text-muted-foreground">
-                    Support home study with dedicated wellbeing reflections.
+                    Calm, Grounding, Focus Flow, and Social Ease metrics matching school dossiers.
                   </p>
                 </div>
                 <div className="p-3.5 rounded-xl neo-well space-y-1">
@@ -237,7 +240,7 @@ export default function ParentDashboardPage() {
                     Care Desk
                   </span>
                   <p className="text-[11px] text-muted-foreground">
-                    Confidential guidance desk for family and student support.
+                    Direct confidential guidance desk for family and student support.
                   </p>
                 </div>
               </div>
@@ -245,13 +248,13 @@ export default function ParentDashboardPage() {
           </section>
         ) : (
           <>
-            {/* Top Greeting & Child Identity */}
+            {/* Top Child Identity & Action Header */}
             <section className="space-y-4">
               <div className="flex flex-wrap items-end justify-between gap-3 px-1">
                 <div>
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-muted-foreground">
-                      Parent Portal
+                      Family Space
                     </span>
                     <span className="text-muted-foreground/40">•</span>
                     <span className="text-xs font-mono text-emerald-600 dark:text-emerald-400 font-bold">
@@ -271,18 +274,28 @@ export default function ParentDashboardPage() {
                     Welcome back, {overview.parent_name ? overview.parent_name.split(" ")[0] : "Parent"}
                   </h1>
                   <p className="text-xs text-muted-foreground mt-0.5">
-                    Daily wellbeing overview and practical support for {preferredName}.
+                    Longitudinal regulation overview, 4-bucket clinical balance, and direct care support for {preferredName}.
                   </p>
                 </div>
 
-                {/* Quick Actions: Link to School if Independent + Edit Child Profile */}
+                {/* Quick Actions Bar */}
                 <div className="flex items-center gap-2 flex-wrap">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setFullDossierModalOpen(true)}
+                    className="text-xs h-8 gap-1.5 neo-well hover:bg-muted/40 font-semibold cursor-pointer shadow-2xs border-sky-500/30 text-sky-600 dark:text-sky-400"
+                  >
+                    <FolderOpen className="h-3.5 w-3.5" />
+                    <span>View Student Dossier</span>
+                    <ArrowUpRight className="h-3 w-3 opacity-60" />
+                  </Button>
                   {!activeChild.is_linked && (
                     <Button
                       variant="outline"
                       size="sm"
                       onClick={() => setEditChildModalOpen(true)}
-                      className="text-xs h-8 gap-1.5 border-sky-500/40 text-sky-600 dark:text-sky-400 bg-sky-500/10 hover:bg-sky-500/20 font-semibold cursor-pointer shadow-2xs"
+                      className="text-xs h-8 gap-1.5 border-emerald-500/40 text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20 font-semibold cursor-pointer shadow-2xs"
                     >
                       <School className="h-3.5 w-3.5" />
                       <span>Link to School</span>
@@ -295,62 +308,63 @@ export default function ParentDashboardPage() {
                     className="text-xs h-8 gap-1.5 neo-well hover:bg-muted/40 font-medium cursor-pointer"
                   >
                     <Pencil className="h-3 w-3 text-muted-foreground" />
-                    <span>Edit Profile</span>
+                    <span>Edit Child</span>
                   </Button>
-                  <div className="sm:hidden">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setAddChildModalOpen(true)}
-                      className="text-xs h-8 gap-1.5 neo-well cursor-pointer"
-                    >
-                      <UserPlus className="h-3.5 w-3.5" />
-                      <span>Add Child</span>
-                    </Button>
-                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setAddChildModalOpen(true)}
+                    className="text-xs h-8 gap-1.5 neo-well hover:bg-muted/40 font-medium cursor-pointer"
+                  >
+                    <UserPlus className="h-3.5 w-3.5 text-muted-foreground" />
+                    <span>Add Child</span>
+                  </Button>
                 </div>
               </div>
 
-              {/* Living Mood Dial & 7-Day Pulse Tablets */}
+              {/* Living Atmosphere Barometer */}
               <ParentAtmosphereBarometer
                 atmosphere={overview.atmosphere}
                 childName={preferredName}
               />
             </section>
 
-            {/* Core Practical Row: Routine & Study Balance + Direct Counselor Desk */}
-            <section className="grid grid-cols-1 lg:grid-cols-12 gap-7 items-stretch">
-              {/* Left (7 cols): Routine & Study Balance Matrix */}
-              <div className="lg:col-span-7">
-                <ParentGrowthRadar
-                  pillars={overview.pillars}
-                  childName={activeChild.name || preferredName}
-                />
-              </div>
+            {/* Comprehensive 4-Bucket Regulation Dossier (School-Aligned) */}
+            <section className="space-y-4">
+              <ParentRegulationDossier
+                dossier={overview.dossier}
+                childName={preferredName}
+                onOpenCheckin={() => {
+                  if (overview.standard_checkins && overview.standard_checkins.length > 0) {
+                    handleStartCheckin(overview.standard_checkins[0]);
+                  }
+                }}
+              />
+            </section>
 
-              {/* Right (5 cols): Dynamic Counselor Card (School or JaagrMind) */}
-              <div className="lg:col-span-5">
-                <div className="clay-card p-6 sm:p-8 relative overflow-hidden transition-all flex flex-col justify-between h-full group">
-                  {/* Top liquid specular line */}
-                  <div className="absolute top-0 left-6 right-6 h-[1px] bg-gradient-to-r from-transparent via-foreground/15 to-transparent" />
+            {/* Direct Counselor & Care Support Row */}
+            <section className="space-y-4">
+              <div className="clay-card p-6 sm:p-8 relative overflow-hidden transition-all flex flex-col justify-between group">
+                <div className="absolute top-0 left-6 right-6 h-[1px] bg-gradient-to-r from-transparent via-foreground/15 to-transparent" />
 
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between pb-4 border-b border-border/40">
-                      <div className="space-y-0.5">
-                        <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-sky-600 dark:text-sky-400">
-                          {isPlatformCounselor ? "JAAGRMIND STUDENT CARE DESK" : "SCHOOL COUNSELOR"}
-                        </span>
-                        <h3 className="text-lg font-bold tracking-tight text-foreground">
-                          Direct Support for {firstName}
-                        </h3>
-                      </div>
-                      <div className="p-2 rounded-xl neo-well text-sky-600 dark:text-sky-400">
-                        <HeartHandshake className="h-4 w-4" />
-                      </div>
+                <div className="space-y-4">
+                  <div className="flex flex-wrap items-center justify-between pb-4 border-b border-border/40 gap-3">
+                    <div className="space-y-0.5">
+                      <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-sky-600 dark:text-sky-400">
+                        {isPlatformCounselor ? "JAAGRMIND STUDENT CARE DESK" : "CAMPUS ASSIGNED COUNSELOR"}
+                      </span>
+                      <h3 className="text-lg font-bold tracking-tight text-foreground">
+                        Direct Counseling & Family Advisory for {firstName}
+                      </h3>
                     </div>
+                    <div className="p-2 rounded-xl neo-well text-sky-600 dark:text-sky-400">
+                      <HeartHandshake className="h-5 w-5" />
+                    </div>
+                  </div>
 
-                    <div className="p-5 rounded-2xl bg-card border border-border/70 shadow-xs space-y-3">
-                      <div className="flex items-center justify-between">
+                  <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-center">
+                    <div className="md:col-span-8 p-5 rounded-2xl bg-card border border-border/70 shadow-xs space-y-3">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
                         <div>
                           <h4 className="text-sm font-bold text-foreground">
                             {counselor.name}
@@ -361,7 +375,7 @@ export default function ParentDashboardPage() {
                         </div>
                         {isPlatformCounselor ? (
                           <Badge variant="outline" className="text-[10px] font-mono text-sky-600 dark:text-sky-400 bg-sky-500/10 border-sky-500/20">
-                            Platform Support
+                            Platform Support Desk
                           </Badge>
                         ) : (
                           <Badge variant="outline" className="text-[10px] font-mono text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border-emerald-500/20">
@@ -370,47 +384,50 @@ export default function ParentDashboardPage() {
                         )}
                       </div>
 
-                      <div className="space-y-1.5 pt-2 border-t border-border/40 text-xs text-muted-foreground font-mono">
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-2 border-t border-border/40 text-xs text-muted-foreground font-mono">
                         {!isPlatformCounselor && counselor.school_name && (
                           <div className="flex items-center gap-2">
-                            <Building2 className="h-3.5 w-3.5 text-muted-foreground" />
-                            <span>{counselor.school_name} {counselor.branch_name ? `(${counselor.branch_name})` : ""}</span>
+                            <Building2 className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                            <span className="truncate">{counselor.school_name}</span>
                           </div>
                         )}
                         <div className="flex items-center gap-2">
-                          <Clock className="h-3.5 w-3.5 text-muted-foreground" />
-                          <span>{counselor.available_hours || "Mon-Fri, 9:00 AM - 4:00 PM"}</span>
+                          <Clock className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                          <span className="truncate">{counselor.available_hours || "Mon-Fri, 9:00 AM - 4:00 PM"}</span>
                         </div>
                         {counselor.email && (
                           <div className="flex items-center gap-2">
-                            <Mail className="h-3.5 w-3.5 text-muted-foreground" />
-                            <span>{counselor.email}</span>
+                            <Mail className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                            <span className="truncate">{counselor.email}</span>
                           </div>
                         )}
                       </div>
+
+                      <p className="text-xs text-muted-foreground leading-relaxed pt-1">
+                        {isPlatformCounselor
+                          ? `Because ${firstName} is studying independently, you have direct access to JaagrMind's central clinical desk for study routine planning, screen balance, and emotional regulation guidance.`
+                          : `Your family is directly connected to ${counselor.name} at ${counselor.school_name} for coordinated academic and wellbeing guidance.`}
+                      </p>
                     </div>
 
-                    <p className="text-xs text-muted-foreground leading-relaxed">
-                      {isPlatformCounselor
-                        ? `Because ${firstName} is studying independently, you have direct access to JaagrMind's central child psychology desk for routine planning, screen regulation, and study balance.`
-                        : `Your family is directly connected to ${counselor.name} at ${counselor.school_name} for coordinated academic and wellbeing guidance.`}
-                    </p>
-                  </div>
-
-                  <div className="pt-5 border-t border-border/40 mt-4">
-                    <Button
-                      onClick={() => setCounselorModalOpen(true)}
-                      className="w-full bg-sky-600 hover:bg-sky-700 text-white font-semibold text-xs h-9 gap-2 shadow-xs cursor-pointer"
-                    >
-                      <MessageSquare className="h-3.5 w-3.5" />
-                      <span>{isPlatformCounselor ? "Message Care Desk" : "Consult School Counselor"}</span>
-                    </Button>
+                    <div className="md:col-span-4 flex flex-col justify-center gap-3">
+                      <Button
+                        onClick={() => setCounselorModalOpen(true)}
+                        className="w-full bg-sky-600 hover:bg-sky-700 text-white font-semibold text-xs h-10 gap-2 shadow-xs cursor-pointer"
+                      >
+                        <MessageSquare className="h-4 w-4" />
+                        <span>{isPlatformCounselor ? "Message Care Desk" : "Consult Counselor"}</span>
+                      </Button>
+                      <p className="text-[11px] text-muted-foreground text-center font-mono">
+                        Responses typically within 24 hours. Fully confidential.
+                      </p>
+                    </div>
                   </div>
                 </div>
               </div>
             </section>
 
-            {/* Active Consultations & Follow-up Meetings Section */}
+            {/* Active Two-Way Consultations & Scheduled Follow-ups */}
             {inquiries.length > 0 && (
               <section className="space-y-4">
                 <div className="flex items-center justify-between px-1">
@@ -419,7 +436,7 @@ export default function ParentDashboardPage() {
                       TWO-WAY COUNSELOR DIALOGUES
                     </span>
                     <h2 className="text-xl font-bold tracking-tight text-foreground">
-                      Counselor Conversations & Scheduled Sessions
+                      Conversations & Scheduled Sessions
                     </h2>
                   </div>
                   <Badge variant="outline" className="text-xs font-mono">
@@ -438,7 +455,7 @@ export default function ParentDashboardPage() {
                         <div className="space-y-2">
                           <div className="flex items-center justify-between gap-2">
                             <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-muted-foreground">
-                              {inq.counselor_type === "school_counselor" ? "School Counselor" : "JaagrMind Central"}
+                              {inq.counselor_type === "school_counselor" ? "Campus Counselor" : "JaagrMind Central"}
                             </span>
                             <Badge
                               variant="outline"
@@ -494,7 +511,7 @@ export default function ParentDashboardPage() {
               </section>
             )}
 
-            {/* Standard Check-ins Set by Superadmin for this Grade */}
+            {/* Standard Grade Check-ins (Launchable from Portal) */}
             <ParentStandardCheckins
               childName={activeChild.name}
               preferredName={activeChild.nickname || activeChild.name}
@@ -506,7 +523,7 @@ export default function ParentDashboardPage() {
         )}
       </main>
 
-      {/* Modals */}
+      {/* Modals & Dialogs */}
       <ParentCounselorDialog
         open={counselorModalOpen}
         onOpenChange={setCounselorModalOpen}
@@ -556,6 +573,14 @@ export default function ParentDashboardPage() {
         preferredName={activeChild.nickname || activeChild.name}
         grade={activeChild.grade}
         onSuccess={() => fetchOverview(activeChild.id)}
+      />
+
+      {/* Full Clinical Student Dossier Dialog */}
+      <StudentDossierDialog
+        isOpen={fullDossierModalOpen}
+        onClose={() => setFullDossierModalOpen(false)}
+        student={overview.dossier || null}
+        isParent={true}
       />
     </div>
   );

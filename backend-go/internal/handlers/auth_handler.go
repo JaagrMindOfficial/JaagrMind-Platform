@@ -109,11 +109,24 @@ func (h *AuthHandler) EnableParentRole(c fiber.Ctx) error {
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Unauthorized"})
 	}
 
+	user, err := h.userRepo.GetUserByID(c.Context(), userID)
+	if err != nil || user == nil {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "User not found"})
+	}
+
+	// Guard: Internal operations members cannot claim parent role on their work identity
+	if user.IsInternal || strings.HasSuffix(strings.ToLower(user.Email), "@jaagrmind.com") || strings.HasSuffix(strings.ToLower(user.Email), "@jaagrmind.org") {
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
+			"error": "Internal operations accounts cannot activate the parent dashboard.",
+		})
+	}
+
 	if err := h.userRepo.AddRole(c.Context(), userID, domain.RoleParent, ""); err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to activate parent role: " + err.Error()})
 	}
 
-	user, err := h.userRepo.GetUserByID(c.Context(), userID)
+	// Refetch updated roles
+	user, err = h.userRepo.GetUserByID(c.Context(), userID)
 	if err != nil || user == nil {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "User not found"})
 	}
@@ -160,8 +173,8 @@ func (h *AuthHandler) RegisterIndependent(c fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Password must be at least 6 characters"})
 	}
 
-	// Corporate domain block: prevent internal @jaagrmind.com emails from registering on public consumer signup
-	if strings.HasSuffix(req.Email, "@jaagrmind.com") {
+	// Corporate domain block: prevent internal @jaagrmind.com / @jaagrmind.org emails from registering on public consumer signup
+	if strings.HasSuffix(req.Email, "@jaagrmind.com") || strings.HasSuffix(req.Email, "@jaagrmind.org") {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error": "JaagrMind corporate email addresses cannot be used for independent or family signups. Please use your personal email address, or sign in to the internal operations console at /internal-ops/signin.",
 		})

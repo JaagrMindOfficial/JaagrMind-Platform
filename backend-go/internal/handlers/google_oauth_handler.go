@@ -168,6 +168,13 @@ func (h *GoogleOAuthHandler) HandleCallback(c fiber.Ctx) error {
 		return c.Redirect().To(redirectErr)
 	}
 
+	// Guard: Internal operations accounts cannot use Google Sign-in.
+	normalizedEmail := strings.ToLower(strings.TrimSpace(userInfo.Email))
+	if strings.HasSuffix(normalizedEmail, "@jaagrmind.com") || strings.HasSuffix(normalizedEmail, "@jaagrmind.org") {
+		redirectErr := fmt.Sprintf("%s/internal-ops/signin?error=%s", h.frontendURL, url.QueryEscape("Internal operations accounts cannot sign in with Google. Please use your official email and password."))
+		return c.Redirect().To(redirectErr)
+	}
+
 	// 5. Look up in Database:
 	// A. By Google ID
 	existingUser, _ := h.userRepo.GetUserByGoogleID(ctx, userInfo.Sub)
@@ -180,6 +187,12 @@ func (h *GoogleOAuthHandler) HandleCallback(c fiber.Ctx) error {
 			_ = h.userRepo.LinkGoogleAccount(ctx, existingByEmail.ID, userInfo.Sub, userInfo.Picture)
 			existingUser = existingByEmail
 		}
+	}
+
+	// Guard: Reject internal accounts trying to login via Google
+	if existingUser != nil && existingUser.IsInternal {
+		redirectErr := fmt.Sprintf("%s/internal-ops/signin?error=%s", h.frontendURL, url.QueryEscape("Internal operations accounts cannot sign in with Google. Please use your official email and password."))
+		return c.Redirect().To(redirectErr)
 	}
 
 	// Case 1: Returning User -> Issue platform session token directly
@@ -301,7 +314,7 @@ func (h *GoogleOAuthHandler) HandleComplete(c fiber.Ctx) error {
 	}
 
 	// Corporate domain block: prevent internal @jaagrmind.com emails from registering on public consumer signup
-	if strings.HasSuffix(strings.ToLower(email), "@jaagrmind.com") {
+	if strings.HasSuffix(strings.ToLower(email), "@jaagrmind.com") || strings.HasSuffix(strings.ToLower(email), "@jaagrmind.org") {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error": "JaagrMind corporate email addresses cannot be used for independent or family signups. Please use your personal Google account, or sign in to the internal operations console at /internal-ops/signin.",
 		})

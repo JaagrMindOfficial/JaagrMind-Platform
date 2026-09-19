@@ -35,11 +35,11 @@ export function RoleSwitcherPill() {
   const [activating, setActivating] = useState(false);
   const [isTeacherView, setIsTeacherView] = useState(false);
 
-  const isSuperAdmin = hasRole("superadmin") || !!user?.is_internal;
-  const isSchoolAdmin = hasRole("school_admin") || isSuperAdmin;
-  const isTeacher = hasRole("teacher") || isSuperAdmin;
-  const isCounselor = hasRole("counselor") || isSuperAdmin;
-  const isParent = hasRole("parent") || hasRole("relative") || isSuperAdmin;
+  const isInternalUser = !!user?.is_internal || hasRole("superadmin") || (user?.email?.toLowerCase().endsWith("@jaagrmind.com") ?? false);
+  const isSchoolAdmin = hasRole("school_admin");
+  const isTeacher = hasRole("teacher");
+  const isCounselor = hasRole("counselor");
+  const isParent = hasRole("parent") || hasRole("relative");
 
   useEffect(() => {
     if (searchParams?.get("view") === "teacher") {
@@ -51,6 +51,20 @@ export function RoleSwitcherPill() {
 
   if (!user) return null;
 
+  // 1. JaagrMind Internal Operations members cannot switch roles. They are strictly what they are assigned.
+  if (isInternalUser) {
+    return null;
+  }
+
+  // 2. Pure Parent users cannot switch to counselor or teacher. Counselor is an invite-only role assigned by a school.
+  if (isParent && !isSchoolAdmin && !isTeacher && !isCounselor) {
+    return (
+      <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-muted/60 border border-border/70 text-xs font-semibold text-foreground shadow-2xs">
+        <Users className="h-3.5 w-3.5 text-emerald-500" />
+        <span>Parent Portal</span>
+      </div>
+    );
+  }
 
   // Determine active pill
   let activeRole = "";
@@ -146,8 +160,8 @@ export function RoleSwitcherPill() {
           </button>
         )}
 
-        {/* 3. Counselor Role */}
-        {(isCounselor || isParent) && (
+        {/* 3. Counselor Role (Visible ONLY for accounts with counselor role given by school) */}
+        {isCounselor && (
           <button
             type="button"
             onClick={handleCounselorClick}

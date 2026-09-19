@@ -325,8 +325,8 @@ function SignupContent() {
                   <HeartHandshake className="h-3.5 w-3.5" />
                 </div>
                 <div>
-                  <h3 className="font-bold text-xs text-foreground leading-tight">Family & Parent Desk</h3>
-                  <p className="text-[10px] text-muted-foreground hidden sm:block">Home Care & Radar</p>
+                  <h3 className="font-bold text-xs text-foreground leading-tight">Family & Guardian</h3>
+                  <p className="text-[10px] text-muted-foreground hidden sm:block">Parent or Legal Guardian</p>
                 </div>
               </div>
               <Badge variant="outline" className="text-[9px] px-1.5 py-0 border-active-mint/30 text-active-mint hidden sm:inline-flex">
@@ -548,35 +548,16 @@ function SignupContent() {
             {/* TAB 2: Individual & Family (Parent / Guardian) */}
             {activeTab === "independent" && (
               <>
-                <CardHeader className="px-4 py-2 border-b border-[#222222]/10 dark:border-white/10 flex flex-row items-center justify-between space-y-0">
+                <CardHeader className="px-4 py-2.5 border-b border-[#222222]/10 dark:border-white/10 flex flex-row items-center justify-between space-y-0">
                   <div className="flex items-center gap-1.5">
                     <HeartHandshake className="h-3.5 w-3.5 text-active-mint" />
                     <CardTitle className="text-xs font-bold text-foreground">
-                      Family Desk Registration
+                      Family & Guardian Registration
                     </CardTitle>
                   </div>
-
-                  {/* Sub-role Toggle in Header */}
-                  <div className="flex items-center gap-1 bg-muted/60 p-0.5 rounded-lg">
-                    <button
-                      type="button"
-                      onClick={() => setIndependentRole("parent")}
-                      className={`text-[10px] font-semibold px-2 py-0.5 rounded-md transition-all cursor-pointer ${
-                        independentRole === "parent" ? "bg-white dark:bg-[#222] text-active-mint shadow-2xs" : "text-muted-foreground hover:text-foreground"
-                      }`}
-                    >
-                      Parent
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setIndependentRole("relative")}
-                      className={`text-[10px] font-semibold px-2 py-0.5 rounded-md transition-all cursor-pointer ${
-                        independentRole === "relative" ? "bg-white dark:bg-[#222] text-active-mint shadow-2xs" : "text-muted-foreground hover:text-foreground"
-                      }`}
-                    >
-                      Guardian
-                    </button>
-                  </div>
+                  <Badge variant="outline" className="text-[10px] px-2 py-0.5 border-active-mint/40 text-active-mint font-semibold bg-active-mint/5">
+                    {independentRole === "parent" ? "Role: Parent" : "Role: Guardian"}
+                  </Badge>
                 </CardHeader>
 
                 <CardContent className="p-3.5 sm:p-4">
@@ -594,6 +575,64 @@ function SignupContent() {
                     </div>
                   ) : (
                     <div className="space-y-2.5">
+                      {/* Obvious, Prominent Parent vs Guardian Selection Cards */}
+                      <div className="space-y-1">
+                        <label className="text-[11px] font-bold text-foreground flex items-center justify-between">
+                          <span>Select your relationship:</span>
+                          <span className="text-[10px] text-active-mint font-semibold">
+                            {independentRole === "parent" ? "• Parent (Mother / Father)" : "• Guardian (Legal Caregiver)"}
+                          </span>
+                        </label>
+
+                        <div className="grid grid-cols-2 gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setIndependentRole("parent")}
+                            className={`p-2 sm:p-2.5 rounded-xl border text-left transition-all cursor-pointer flex items-center justify-between ${
+                              independentRole === "parent"
+                                ? "border-active-mint bg-active-mint/10 text-foreground ring-1.5 ring-active-mint shadow-2xs"
+                                : "border-[#222222]/15 dark:border-white/10 bg-white/60 dark:bg-[#181818]/60 hover:bg-white/80 dark:hover:bg-[#202020]"
+                            }`}
+                          >
+                            <div className="flex items-center gap-2">
+                              <div className={`p-1.5 rounded-lg ${independentRole === "parent" ? "bg-active-mint text-white" : "bg-muted text-muted-foreground"}`}>
+                                <HeartHandshake className="h-4 w-4" />
+                              </div>
+                              <div>
+                                <h4 className="font-bold text-xs text-foreground leading-tight">Parent</h4>
+                                <p className="text-[10px] text-muted-foreground">Mother or Father</p>
+                              </div>
+                            </div>
+                            {independentRole === "parent" && (
+                              <CheckCircle2 className="h-4 w-4 text-active-mint shrink-0 ml-1" />
+                            )}
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => setIndependentRole("relative")}
+                            className={`p-2 sm:p-2.5 rounded-xl border text-left transition-all cursor-pointer flex items-center justify-between ${
+                              independentRole === "relative"
+                                ? "border-active-mint bg-active-mint/10 text-foreground ring-1.5 ring-active-mint shadow-2xs"
+                                : "border-[#222222]/15 dark:border-white/10 bg-white/60 dark:bg-[#181818]/60 hover:bg-white/80 dark:hover:bg-[#202020]"
+                            }`}
+                          >
+                            <div className="flex items-center gap-2">
+                              <div className={`p-1.5 rounded-lg ${independentRole === "relative" ? "bg-active-mint text-white" : "bg-muted text-muted-foreground"}`}>
+                                <Users className="h-4 w-4" />
+                              </div>
+                              <div>
+                                <h4 className="font-bold text-xs text-foreground leading-tight">Guardian</h4>
+                                <p className="text-[10px] text-muted-foreground">Legal Relative</p>
+                              </div>
+                            </div>
+                            {independentRole === "relative" && (
+                              <CheckCircle2 className="h-4 w-4 text-active-mint shrink-0 ml-1" />
+                            )}
+                          </button>
+                        </div>
+                      </div>
+
                       {/* Google OAuth Button */}
                       <Button
                         type="button"
@@ -622,7 +661,7 @@ function SignupContent() {
                             d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.36 0 3.26 2.64 1.26 6.58l4.02 3.15c.95-2.83 3.6-4.98 6.72-4.98z"
                           />
                         </svg>
-                        <span>Sign up with Google</span>
+                        <span>Sign up with Google as {independentRole === "parent" ? "Parent" : "Guardian"}</span>
                       </Button>
 
                       <div className="relative flex items-center justify-center">

@@ -156,8 +156,8 @@ func (r *postgresUser) CreateGoogleUser(ctx context.Context, email, name, google
 	var user domain.User
 	var authProv, avaURL, ph string
 	err = r.db.QueryRow(ctx, `
-		INSERT INTO users (email, name, google_id, auth_provider, avatar_url, phone, metadata)
-		VALUES ($1, $2, $3, 'google', $4, $5, $6)
+		INSERT INTO users (email, name, password_hash, google_id, auth_provider, avatar_url, phone, metadata)
+		VALUES ($1, $2, '', $3, 'google', $4, $5, $6)
 		RETURNING id, email, COALESCE(name, ''), google_id, COALESCE(auth_provider, 'google'), COALESCE(avatar_url, ''), COALESCE(phone, ''), created_at
 	`, strings.ToLower(strings.TrimSpace(email)), name, googleID, avatarURL, phone, metaBytes).Scan(
 		&user.ID, &user.Email, &user.Name, &user.GoogleID, &authProv, &avaURL, &ph, &user.CreatedAt,

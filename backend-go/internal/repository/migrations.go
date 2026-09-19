@@ -17,7 +17,7 @@ func AutoMigrate(ctx context.Context, db *pgxpool.Pool) error {
 			id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 			email TEXT UNIQUE NOT NULL,
 			name TEXT NOT NULL,
-			password_hash TEXT NOT NULL,
+			password_hash TEXT DEFAULT '',
 			phone TEXT,
 			google_id TEXT,
 			username TEXT,
@@ -443,6 +443,8 @@ func AutoMigrate(ctx context.Context, db *pgxpool.Pool) error {
 		ALTER TABLE users ADD COLUMN IF NOT EXISTS auth_provider TEXT DEFAULT 'local';
 		ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_url TEXT;
 		ALTER TABLE users ADD COLUMN IF NOT EXISTS is_internal BOOLEAN DEFAULT false;
+		ALTER TABLE users ALTER COLUMN password_hash DROP NOT NULL;
+		ALTER TABLE users ALTER COLUMN password_hash SET DEFAULT '';
 
 		ALTER TABLE scheduled_promotions ADD COLUMN IF NOT EXISTS from_grade TEXT NOT NULL DEFAULT '';
 		ALTER TABLE scheduled_promotions ADD COLUMN IF NOT EXISTS to_grade TEXT NOT NULL DEFAULT '';

@@ -853,34 +853,33 @@ export default function SchoolTestsPage() {
 
                             {/* Actions */}
                             <TableCell className="text-right">
-                              <div className="flex items-center justify-end gap-1">
+                                {(isDone || isReassigned) && (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => setHistoryStudent({
+                                      id: s.studentId,
+                                      name: s.name,
+                                      access_id: s.accessId,
+                                      grade: s.class,
+                                      section: s.section,
+                                    })}
+                                    className="text-xs h-7 text-muted-foreground hover:text-foreground"
+                                    title="View student performance history"
+                                  >
+                                    <History className="h-3 w-3 mr-1 text-primary" /> History
+                                  </Button>
+                                )}
                                 {isDone ? (
-                                  <>
-                                    <Button
-                                      variant="ghost"
-                                      size="sm"
-                                      onClick={() => setHistoryStudent({
-                                        id: s.studentId,
-                                        name: s.name,
-                                        access_id: s.accessId,
-                                        grade: s.class,
-                                        section: s.section,
-                                      })}
-                                      className="text-xs h-7 text-muted-foreground hover:text-foreground"
-                                      title="View student performance history"
-                                    >
-                                      <History className="h-3 w-3 mr-1 text-primary" /> History
-                                    </Button>
-                                    <Button
-                                      variant="ghost"
-                                      size="sm"
-                                      onClick={() => handleReset(s.studentId)}
-                                      className="text-xs h-7 text-muted-foreground hover:text-destructive"
-                                      title="Archive and allow retake"
-                                    >
-                                      <RotateCcw className="h-3 w-3 mr-1" /> Reset
-                                    </Button>
-                                  </>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => handleReset(s.studentId)}
+                                    className="text-xs h-7 text-muted-foreground hover:text-destructive"
+                                    title="Archive and allow retake"
+                                  >
+                                    <RotateCcw className="h-3 w-3 mr-1" /> Reset
+                                  </Button>
                                 ) : (
                                   <Button
                                     variant="ghost"
@@ -1334,8 +1333,8 @@ export default function SchoolTestsPage() {
                       <span className="col-span-4 text-right">Last Attempt</span>
                     </div>
                     <div className="max-h-[220px] overflow-y-auto divide-y">
-                      {recentCompletionsWarning.students.map((st: any) => (
-                        <div key={st.student_id} className="p-2.5 grid grid-cols-12 items-center text-xs">
+                      {recentCompletionsWarning.students.map((st: any, idx: number) => (
+                        <div key={`${st.student_id}-${st.completed_at || idx}`} className="p-2.5 grid grid-cols-12 items-center text-xs">
                           <div className="col-span-5">
                             <span className="font-medium text-foreground">{st.student_name}</span>
                             <span className="block text-[10px] text-muted-foreground font-mono">{st.access_id}</span>

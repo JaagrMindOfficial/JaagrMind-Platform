@@ -40,6 +40,7 @@ func AutoMigrate(ctx context.Context, db *pgxpool.Pool) error {
 			parent_school_id UUID REFERENCES schools(id) ON DELETE SET NULL,
 			is_active BOOLEAN DEFAULT true,
 			is_blocked BOOLEAN DEFAULT false,
+			assigned_tests UUID[] DEFAULT '{}',
 			created_at TIMESTAMPTZ DEFAULT NOW()
 		);
 
@@ -480,6 +481,8 @@ func AutoMigrate(ctx context.Context, db *pgxpool.Pool) error {
 				UPDATE counselor_notes SET notes = note WHERE (notes IS NULL OR notes = '') AND note IS NOT NULL;
 			END IF;
 		END $$;
+
+		ALTER TABLE schools ADD COLUMN IF NOT EXISTS assigned_tests UUID[] DEFAULT '{}';
 
 		ALTER TABLE student_results ADD COLUMN IF NOT EXISTS origin TEXT DEFAULT 'school';
 		ALTER TABLE student_results ADD COLUMN IF NOT EXISTS pathway_track_id TEXT;

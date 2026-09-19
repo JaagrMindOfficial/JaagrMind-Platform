@@ -492,10 +492,20 @@ func (r *postgresAssessment) GetResultsByStudent(ctx context.Context, studentID,
 }
 
 func (r *postgresAssessment) ResetStudentAttempt(ctx context.Context, studentID, assessmentID string) error {
-	_, err := r.db.Exec(ctx, `
-		DELETE FROM student_results
-		WHERE student_id = $1 AND assessment_id = $2::uuid
-	`, studentID, assessmentID)
+	var err error
+	if assessmentID != "" {
+		_, err = r.db.Exec(ctx, `
+			UPDATE student_results
+			SET status = 'archived'
+			WHERE student_id = $1::uuid AND assessment_id = $2::uuid AND coalesce(status, 'complete') != 'archived'
+		`, studentID, assessmentID)
+	} else {
+		_, err = r.db.Exec(ctx, `
+			UPDATE student_results
+			SET status = 'archived'
+			WHERE student_id = $1::uuid AND coalesce(status, 'complete') != 'archived'
+		`, studentID)
+	}
 	return err
 }
 
@@ -503,7 +513,7 @@ func (r *postgresAssessment) AssignTest(ctx context.Context, schoolID, assessmen
 	_, err := r.db.Exec(ctx, `
 		UPDATE schools
 		SET assigned_tests = array_append(coalesce(assigned_tests, '{}'), $1::uuid)
-		WHERE id = $2 AND NOT ($1::uuid = ANY(coalesce(assigned_tests, '{}')))
+		WHERE id = $2::uuid AND NOT ($1::uuid = ANY(coalesce(assigned_tests, '{}')))
 	`, assessmentID, schoolID)
 	return err
 }
@@ -511,7 +521,7 @@ func (r *postgresAssessment) AssignTest(ctx context.Context, schoolID, assessmen
 func (r *postgresAssessment) GetAssignedTests(ctx context.Context, schoolID string) ([]domain.Assessment, error) {
 	// First get assigned_tests array from schools
 	var assignedUUIDs []string
-	err := r.db.QueryRow(ctx, "SELECT assigned_tests FROM schools WHERE id = $1", schoolID).Scan(&assignedUUIDs)
+	err := r.db.QueryRow(ctx, "SELECT coalesce(assigned_tests::text[], '{}') FROM schools WHERE id = $1::uuid", schoolID).Scan(&assignedUUIDs)
 	if err != nil || len(assignedUUIDs) == 0 {
 		// Fallback to all active assessments or default assessment
 		return r.GetActiveAssessments(ctx)
@@ -615,13 +625,15 @@ func (r *postgresAssessment) CheckRecentCompletions(ctx context.Context, schoolI
 	var args []interface{}
 
 	query = `
-		SELECT st.id, st.name, st.access_id, coalesce(st.grade, ''), coalesce(st.section, ''),
-		       sr.completed_at, coalesce(sr.total_score, 0), coalesce(sr.assigned_bucket, '')
-		FROM student_results sr
-		JOIN students st ON sr.student_id = st.id
-		WHERE sr.school_id = $1::uuid AND sr.assessment_id = $2::uuid
-		  AND coalesce(sr.status, 'complete') = 'complete'
-		  AND sr.completed_at >= NOW() - INTERVAL '30 days'
+		SELECT sub.id, sub.name, sub.access_id, sub.grade, sub.section, sub.completed_at, sub.total_score, sub.assigned_bucket
+		FROM (
+			SELECT DISTINCT ON (st.id) st.id, st.name, st.access_id, coalesce(st.grade, '') as grade, coalesce(st.section, '') as section,
+			       sr.completed_at, coalesce(sr.total_score, 0) as total_score, coalesce(sr.assigned_bucket, '') as assigned_bucket
+			FROM student_results sr
+			JOIN students st ON sr.student_id = st.id
+			WHERE sr.school_id = $1::uuid AND sr.assessment_id = $2::uuid
+			  AND coalesce(sr.status, 'complete') = 'complete'
+			  AND sr.completed_at >= NOW() - INTERVAL '30 days'
 	`
 	args = []interface{}{schoolID, assessmentID}
 
@@ -637,7 +649,11 @@ func (r *postgresAssessment) CheckRecentCompletions(ctx context.Context, schoolI
 		args = append(args, studentIDs)
 	}
 
-	query += " ORDER BY sr.completed_at DESC"
+	query += `
+			ORDER BY st.id, sr.completed_at DESC
+		) sub
+		ORDER BY sub.completed_at DESC
+	`
 
 	rows, err := r.db.Query(ctx, query, args...)
 	if err != nil {
@@ -664,14 +680,14 @@ func (r *postgresAssessment) ArchiveAttemptsForReassignment(ctx context.Context,
 		_, err := r.db.Exec(ctx, `
 			UPDATE student_results
 			SET status = 'archived'
-			WHERE school_id = $1::uuid AND assessment_id = $2::uuid AND coalesce(status, 'complete') = 'complete'
+			WHERE school_id = $1::uuid AND assessment_id = $2::uuid AND coalesce(status, 'complete') != 'archived'
 		`, schoolID, assessmentID)
 		return err
 	}
 	_, err := r.db.Exec(ctx, `
 		UPDATE student_results
 		SET status = 'archived'
-		WHERE school_id = $1::uuid AND assessment_id = $2::uuid AND student_id = ANY($3::uuid[]) AND coalesce(status, 'complete') = 'complete'
+		WHERE school_id = $1::uuid AND assessment_id = $2::uuid AND student_id = ANY($3::uuid[]) AND coalesce(status, 'complete') != 'archived'
 	`, schoolID, assessmentID, studentIDs)
 	return err
 }

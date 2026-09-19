@@ -1641,7 +1641,9 @@ func (h *SchoolAPIHandler) AssignTest(c fiber.Ctx) error {
 				}
 			}
 		}
-		if len(targetIDs) > 0 {
+		if req.TargetType == "all" && len(targetIDs) == 0 {
+			_ = h.assessRepo.ArchiveAttemptsForReassignment(c.Context(), schoolID, req.AssessmentID, nil)
+		} else if len(targetIDs) > 0 {
 			_ = h.assessRepo.ArchiveAttemptsForReassignment(c.Context(), schoolID, req.AssessmentID, targetIDs)
 		}
 	}

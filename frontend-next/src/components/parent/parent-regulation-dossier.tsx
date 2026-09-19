@@ -161,11 +161,7 @@ export function ParentRegulationDossier({
   return (
     <div className="space-y-6">
       {/* Top Banner: Assigned 16-Track Pathway or Balance Mode */}
-      <div className="clay-card p-6 sm:p-7 relative overflow-hidden transition-all border border-border/70 group">
-        {/* Top liquid specular line */}
-        <div className="absolute top-0 left-6 right-6 h-[1px] bg-gradient-to-r from-transparent via-foreground/20 to-transparent" />
-        <div className="absolute top-0 right-0 w-80 h-40 bg-sky-500/5 dark:bg-sky-500/10 rounded-full blur-2xl pointer-events-none" />
-
+      <div className="rounded-xl border border-border/70 bg-card p-6 sm:p-7 relative overflow-hidden transition-all shadow-xs">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 relative z-10">
           <div className="space-y-1.5 max-w-2xl">
             <div className="flex items-center gap-2 flex-wrap">
@@ -182,7 +178,7 @@ export function ParentRegulationDossier({
                 </Badge>
               )}
             </div>
-            <h2 className="text-xl sm:text-2xl font-black tracking-tight text-foreground">
+            <h2 className="text-xl font-semibold tracking-tight text-foreground">
               {profileHeader.title}
             </h2>
             <p className="text-xs text-muted-foreground leading-relaxed">
@@ -195,7 +191,7 @@ export function ParentRegulationDossier({
               variant="outline"
               size="sm"
               onClick={() => setDossierModalOpen(true)}
-              className="text-xs h-9 gap-2 neo-well hover:bg-muted/40 font-semibold cursor-pointer shadow-2xs"
+              className="text-xs h-9 gap-2 rounded-lg border border-border/80 hover:bg-muted/50 font-medium cursor-pointer shadow-2xs"
             >
               <FolderOpen className="h-3.5 w-3.5 text-sky-600 dark:text-sky-400" />
               <span>Open Student Dossier</span>
@@ -205,7 +201,7 @@ export function ParentRegulationDossier({
               <Button
                 size="sm"
                 onClick={onOpenCheckin}
-                className="text-xs h-9 gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold cursor-pointer shadow-xs"
+                className="text-xs h-9 gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold cursor-pointer shadow-xs"
               >
                 <Sparkles className="h-3.5 w-3.5" />
                 <span>Start Check-in</span>
@@ -218,9 +214,7 @@ export function ParentRegulationDossier({
       {/* Main Grid: Diamond 4-Pole Radar (Left) & 4 Core Regulation Buckets (Right) */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
         {/* Left Column (5 cols): Diamond 4-Pole Radar Chart */}
-        <div className="lg:col-span-5 clay-card p-6 sm:p-7 relative overflow-hidden transition-all flex flex-col justify-between group">
-          <div className="absolute top-0 left-6 right-6 h-[1px] bg-gradient-to-r from-transparent via-foreground/15 to-transparent" />
-
+        <div className="lg:col-span-5 rounded-xl border border-border/70 bg-card p-6 sm:p-7 relative overflow-hidden transition-all flex flex-col justify-between shadow-xs">
           <div className="space-y-1 pb-3 border-b border-border/40">
             <div className="flex items-center justify-between">
               <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-sky-600 dark:text-sky-400">
@@ -230,7 +224,7 @@ export function ParentRegulationDossier({
                 {isUnassessed ? "0 Check-ins" : `${dossier?.check_in_count || 1} Completed`}
               </span>
             </div>
-            <h3 className="text-base font-bold tracking-tight text-foreground">
+            <h3 className="text-base font-semibold tracking-tight text-foreground">
               {firstName}&apos;s Stability Balance Map
             </h3>
             <p className="text-[11px] text-muted-foreground">
@@ -332,7 +326,7 @@ export function ParentRegulationDossier({
               const pct = isUnassessed ? 0 : Math.round(((score - 8) / 24) * 100);
 
               return (
-                <div className="clay-card p-4 sm:p-5 relative overflow-hidden transition-all space-y-3 flex flex-col justify-between group hover:border-amber-500/40">
+                <div className="rounded-xl border border-border/70 bg-card p-4 sm:p-5 relative overflow-hidden transition-all space-y-3 flex flex-col justify-between shadow-xs hover:border-amber-500/40">
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
@@ -379,7 +373,7 @@ export function ParentRegulationDossier({
               const pct = isUnassessed ? 0 : Math.round(((score - 8) / 24) * 100);
 
               return (
-                <div className="clay-card p-4 sm:p-5 relative overflow-hidden transition-all space-y-3 flex flex-col justify-between group hover:border-rose-500/40">
+                <div className="rounded-xl border border-border/70 bg-card p-4 sm:p-5 relative overflow-hidden transition-all space-y-3 flex flex-col justify-between shadow-xs hover:border-rose-500/40">
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
@@ -426,7 +420,7 @@ export function ParentRegulationDossier({
               const pct = isUnassessed ? 0 : Math.round(((score - 8) / 24) * 100);
 
               return (
-                <div className="clay-card p-4 sm:p-5 relative overflow-hidden transition-all space-y-3 flex flex-col justify-between group hover:border-sky-500/40">
+                <div className="rounded-xl border border-border/70 bg-card p-4 sm:p-5 relative overflow-hidden transition-all space-y-3 flex flex-col justify-between shadow-xs hover:border-sky-500/40">
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
@@ -473,7 +467,7 @@ export function ParentRegulationDossier({
               const pct = isUnassessed ? 0 : Math.round(((score - 8) / 24) * 100);
 
               return (
-                <div className="clay-card p-4 sm:p-5 relative overflow-hidden transition-all space-y-3 flex flex-col justify-between group hover:border-emerald-500/40">
+                <div className="rounded-xl border border-border/70 bg-card p-4 sm:p-5 relative overflow-hidden transition-all space-y-3 flex flex-col justify-between shadow-xs hover:border-emerald-500/40">
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">

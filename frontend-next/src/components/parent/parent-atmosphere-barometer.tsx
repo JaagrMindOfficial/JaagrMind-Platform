@@ -71,15 +71,9 @@ export function ParentAtmosphereBarometer({ atmosphere, childName }: EmotionalAt
   };
 
   return (
-    <div className="clay-card p-6 sm:p-8 relative overflow-hidden transition-all group">
-      {/* Top liquid specular rim line */}
-      <div className="absolute top-0 left-8 right-8 h-[1px] bg-gradient-to-r from-transparent via-foreground/20 to-transparent" />
-
-      {/* Subtle ambient mood glow behind dial */}
-      <div className="absolute -top-24 -left-24 w-80 h-80 bg-emerald-500/5 dark:bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
-
+    <div className="rounded-xl border border-border/70 bg-card p-6 sm:p-7 relative overflow-hidden transition-all shadow-xs">
       {/* Header bar */}
-      <div className="flex flex-wrap items-center justify-between gap-3 pb-6 border-b border-border/50 relative z-10">
+      <div className="flex flex-wrap items-center justify-between gap-3 pb-5 border-b border-border/50 relative z-10">
         <div className="space-y-1">
           <div className="flex items-center gap-2">
             <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
@@ -87,7 +81,7 @@ export function ParentAtmosphereBarometer({ atmosphere, childName }: EmotionalAt
             </span>
             <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
           </div>
-          <h2 className="text-xl sm:text-2xl font-black tracking-tight text-foreground">
+          <h2 className="text-xl font-semibold tracking-tight text-foreground">
             How {firstName} is Feeling Today
           </h2>
         </div>
@@ -99,16 +93,16 @@ export function ParentAtmosphereBarometer({ atmosphere, childName }: EmotionalAt
           >
             Updated {atmosphere?.last_checkin_date || "Awaiting check-in"}
           </Badge>
-          <div className="p-2 rounded-xl neo-well text-emerald-600 dark:text-emerald-400">
+          <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
             <Heart className="h-4 w-4" />
           </div>
         </div>
       </div>
 
       {/* Main Instrument Area */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 pt-7 items-center relative z-10">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 pt-6 items-center relative z-10">
         {/* Left: Tactile Living Mood Dial */}
-        <div className="lg:col-span-5 flex flex-col items-center justify-center p-6 rounded-3xl neo-well relative">
+        <div className="lg:col-span-5 flex flex-col items-center justify-center p-6 rounded-2xl bg-muted/30 border border-border/60 relative">
           <div className="relative flex items-center justify-center">
             {/* Outer tactile claymorphic bezel with subtle tick markers */}
             <div className="h-44 w-44 sm:h-48 sm:w-48 barometer-bezel p-3.5 flex items-center justify-center relative">
@@ -221,7 +215,7 @@ export function ParentAtmosphereBarometer({ atmosphere, childName }: EmotionalAt
             </div>
 
             {!hasPulse ? (
-              <div className="p-4 rounded-2xl neo-well text-center space-y-1">
+              <div className="p-4 rounded-xl bg-muted/30 border border-border/60 text-center space-y-1">
                 <p className="text-xs font-semibold text-foreground">No daily reflections recorded this week</p>
                 <p className="text-[11px] text-muted-foreground">Daily mood indicators will populate as {firstName} logs reflections or check-ins.</p>
               </div>
@@ -234,7 +228,7 @@ export function ParentAtmosphereBarometer({ atmosphere, childName }: EmotionalAt
                       key={idx}
                       type="button"
                       onClick={() => setSelectedDay(isSelected ? null : idx)}
-                      className={`neo-well p-2.5 rounded-2xl flex flex-col items-center justify-between text-center min-h-[76px] transition-all hover:-translate-y-1 cursor-pointer focus:outline-none ${
+                      className={`p-2.5 rounded-xl border border-border/60 bg-muted/40 hover:bg-muted/70 flex flex-col items-center justify-between text-center min-h-[76px] transition-all hover:-translate-y-0.5 cursor-pointer focus:outline-none ${
                         isSelected
                           ? "ring-2 ring-emerald-500 bg-emerald-500/10 border-emerald-500/40"
                           : "hover:border-foreground/20"

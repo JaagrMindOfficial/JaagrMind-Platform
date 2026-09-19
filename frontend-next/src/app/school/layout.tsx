@@ -9,7 +9,7 @@ import { RoleSwitcherPill } from "@/components/role-switcher-pill"
 
 export default function SchoolLayout({ children }: { children: React.ReactNode }) {
   return (
-    <ProtectedRoute allowedRoles={["school_admin", "teacher"]}>
+    <ProtectedRoute allowedRoles={["school_admin", "teacher", "superadmin"]}>
       <TooltipProvider>
         <SidebarProvider>
           <div className="flex h-screen overflow-hidden w-full">

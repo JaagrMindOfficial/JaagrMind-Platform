@@ -8,7 +8,7 @@ import { RoleSwitcherPill } from "@/components/role-switcher-pill"
 
 export default function CounselorLayout({ children }: { children: React.ReactNode }) {
   return (
-    <ProtectedRoute allowedRoles={["counselor", "school_admin", "superadmin"]}>
+    <ProtectedRoute allowedRoles={["counselor", "school_admin", "superadmin", "parent", "relative"]}>
       <TooltipProvider>
         <SidebarProvider>
           <div className="flex h-screen overflow-hidden w-full">

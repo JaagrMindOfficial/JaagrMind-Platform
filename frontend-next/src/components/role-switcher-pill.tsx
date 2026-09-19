@@ -35,10 +35,11 @@ export function RoleSwitcherPill() {
   const [activating, setActivating] = useState(false);
   const [isTeacherView, setIsTeacherView] = useState(false);
 
-  const isSchoolAdmin = hasRole("school_admin");
-  const isTeacher = hasRole("teacher");
-  const isCounselor = hasRole("counselor");
-  const isParent = hasRole("parent") || hasRole("relative");
+  const isSuperAdmin = hasRole("superadmin") || !!user?.is_internal;
+  const isSchoolAdmin = hasRole("school_admin") || isSuperAdmin;
+  const isTeacher = hasRole("teacher") || isSuperAdmin;
+  const isCounselor = hasRole("counselor") || isSuperAdmin;
+  const isParent = hasRole("parent") || hasRole("relative") || isSuperAdmin;
 
   useEffect(() => {
     if (searchParams?.get("view") === "teacher") {
@@ -50,15 +51,6 @@ export function RoleSwitcherPill() {
 
   if (!user) return null;
 
-  // If user is ONLY a parent with no admin, educator, or counselor role
-  if (isParent && !isSchoolAdmin && !isTeacher && !isCounselor) {
-    return (
-      <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-muted/50 border border-border/60 text-xs font-medium text-foreground">
-        <Users className="h-3.5 w-3.5 text-primary" />
-        <span>Parent Portal</span>
-      </div>
-    );
-  }
 
   // Determine active pill
   let activeRole = "";
@@ -154,8 +146,8 @@ export function RoleSwitcherPill() {
           </button>
         )}
 
-        {/* 3. Counselor Role (Visible ONLY for accounts with counselor) */}
-        {isCounselor && (
+        {/* 3. Counselor Role */}
+        {(isCounselor || isParent) && (
           <button
             type="button"
             onClick={handleCounselorClick}

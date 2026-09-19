@@ -172,12 +172,8 @@ export default function ParentDashboardPage() {
   const isPlatformCounselor = counselor?.is_platform;
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-background via-card/10 to-background flex flex-col antialiased selection:bg-emerald-500/20 relative overflow-x-hidden">
-      {/* Ambient background glows */}
-      <div className="absolute top-0 right-1/4 w-96 h-96 bg-emerald-500/5 dark:bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
-      <div className="absolute top-1/2 left-0 w-80 h-80 bg-sky-500/5 dark:bg-sky-500/10 rounded-full blur-3xl pointer-events-none" />
-
-      {/* Liquid Glass Header */}
+    <div className="min-h-screen bg-background flex flex-col antialiased">
+      {/* Header Bar */}
       <ParentHeader
         parentName={overview.parent_name}
         activeChild={activeChild}
@@ -188,15 +184,15 @@ export default function ParentDashboardPage() {
       />
 
       {/* Main Dashboard Canvas */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-9 relative z-10">
+      <main className="flex-1 max-w-7xl w-full mx-auto p-6 lg:p-8 space-y-6 relative z-10">
         {!hasChildren ? (
           <section className="space-y-6">
-            <div className="clay-card p-8 sm:p-12 text-center max-w-2xl mx-auto space-y-6 relative overflow-hidden">
-              <div className="h-16 w-16 rounded-2xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mx-auto shadow-inner border border-emerald-500/20">
-                <Sparkles className="h-8 w-8" />
+            <div className="rounded-xl border border-border/70 bg-card p-8 sm:p-12 text-center max-w-2xl mx-auto space-y-6 relative overflow-hidden shadow-xs">
+              <div className="h-14 w-14 rounded-2xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mx-auto border border-emerald-500/20">
+                <Sparkles className="h-7 w-7" />
               </div>
               <div className="space-y-2">
-                <h2 className="text-2xl sm:text-3xl font-black tracking-tight text-foreground">
+                <h2 className="text-2xl font-semibold tracking-tight text-foreground">
                   Welcome to Your Family Space, {overview.parent_name ? overview.parent_name.split(" ")[0] : "Parent"}
                 </h2>
                 <p className="text-sm text-muted-foreground max-w-md mx-auto leading-relaxed">
@@ -206,9 +202,9 @@ export default function ParentDashboardPage() {
 
               <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
                 <Button
-                  size="lg"
+                  size="default"
                   onClick={() => setAddChildModalOpen(true)}
-                  className="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700 text-white font-bold gap-2 px-6 shadow-md cursor-pointer"
+                  className="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700 text-white font-semibold gap-2 px-5 cursor-pointer shadow-xs"
                 >
                   <UserPlus className="h-4 w-4" />
                   <span>Connect or Add Student Profile</span>
@@ -216,7 +212,7 @@ export default function ParentDashboardPage() {
               </div>
 
               <div className="pt-6 border-t border-border/40 grid grid-cols-1 sm:grid-cols-3 gap-4 text-left">
-                <div className="p-3.5 rounded-xl neo-well space-y-1">
+                <div className="p-3.5 rounded-xl bg-muted/40 border border-border/60 space-y-1">
                   <span className="text-[11px] font-bold text-foreground flex items-center gap-1.5">
                     <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
                     School Sync
@@ -225,7 +221,7 @@ export default function ParentDashboardPage() {
                     Direct sync with campus check-ins and educator regulation track.
                   </p>
                 </div>
-                <div className="p-3.5 rounded-xl neo-well space-y-1">
+                <div className="p-3.5 rounded-xl bg-muted/40 border border-border/60 space-y-1">
                   <span className="text-[11px] font-bold text-foreground flex items-center gap-1.5">
                     <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
                     4 Core Buckets
@@ -234,7 +230,7 @@ export default function ParentDashboardPage() {
                     Calm, Grounding, Focus Flow, and Social Ease metrics matching school dossiers.
                   </p>
                 </div>
-                <div className="p-3.5 rounded-xl neo-well space-y-1">
+                <div className="p-3.5 rounded-xl bg-muted/40 border border-border/60 space-y-1">
                   <span className="text-[11px] font-bold text-foreground flex items-center gap-1.5">
                     <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
                     Care Desk
@@ -249,80 +245,78 @@ export default function ParentDashboardPage() {
         ) : (
           <>
             {/* Top Child Identity & Action Header */}
-            <section className="space-y-4">
-              <div className="flex flex-wrap items-end justify-between gap-3 px-1">
-                <div>
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-muted-foreground">
-                      Family Space
-                    </span>
-                    <span className="text-muted-foreground/40">•</span>
-                    <span className="text-xs font-mono text-emerald-600 dark:text-emerald-400 font-bold">
-                      {activeChild.nickname ? `${activeChild.nickname} (${activeChild.name})` : activeChild.name} • Class {activeChild.grade}
-                    </span>
-                    {activeChild.is_linked ? (
-                      <Badge variant="outline" className="text-[10px] font-mono text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border-emerald-500/20">
-                        {activeChild.school_name}
-                      </Badge>
-                    ) : (
-                      <Badge variant="outline" className="text-[10px] font-mono text-amber-600 dark:text-amber-400 bg-amber-500/10 border-amber-500/20">
-                        Independent Study
-                      </Badge>
-                    )}
-                  </div>
-                  <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-foreground mt-1">
-                    Welcome back, {overview.parent_name ? overview.parent_name.split(" ")[0] : "Parent"}
-                  </h1>
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    Longitudinal regulation overview, 4-bucket clinical balance, and direct care support for {preferredName}.
-                  </p>
-                </div>
-
-                {/* Quick Actions Bar */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div>
                 <div className="flex items-center gap-2 flex-wrap">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setFullDossierModalOpen(true)}
-                    className="text-xs h-8 gap-1.5 neo-well hover:bg-muted/40 font-semibold cursor-pointer shadow-2xs border-sky-500/30 text-sky-600 dark:text-sky-400"
-                  >
-                    <FolderOpen className="h-3.5 w-3.5" />
-                    <span>View Student Dossier</span>
-                    <ArrowUpRight className="h-3 w-3 opacity-60" />
-                  </Button>
-                  {!activeChild.is_linked && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setEditChildModalOpen(true)}
-                      className="text-xs h-8 gap-1.5 border-emerald-500/40 text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20 font-semibold cursor-pointer shadow-2xs"
-                    >
-                      <School className="h-3.5 w-3.5" />
-                      <span>Link to School</span>
-                    </Button>
+                  <h1 className="text-2xl font-semibold tracking-tight text-foreground">
+                    {preferredName}&apos;s Family Space
+                  </h1>
+                  <Badge variant="outline" className="font-mono text-xs px-2.5 py-0.5 bg-primary/10 text-primary border-primary/30">
+                    Class {activeChild.grade || "10"}
+                  </Badge>
+                  {activeChild.is_linked ? (
+                    <Badge variant="outline" className="font-mono text-xs px-2 py-0.5 text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border-emerald-500/20">
+                      {activeChild.school_name}
+                    </Badge>
+                  ) : (
+                    <Badge variant="outline" className="font-mono text-xs px-2 py-0.5 text-amber-600 dark:text-amber-400 bg-amber-500/10 border-amber-500/20">
+                      Independent Study
+                    </Badge>
                   )}
+                </div>
+                <p className="text-sm text-muted-foreground mt-1 flex items-center gap-3 flex-wrap">
+                  <span>Welcome back, <span className="font-medium text-foreground">{overview.parent_name || "Parent"}</span></span>
+                  <span>•</span>
+                  <span>4-bucket clinical regulation & care desk</span>
+                </p>
+              </div>
+
+              {/* Quick Actions Bar */}
+              <div className="flex items-center gap-2 flex-wrap">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setFullDossierModalOpen(true)}
+                  className="text-xs h-8 gap-1.5 border-border/80 hover:bg-muted/50 font-medium cursor-pointer shadow-2xs text-foreground"
+                >
+                  <FolderOpen className="h-3.5 w-3.5 text-sky-500" />
+                  <span>View Student Dossier</span>
+                  <ArrowUpRight className="h-3 w-3 opacity-60" />
+                </Button>
+                {!activeChild.is_linked && (
                   <Button
                     variant="outline"
                     size="sm"
                     onClick={() => setEditChildModalOpen(true)}
-                    className="text-xs h-8 gap-1.5 neo-well hover:bg-muted/40 font-medium cursor-pointer"
+                    className="text-xs h-8 gap-1.5 border-emerald-500/40 text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20 font-medium cursor-pointer shadow-2xs"
                   >
-                    <Pencil className="h-3 w-3 text-muted-foreground" />
-                    <span>Edit Child</span>
+                    <School className="h-3.5 w-3.5" />
+                    <span>Link School</span>
                   </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setAddChildModalOpen(true)}
-                    className="text-xs h-8 gap-1.5 neo-well hover:bg-muted/40 font-medium cursor-pointer"
-                  >
-                    <UserPlus className="h-3.5 w-3.5 text-muted-foreground" />
-                    <span>Add Child</span>
-                  </Button>
-                </div>
+                )}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setEditChildModalOpen(true)}
+                  className="text-xs h-8 gap-1.5 border-border/80 hover:bg-muted/50 font-medium cursor-pointer"
+                >
+                  <Pencil className="h-3 w-3 text-muted-foreground" />
+                  <span>Edit Child</span>
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setAddChildModalOpen(true)}
+                  className="text-xs h-8 gap-1.5 border-border/80 hover:bg-muted/50 font-medium cursor-pointer"
+                >
+                  <UserPlus className="h-3.5 w-3.5 text-muted-foreground" />
+                  <span>Add Child</span>
+                </Button>
               </div>
+            </div>
 
-              {/* Living Atmosphere Barometer */}
+            {/* Living Atmosphere Barometer */}
+            <section className="space-y-4">
               <ParentAtmosphereBarometer
                 atmosphere={overview.atmosphere}
                 childName={preferredName}
@@ -344,9 +338,7 @@ export default function ParentDashboardPage() {
 
             {/* Direct Counselor & Care Support Row */}
             <section className="space-y-4">
-              <div className="clay-card p-6 sm:p-8 relative overflow-hidden transition-all flex flex-col justify-between group">
-                <div className="absolute top-0 left-6 right-6 h-[1px] bg-gradient-to-r from-transparent via-foreground/15 to-transparent" />
-
+              <div className="rounded-xl border border-border/70 bg-card p-6 sm:p-7 relative overflow-hidden transition-all flex flex-col justify-between shadow-xs">
                 <div className="space-y-4">
                   <div className="flex flex-wrap items-center justify-between pb-4 border-b border-border/40 gap-3">
                     <div className="space-y-0.5">
@@ -357,13 +349,13 @@ export default function ParentDashboardPage() {
                         Direct Counseling & Family Advisory for {firstName}
                       </h3>
                     </div>
-                    <div className="p-2 rounded-xl neo-well text-sky-600 dark:text-sky-400">
+                    <div className="p-2 rounded-xl bg-sky-500/10 text-sky-600 dark:text-sky-400">
                       <HeartHandshake className="h-5 w-5" />
                     </div>
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-center">
-                    <div className="md:col-span-8 p-5 rounded-2xl bg-card border border-border/70 shadow-xs space-y-3">
+                    <div className="md:col-span-8 p-4 rounded-xl bg-muted/30 border border-border/60 space-y-3">
                       <div className="flex flex-wrap items-center justify-between gap-2">
                         <div>
                           <h4 className="text-sm font-bold text-foreground">
@@ -450,7 +442,7 @@ export default function ParentDashboardPage() {
                     return (
                       <div
                         key={inq.id}
-                        className="clay-card p-5 space-y-3 flex flex-col justify-between hover:border-foreground/30 transition-all group"
+                        className="rounded-xl border border-border/70 bg-card p-5 space-y-3 flex flex-col justify-between hover:border-foreground/30 transition-all shadow-xs"
                       >
                         <div className="space-y-2">
                           <div className="flex items-center justify-between gap-2">

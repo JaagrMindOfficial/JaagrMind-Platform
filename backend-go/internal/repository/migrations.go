@@ -444,6 +444,22 @@ func AutoMigrate(ctx context.Context, db *pgxpool.Pool) error {
 		ALTER TABLE institution_applications ADD COLUMN IF NOT EXISTS estimated_students INTEGER DEFAULT 0;
 		ALTER TABLE institution_applications ADD COLUMN IF NOT EXISTS message TEXT DEFAULT '';
 
+		-- Platform Guides schema parity (deployed DBs may have old schema)
+		ALTER TABLE platform_guides ADD COLUMN IF NOT EXISTS slug TEXT;
+		ALTER TABLE platform_guides ADD COLUMN IF NOT EXISTS target_audience TEXT NOT NULL DEFAULT 'all';
+		ALTER TABLE platform_guides ADD COLUMN IF NOT EXISTS order_index INTEGER NOT NULL DEFAULT 0;
+		-- Backfill slug from id for any rows created before the slug column existed
+		UPDATE platform_guides SET slug = id::text WHERE slug IS NULL OR slug = '';
+		-- Add unique constraint on slug if not present
+		DO $$
+		BEGIN
+			IF NOT EXISTS (
+				SELECT 1 FROM pg_constraint WHERE conname = 'platform_guides_slug_key'
+			) THEN
+				ALTER TABLE platform_guides ADD CONSTRAINT platform_guides_slug_key UNIQUE (slug);
+			END IF;
+		END $$;
+
 		-- Sync historical columns if present from earlier migrations
 		DO $$ 
 		BEGIN

@@ -254,36 +254,51 @@ export function StudentDossierDialog({
 
   if (!student) return null
 
-  // 4-Pole Diamond Radar (Top, Right, Bottom, Left)
-  const attnVal = student.radar_dimensions?.["Attention & Focus Flow"] ?? Math.round(((32 - (student.attn_stability_score || 12)) / 24) * 100)
-  const socialVal = student.radar_dimensions?.["Social Comfort & Belonging"] ?? Math.round(((32 - (student.social_comfort_score || 12)) / 24) * 100)
-  const loadVal = student.radar_dimensions?.["Calm & Stress Reset"] ?? Math.round(((32 - (student.load_regulation_score || 16)) / 24) * 100)
-  const safetyVal = student.radar_dimensions?.["Inner Grounding & Confidence"] ?? Math.round(((32 - (student.self_safety_score || 15)) / 24) * 100)
+  const isUnassessed = !student.check_in_count || student.check_in_count === 0 || student.attn_tier === "Pending Assessment"
 
-  const radarData = [
-    {
-      subject: "Attention & Focus Flow",
-      student: Math.min(100, Math.max(10, attnVal)),
-      classAvg: 75,
-    },
-    {
-      subject: "Social Comfort & Belonging",
-      student: Math.min(100, Math.max(10, socialVal)),
-      classAvg: 80,
-    },
-    {
-      subject: "Calm & Stress Reset",
-      student: Math.min(100, Math.max(10, loadVal)),
-      classAvg: 68,
-    },
-    {
-      subject: "Inner Grounding & Confidence",
-      student: Math.min(100, Math.max(10, safetyVal)),
-      classAvg: 72,
-    },
-  ]
+  // 4-Pole Diamond Radar (Top, Right, Bottom, Left)
+  const attnVal = student.radar_dimensions?.["Attention & Focus Flow"] ?? (student.attn_stability_score ? Math.round(((32 - student.attn_stability_score) / 24) * 100) : 0)
+  const socialVal = student.radar_dimensions?.["Social Comfort & Belonging"] ?? (student.social_comfort_score ? Math.round(((32 - student.social_comfort_score) / 24) * 100) : 0)
+  const loadVal = student.radar_dimensions?.["Calm & Stress Reset"] ?? (student.load_regulation_score ? Math.round(((32 - student.load_regulation_score) / 24) * 100) : 0)
+  const safetyVal = student.radar_dimensions?.["Inner Grounding & Confidence"] ?? (student.self_safety_score ? Math.round(((32 - student.self_safety_score) / 24) * 100) : 0)
+
+  const radarData = isUnassessed
+    ? [
+        { subject: "Attention & Focus Flow", student: 0, classAvg: 0 },
+        { subject: "Social Comfort & Belonging", student: 0, classAvg: 0 },
+        { subject: "Calm & Stress Reset", student: 0, classAvg: 0 },
+        { subject: "Inner Grounding & Confidence", student: 0, classAvg: 0 },
+      ]
+    : [
+        {
+          subject: "Attention & Focus Flow",
+          student: Math.min(100, Math.max(10, attnVal)),
+          classAvg: 75,
+        },
+        {
+          subject: "Social Comfort & Belonging",
+          student: Math.min(100, Math.max(10, socialVal)),
+          classAvg: 80,
+        },
+        {
+          subject: "Calm & Stress Reset",
+          student: Math.min(100, Math.max(10, loadVal)),
+          classAvg: 68,
+        },
+        {
+          subject: "Inner Grounding & Confidence",
+          student: Math.min(100, Math.max(10, safetyVal)),
+          classAvg: 72,
+        },
+      ]
 
   const getTierBadge = (tier?: string) => {
+    if (isUnassessed || tier === "Pending Assessment") {
+      return {
+        label: "Pending Assessment",
+        color: "border-muted-foreground/30 bg-muted/40 text-muted-foreground",
+      }
+    }
     switch (tier) {
       case "Support Needed":
         return {
@@ -304,6 +319,15 @@ export function StudentDossierDialog({
   }
 
   const getProfileInfo = () => {
+    if (isUnassessed) {
+      return {
+        name: "Pending Assessment",
+        color: "border-muted-foreground/30 bg-muted/40 text-muted-foreground",
+        desc: "Student has been registered but has not yet completed a baseline regulation check-in.",
+        strategy: "Schedule and guide the student to launch their first assessment check-in.",
+      }
+    }
+
     if (student.is_balance_mode) {
       return {
         name: "All-Round Balance Mode",
@@ -378,46 +402,70 @@ export function StudentDossierDialog({
 
         <div className="space-y-6 pt-4">
           {/* Assigned 16-Track Pathway Banner */}
-          <div className="p-4 rounded-xl border border-sky-500/30 bg-gradient-to-r from-sky-500/10 via-primary/5 to-transparent flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-            <div className="space-y-1">
-              <div className="flex items-center gap-2">
-                <Badge className="bg-sky-500/20 text-sky-700 dark:text-sky-300 border-sky-500/30 text-[10px] font-mono">
-                  {student.pathway_track_id || "TRACK_CR_GROUND"}
-                </Badge>
-                <span className="text-xs font-semibold text-foreground">
-                  Assigned Regulation Pathway:
-                </span>
-                <span className="text-xs font-bold text-primary">
-                  {student.pathway_track_name || "Calm Reset – with Ground Support"}
-                </span>
+          {isUnassessed ? (
+            <div className="p-4 rounded-xl border border-dashed border-border bg-muted/20 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <Badge variant="outline" className="text-[10px] font-mono text-muted-foreground">
+                    UNASSESSED
+                  </Badge>
+                  <span className="text-xs font-semibold text-foreground">
+                    Regulation Pathway Status:
+                  </span>
+                  <span className="text-xs font-medium text-muted-foreground">
+                    Awaiting Initial Student Check-in
+                  </span>
+                </div>
+                <p className="text-[11px] text-muted-foreground">
+                  Assigned 16-Track Pathway and clinical regulation profile will generate automatically after the first submission.
+                </p>
               </div>
-              <p className="text-[11px] text-muted-foreground">
-                {student.is_balance_mode
-                  ? "Student is in Balance Mode across all 4 regulation skill areas."
-                  : `Primary Focus: ${student.primary_bucket || "LOAD_REGULATION"} • Support Focus: ${student.secondary_bucket || "SELF_SAFETY"}`}
-              </p>
-            </div>
-            <div className="flex items-center gap-2 self-start sm:self-auto shrink-0">
-              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-background/80 border border-border/60 text-xs">
-                {student.momentum_trend === "improving" ? (
-                  <>
-                    <TrendingUp className="h-3.5 w-3.5 text-emerald-500" />
-                    <span className="text-emerald-600 dark:text-emerald-400 font-medium">Improving</span>
-                  </>
-                ) : student.momentum_trend === "declining" ? (
-                  <>
-                    <TrendingDown className="h-3.5 w-3.5 text-rose-500" />
-                    <span className="text-rose-600 dark:text-rose-400 font-medium">Declining</span>
-                  </>
-                ) : (
-                  <>
-                    <Minus className="h-3.5 w-3.5 text-muted-foreground" />
-                    <span className="text-muted-foreground font-medium">Stable</span>
-                  </>
-                )}
+              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-background/80 border border-border/60 text-xs text-muted-foreground font-mono">
+                0 Check-ins Completed
               </div>
             </div>
-          </div>
+          ) : (
+            <div className="p-4 rounded-xl border border-sky-500/30 bg-gradient-to-r from-sky-500/10 via-primary/5 to-transparent flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <Badge className="bg-sky-500/20 text-sky-700 dark:text-sky-300 border-sky-500/30 text-[10px] font-mono">
+                    {student.pathway_track_id}
+                  </Badge>
+                  <span className="text-xs font-semibold text-foreground">
+                    Assigned Regulation Pathway:
+                  </span>
+                  <span className="text-xs font-bold text-primary">
+                    {student.pathway_track_name}
+                  </span>
+                </div>
+                <p className="text-[11px] text-muted-foreground">
+                  {student.is_balance_mode
+                    ? "Student is in Balance Mode across all 4 regulation skill areas."
+                    : `Primary Focus: ${student.primary_bucket} • Support Focus: ${student.secondary_bucket}`}
+                </p>
+              </div>
+              <div className="flex items-center gap-2 self-start sm:self-auto shrink-0">
+                <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-background/80 border border-border/60 text-xs">
+                  {student.momentum_trend === "improving" ? (
+                    <>
+                      <TrendingUp className="h-3.5 w-3.5 text-emerald-500" />
+                      <span className="text-emerald-600 dark:text-emerald-400 font-medium">Improving</span>
+                    </>
+                  ) : student.momentum_trend === "declining" ? (
+                    <>
+                      <TrendingDown className="h-3.5 w-3.5 text-rose-500" />
+                      <span className="text-rose-600 dark:text-rose-400 font-medium">Declining</span>
+                    </>
+                  ) : (
+                    <>
+                      <Minus className="h-3.5 w-3.5 text-muted-foreground" />
+                      <span className="text-muted-foreground font-medium">Stable</span>
+                    </>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* 4 Core Regulation Bucket Metric Cards */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -427,11 +475,11 @@ export function StudentDossierDialog({
                 Attention & Focus Flow
               </span>
               <div className="text-xl font-bold text-foreground flex items-baseline gap-1">
-                {student.attn_stability_score || 12}
-                <span className="text-xs text-muted-foreground font-normal">/32</span>
+                {isUnassessed ? "—" : student.attn_stability_score}
+                {!isUnassessed && <span className="text-xs text-muted-foreground font-normal">/32</span>}
               </div>
               <Badge className={`text-[10px] px-2 py-0.5 ${getTierBadge(student.attn_tier).color}`}>
-                {student.attn_tier || "Stable"}
+                {getTierBadge(student.attn_tier).label}
               </Badge>
             </div>
 
@@ -441,11 +489,11 @@ export function StudentDossierDialog({
                 Calm & Stress Reset
               </span>
               <div className="text-xl font-bold text-foreground flex items-baseline gap-1">
-                {student.load_regulation_score || 16}
-                <span className="text-xs text-muted-foreground font-normal">/32</span>
+                {isUnassessed ? "—" : student.load_regulation_score}
+                {!isUnassessed && <span className="text-xs text-muted-foreground font-normal">/32</span>}
               </div>
               <Badge className={`text-[10px] px-2 py-0.5 ${getTierBadge(student.load_tier).color}`}>
-                {student.load_tier || "Emerging"}
+                {getTierBadge(student.load_tier).label}
               </Badge>
             </div>
 
@@ -455,11 +503,11 @@ export function StudentDossierDialog({
                 Inner Grounding & Confidence
               </span>
               <div className="text-xl font-bold text-foreground flex items-baseline gap-1">
-                {student.self_safety_score || 15}
-                <span className="text-xs text-muted-foreground font-normal">/32</span>
+                {isUnassessed ? "—" : student.self_safety_score}
+                {!isUnassessed && <span className="text-xs text-muted-foreground font-normal">/32</span>}
               </div>
               <Badge className={`text-[10px] px-2 py-0.5 ${getTierBadge(student.self_safety_tier).color}`}>
-                {student.self_safety_tier || "Emerging"}
+                {getTierBadge(student.self_safety_tier).label}
               </Badge>
             </div>
 
@@ -469,11 +517,11 @@ export function StudentDossierDialog({
                 Social Comfort & Belonging
               </span>
               <div className="text-xl font-bold text-foreground flex items-baseline gap-1">
-                {student.social_comfort_score || 12}
-                <span className="text-xs text-muted-foreground font-normal">/32</span>
+                {isUnassessed ? "—" : student.social_comfort_score}
+                {!isUnassessed && <span className="text-xs text-muted-foreground font-normal">/32</span>}
               </div>
               <Badge className={`text-[10px] px-2 py-0.5 ${getTierBadge(student.social_tier).color}`}>
-                {student.social_tier || "Stable"}
+                {getTierBadge(student.social_tier).label}
               </Badge>
             </div>
           </div>
@@ -486,52 +534,64 @@ export function StudentDossierDialog({
                   <Activity className="h-3.5 w-3.5 text-primary" />
                   4-Pole Diamond Radar (Regulation Stability)
                 </span>
-                <div className="flex items-center gap-3 text-[10px]">
-                  <span className="flex items-center gap-1 text-sky-600 dark:text-sky-400">
-                    <span className="h-2 w-2 rounded-full bg-sky-500" /> Student
-                  </span>
-                  <span className="flex items-center gap-1 text-muted-foreground">
-                    <span className="h-2 w-2 rounded-full bg-muted-foreground/60" /> Class Avg
-                  </span>
-                </div>
+                {!isUnassessed && (
+                  <div className="flex items-center gap-3 text-[10px]">
+                    <span className="flex items-center gap-1 text-sky-600 dark:text-sky-400">
+                      <span className="h-2 w-2 rounded-full bg-sky-500" /> Student
+                    </span>
+                    <span className="flex items-center gap-1 text-muted-foreground">
+                      <span className="h-2 w-2 rounded-full bg-muted-foreground/60" /> Class Avg
+                    </span>
+                  </div>
+                )}
               </div>
 
-              <div className="h-60 w-full pt-2">
-                <ResponsiveContainer width="100%" height="100%">
-                  <RadarChart cx="50%" cy="50%" outerRadius="72%" data={radarData}>
-                    <PolarGrid stroke={isDark ? "#334155" : "#e2e8f0"} strokeDasharray="3 3" />
-                    <PolarAngleAxis
-                      dataKey="subject"
-                      tick={{ fill: isDark ? "#94a3b8" : "#475569", fontSize: 10, fontWeight: 500 }}
-                    />
-                    <PolarRadiusAxis domain={[0, 100]} tick={false} axisLine={false} />
-                    <Radar
-                      name="Student"
-                      dataKey="student"
-                      stroke="#0284c7"
-                      fill="#0284c7"
-                      fillOpacity={0.25}
-                      strokeWidth={2}
-                    />
-                    <Radar
-                      name="Class Avg"
-                      dataKey="classAvg"
-                      stroke={isDark ? "#64748b" : "#94a3b8"}
-                      fill={isDark ? "#64748b" : "#94a3b8"}
-                      fillOpacity={0.1}
-                      strokeWidth={1.5}
-                      strokeDasharray="2 2"
-                    />
-                    <RechartsTooltip
-                      formatter={(val: any) => [`${val}% Stability`, "Score"]}
-                      contentStyle={{
-                        backgroundColor: isDark ? "#0f172a" : "#ffffff",
-                        borderColor: isDark ? "#334155" : "#e2e8f0",
-                        fontSize: "11px",
-                      }}
-                    />
-                  </RadarChart>
-                </ResponsiveContainer>
+              <div className="h-60 w-full pt-2 flex items-center justify-center">
+                {isUnassessed ? (
+                  <div className="flex flex-col items-center justify-center text-center p-4 text-xs text-muted-foreground">
+                    <Activity className="h-8 w-8 text-muted-foreground/30 mb-2" />
+                    <p className="font-semibold text-foreground">Awaiting Check-in Telemetry</p>
+                    <p className="text-[11px] text-muted-foreground mt-0.5 max-w-[200px]">
+                      Diamond radar poles will map dynamically once student submits their first check-in.
+                    </p>
+                  </div>
+                ) : (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <RadarChart cx="50%" cy="50%" outerRadius="72%" data={radarData}>
+                      <PolarGrid stroke={isDark ? "#334155" : "#e2e8f0"} strokeDasharray="3 3" />
+                      <PolarAngleAxis
+                        dataKey="subject"
+                        tick={{ fill: isDark ? "#94a3b8" : "#475569", fontSize: 10, fontWeight: 500 }}
+                      />
+                      <PolarRadiusAxis domain={[0, 100]} tick={false} axisLine={false} />
+                      <Radar
+                        name="Student"
+                        dataKey="student"
+                        stroke="#0284c7"
+                        fill="#0284c7"
+                        fillOpacity={0.25}
+                        strokeWidth={2}
+                      />
+                      <Radar
+                        name="Class Avg"
+                        dataKey="classAvg"
+                        stroke={isDark ? "#64748b" : "#94a3b8"}
+                        fill={isDark ? "#64748b" : "#94a3b8"}
+                        fillOpacity={0.1}
+                        strokeWidth={1.5}
+                        strokeDasharray="2 2"
+                      />
+                      <RechartsTooltip
+                        formatter={(val: any) => [`${val}% Stability`, "Score"]}
+                        contentStyle={{
+                          backgroundColor: isDark ? "#0f172a" : "#ffffff",
+                          borderColor: isDark ? "#334155" : "#e2e8f0",
+                          fontSize: "11px",
+                        }}
+                      />
+                    </RadarChart>
+                  </ResponsiveContainer>
+                )}
               </div>
             </div>
 

@@ -151,14 +151,6 @@ const ASYMMETRY_INSIGHTS: Record<
   },
 }
 
-const RECENT_TELEMETRY = [
-  { id: "tel-1", school: "The Hyderabad Public School", code: "HPS01", student: "Aarav S.", grade: "10-B", time: "4m ago", status: "Optimal Resilience", statusColor: "emerald" },
-  { id: "tel-2", school: "National Public School", code: "NPS-BLR", student: "Diya P.", grade: "11-A", time: "11m ago", status: "Focus Support", statusColor: "amber" },
-  { id: "tel-3", school: "Delhi Public School", code: "DPS-DEL", student: "Kabir M.", grade: "9-C", time: "26m ago", status: "Optimal Resilience", statusColor: "emerald" },
-  { id: "tel-4", school: "The Hyderabad Public School", code: "HPS01", student: "Ananya R.", grade: "8-A", time: "42m ago", status: "Balanced Tenacity", statusColor: "blue" },
-  { id: "tel-5", school: "Oakwood International", code: "OAK01", student: "Zaid K.", grade: "12-Sci", time: "1h ago", status: "Stress Support", statusColor: "rose" },
-]
-
 export default function AdminDashboardPage() {
   const { resolvedTheme } = useTheme()
   const isDark = resolvedTheme === "dark"
@@ -221,13 +213,7 @@ export default function AdminDashboardPage() {
 
   // Combine city distribution from live API
   const rawDist = analytics?.city_distribution || (analytics as any)?.platform_stats?.city_distribution
-  const distribution: CityMetric[] = rawDist && rawDist.length > 0
-    ? rawDist
-    : [
-        { city: "Hyderabad", state: "Telangana", count: 2 },
-        { city: "Bangalore", state: "Karnataka", count: 2 },
-        { city: "Pune", state: "Maharashtra", count: 2 },
-      ]
+  const distribution: CityMetric[] = rawDist && rawDist.length > 0 ? rawDist : []
 
   return (
     <div className="space-y-6">
@@ -240,6 +226,12 @@ export default function AdminDashboardPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <Link href="/internal-ops/admin/analytics">
+            <Button size="sm" variant="outline" className="gap-1.5 text-xs">
+              <BarChart3 className="h-3.5 w-3.5" />
+              Platform Analytics
+            </Button>
+          </Link>
           <Link href="/internal-ops/admin/schools">
             <Button size="sm" variant="outline" className="gap-1.5 text-xs">
               <Building2 className="h-3.5 w-3.5" />
@@ -413,94 +405,106 @@ export default function AdminDashboardPage() {
             </div>
           </CardHeader>
           <CardContent className="pt-2 pb-4 space-y-3">
-            <div className="h-[280px] w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                <RadarChart cx="50%" cy="50%" outerRadius="75%" data={COHORT_DATA[activeCohort] || COHORT_DATA.all}>
-                  <PolarGrid stroke={isDark ? "rgba(148, 163, 184, 0.28)" : "rgba(100, 116, 139, 0.25)"} strokeDasharray="3 3" />
-                  <PolarAngleAxis
-                    dataKey="subject"
-                    tick={{ fill: isDark ? "#f1f5f9" : "#0f172a", fontSize: 11.5, fontWeight: 600 }}
-                  />
-                  <RechartsTooltip
-                    contentStyle={{
-                      backgroundColor: isDark ? "#0f172a" : "#ffffff",
-                      borderColor: isDark ? "#334155" : "#e2e8f0",
-                      color: isDark ? "#f8fafc" : "#0f172a",
-                      borderRadius: "8px",
-                      fontSize: "12px",
-                      boxShadow: "0 4px 12px rgba(0,0,0,0.25)",
-                    }}
-                    formatter={(value: any, name: any) => [
-                      `${value}/100`,
-                      name === "score" ? "Active Student Cohort" : "National Normative Baseline",
-                    ]}
-                  />
-                  <Radar
-                    name="score"
-                    dataKey="score"
-                    stroke="#0284c7"
-                    fill="#0284c7"
-                    fillOpacity={isDark ? 0.35 : 0.25}
-                    strokeWidth={2.5}
-                    dot={{ r: 3.5, fill: "#0284c7", stroke: isDark ? "#0f172a" : "#ffffff", strokeWidth: 1.5 }}
-                  />
-                  <Radar
-                    name="benchmark"
-                    dataKey="benchmark"
-                    stroke={isDark ? "#94a3b8" : "#64748b"}
-                    fill={isDark ? "#94a3b8" : "#64748b"}
-                    fillOpacity={isDark ? 0.12 : 0.06}
-                    strokeDasharray="4 4"
-                    strokeWidth={1.5}
-                  />
-                </RadarChart>
-              </ResponsiveContainer>
-            </div>
-
-            {/* Clean Legend */}
-            <div className="flex items-center justify-center gap-6 py-1 border-t border-border/40 text-[11px] text-muted-foreground">
-              <div className="flex items-center gap-1.5 font-medium text-foreground">
-                <span className="h-2.5 w-2.5 rounded-full bg-[#0284c7]" />
-                <span>Active Student Cohort</span>
+            {totalStudents === 0 ? (
+              <div className="h-[280px] w-full flex flex-col items-center justify-center text-center p-6 border border-dashed rounded-lg">
+                <BarChart3 className="h-10 w-10 text-muted-foreground/40 mb-3" />
+                <p className="font-semibold text-sm">Awaiting First Cohort Check-in</p>
+                <p className="text-xs text-muted-foreground mt-1 max-w-sm">
+                  Comparative cohort telemetry and normative radar benchmarks will activate as registered schools complete their first student assessment cycle.
+                </p>
               </div>
-              <div className="flex items-center gap-1.5">
-                <span className="h-2.5 w-2.5 rounded-full bg-[#64748b]" />
-                <span>National Normative Baseline (65–72)</span>
-              </div>
-            </div>
+            ) : (
+              <>
+                <div className="h-[280px] w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <RadarChart cx="50%" cy="50%" outerRadius="75%" data={COHORT_DATA[activeCohort] || COHORT_DATA.all}>
+                      <PolarGrid stroke={isDark ? "rgba(148, 163, 184, 0.28)" : "rgba(100, 116, 139, 0.25)"} strokeDasharray="3 3" />
+                      <PolarAngleAxis
+                        dataKey="subject"
+                        tick={{ fill: isDark ? "#f1f5f9" : "#0f172a", fontSize: 11.5, fontWeight: 600 }}
+                      />
+                      <RechartsTooltip
+                        contentStyle={{
+                          backgroundColor: isDark ? "#0f172a" : "#ffffff",
+                          borderColor: isDark ? "#334155" : "#e2e8f0",
+                          color: isDark ? "#f8fafc" : "#0f172a",
+                          borderRadius: "8px",
+                          fontSize: "12px",
+                          boxShadow: "0 4px 12px rgba(0,0,0,0.25)",
+                        }}
+                        formatter={(value: any, name: any) => [
+                          `${value}/100`,
+                          name === "score" ? "Active Student Cohort" : "National Normative Baseline",
+                        ]}
+                      />
+                      <Radar
+                        name="score"
+                        dataKey="score"
+                        stroke="#0284c7"
+                        fill="#0284c7"
+                        fillOpacity={isDark ? 0.35 : 0.25}
+                        strokeWidth={2.5}
+                        dot={{ r: 3.5, fill: "#0284c7", stroke: isDark ? "#0f172a" : "#ffffff", strokeWidth: 1.5 }}
+                      />
+                      <Radar
+                        name="benchmark"
+                        dataKey="benchmark"
+                        stroke={isDark ? "#94a3b8" : "#64748b"}
+                        fill={isDark ? "#94a3b8" : "#64748b"}
+                        fillOpacity={isDark ? 0.12 : 0.06}
+                        strokeDasharray="4 4"
+                        strokeWidth={1.5}
+                      />
+                    </RadarChart>
+                  </ResponsiveContainer>
+                </div>
 
-            {/* Asymmetry Diagnostic Card */}
-            {(() => {
-              const info = ASYMMETRY_INSIGHTS[activeCohort] || ASYMMETRY_INSIGHTS.all
-              return (
-                <div className="rounded-lg border border-border/70 bg-muted/30 p-3 text-xs space-y-2">
-                  <div className="flex items-center justify-between gap-2 flex-wrap">
-                    <div className="flex items-center gap-1.5">
-                      <Sparkles className="h-3.5 w-3.5 text-sky-500 shrink-0" />
-                      <span className="font-semibold text-foreground">Asymmetry Insight:</span>
-                      <span className="text-muted-foreground">{info.asymmetryRatio}</span>
-                    </div>
-                    <Badge variant="outline" className="text-[10px] font-mono bg-sky-500/10 text-sky-600 border-sky-500/20">
-                      {info.asymmetryDelta}
-                    </Badge>
+                {/* Clean Legend */}
+                <div className="flex items-center justify-center gap-6 py-1 border-t border-border/40 text-[11px] text-muted-foreground">
+                  <div className="flex items-center gap-1.5 font-medium text-foreground">
+                    <span className="h-2.5 w-2.5 rounded-full bg-[#0284c7]" />
+                    <span>Active Student Cohort</span>
                   </div>
-
-                  <p className="text-[11.5px] text-muted-foreground leading-relaxed">
-                    <span className="font-medium text-foreground">Observation: </span>
-                    {info.counselorDiagnostic}
-                  </p>
-
-                  <div className="flex items-start gap-2 pt-1 border-t border-border/40 text-[11px]">
-                    <span className="px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-700 dark:text-amber-400 font-medium shrink-0">
-                      Action Item
-                    </span>
-                    <span className="text-foreground/90 leading-tight">
-                      {info.recommendedIntervention}
-                    </span>
+                  <div className="flex items-center gap-1.5">
+                    <span className="h-2.5 w-2.5 rounded-full bg-[#64748b]" />
+                    <span>National Normative Baseline (65–72)</span>
                   </div>
                 </div>
-              )
-            })()}
+
+                {/* Asymmetry Diagnostic Card */}
+                {(() => {
+                  const info = ASYMMETRY_INSIGHTS[activeCohort] || ASYMMETRY_INSIGHTS.all
+                  return (
+                    <div className="rounded-lg border border-border/70 bg-muted/30 p-3 text-xs space-y-2">
+                      <div className="flex items-center justify-between gap-2 flex-wrap">
+                        <div className="flex items-center gap-1.5">
+                          <Sparkles className="h-3.5 w-3.5 text-sky-500 shrink-0" />
+                          <span className="font-semibold text-foreground">Asymmetry Insight:</span>
+                          <span className="text-muted-foreground">{info.asymmetryRatio}</span>
+                        </div>
+                        <Badge variant="outline" className="text-[10px] font-mono bg-sky-500/10 text-sky-600 border-sky-500/20">
+                          {info.asymmetryDelta}
+                        </Badge>
+                      </div>
+
+                      <p className="text-[11.5px] text-muted-foreground leading-relaxed">
+                        <span className="font-medium text-foreground">Observation: </span>
+                        {info.counselorDiagnostic}
+                      </p>
+
+                      <div className="flex items-start gap-2 pt-1 border-t border-border/40 text-[11px]">
+                        <span className="px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-700 dark:text-amber-400 font-medium shrink-0">
+                          Action Item
+                        </span>
+                        <span className="text-foreground/90 leading-tight">
+                          {info.recommendedIntervention}
+                        </span>
+                      </div>
+                    </div>
+                  )
+                })()}
+              </>
+            )}
           </CardContent>
         </Card>
 
@@ -522,46 +526,43 @@ export default function AdminDashboardPage() {
               </Badge>
             </div>
           </CardHeader>
-          <CardContent className="p-0 divide-y divide-border/50">
-            {RECENT_TELEMETRY.map((item) => (
-              <div key={item.id} className="p-3.5 flex items-center justify-between gap-3 text-xs">
-                <div className="space-y-0.5 min-w-0">
-                  <div className="flex items-center gap-1.5 flex-wrap">
-                    <span className="font-semibold text-foreground truncate max-w-[140px] sm:max-w-[180px]">
-                      {item.school}
-                    </span>
-                    <Badge variant="outline" className="font-mono text-[9px] px-1 py-0">
-                      {item.code}
-                    </Badge>
+          <CardContent className="p-0 divide-y divide-border/50 flex-1 flex flex-col justify-center">
+            {events.filter(e => e.event_type?.toLowerCase().includes("assessment") || e.event_type?.toLowerCase().includes("checkin") || e.event_type?.toLowerCase().includes("result")).length > 0 ? (
+              events
+                .filter(e => e.event_type?.toLowerCase().includes("assessment") || e.event_type?.toLowerCase().includes("checkin") || e.event_type?.toLowerCase().includes("result"))
+                .slice(0, 5)
+                .map((item) => (
+                  <div key={item.id} className="p-3.5 flex items-center justify-between gap-3 text-xs">
+                    <div className="space-y-0.5 min-w-0">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="font-semibold text-foreground truncate max-w-[140px] sm:max-w-[180px]">
+                          {item.actor_name || item.title || "Student Check-in"}
+                        </span>
+                        <Badge variant="outline" className="font-mono text-[9px] px-1 py-0">
+                          {item.event_type}
+                        </Badge>
+                      </div>
+                      <div className="text-[11px] text-muted-foreground flex items-center gap-1.5">
+                        <span>{item.description}</span>
+                      </div>
+                    </div>
+                    <div className="text-right shrink-0 space-y-0.5">
+                      <div className="text-[10px] text-muted-foreground flex items-center justify-end gap-1 font-mono">
+                        <Clock className="h-2.5 w-2.5" />
+                        {new Date(item.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                      </div>
+                    </div>
                   </div>
-                  <div className="text-[11px] text-muted-foreground flex items-center gap-1.5">
-                    <span>{item.student}</span>
-                    <span>•</span>
-                    <span className="font-mono">Class {item.grade}</span>
-                  </div>
-                </div>
-                <div className="text-right shrink-0 space-y-0.5">
-                  <Badge
-                    variant="outline"
-                    className={`text-[9px] px-1.5 py-0 font-medium ${
-                      item.statusColor === "emerald"
-                        ? "bg-emerald-500/10 text-emerald-600 border-emerald-500/20"
-                        : item.statusColor === "amber"
-                        ? "bg-amber-500/10 text-amber-600 border-amber-500/20"
-                        : item.statusColor === "rose"
-                        ? "bg-rose-500/10 text-rose-600 border-rose-500/20"
-                        : "bg-blue-500/10 text-blue-600 border-blue-500/20"
-                    }`}
-                  >
-                    {item.status}
-                  </Badge>
-                  <div className="text-[10px] text-muted-foreground flex items-center justify-end gap-1 font-mono">
-                    <Clock className="h-2.5 w-2.5" />
-                    {item.time}
-                  </div>
-                </div>
+                ))
+            ) : (
+              <div className="p-8 text-center flex flex-col items-center justify-center">
+                <Activity className="h-8 w-8 text-muted-foreground/30 mb-2" />
+                <p className="text-xs font-semibold text-foreground">No recent check-in telemetry</p>
+                <p className="text-[11px] text-muted-foreground mt-1 max-w-xs">
+                  Live student check-in submissions will appear here in real time as assessments are completed.
+                </p>
               </div>
-            ))}
+            )}
           </CardContent>
           <div className="p-3 border-t border-border/40 bg-muted/20 text-[11px] text-muted-foreground flex items-center justify-between">
             <span>Aggregated across {totalAssessments > 0 ? totalAssessments : 4} assessment instruments</span>

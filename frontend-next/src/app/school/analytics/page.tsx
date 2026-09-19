@@ -266,32 +266,39 @@ export default function SchoolAnalyticsPage() {
     (c) => c.grade.toLowerCase() === selectedGrade.toLowerCase() && c.section.toUpperCase() === selectedSection.toUpperCase()
   ) || classes[0]
 
+  const hasActiveClassData = !!(activeClass && activeClass.completed_checkins > 0)
+
   // Unified 4-Pole Diamond Radar (Top, Right, Bottom, Left)
-  const activeClassAttn = activeClass?.attn_stability_score ? Math.round(((32 - activeClass.attn_stability_score) / 24) * 100) : 83
-  const activeClassSocial = activeClass?.social_comfort_score ? Math.round(((32 - activeClass.social_comfort_score) / 24) * 100) : 85
-  const activeClassLoad = activeClass?.load_regulation_score ? Math.round(((32 - activeClass.load_regulation_score) / 24) * 100) : 68
-  const activeClassSafety = activeClass?.self_safety_score ? Math.round(((32 - activeClass.self_safety_score) / 24) * 100) : 74
+  const activeClassAttn = hasActiveClassData && activeClass.attn_stability_score ? Math.round(((32 - activeClass.attn_stability_score) / 24) * 100) : 0
+  const activeClassSocial = hasActiveClassData && activeClass.social_comfort_score ? Math.round(((32 - activeClass.social_comfort_score) / 24) * 100) : 0
+  const activeClassLoad = hasActiveClassData && activeClass.load_regulation_score ? Math.round(((32 - activeClass.load_regulation_score) / 24) * 100) : 0
+  const activeClassSafety = hasActiveClassData && activeClass.self_safety_score ? Math.round(((32 - activeClass.self_safety_score) / 24) * 100) : 0
+
+  const schoolAttn = data?.radar_dimensions?.["Attention & Focus Flow"] ?? 0
+  const schoolSocial = data?.radar_dimensions?.["Social Comfort & Belonging"] ?? 0
+  const schoolLoad = data?.radar_dimensions?.["Calm & Stress Reset"] ?? 0
+  const schoolSafety = data?.radar_dimensions?.["Inner Grounding & Confidence"] ?? 0
 
   const classRadarData = [
     {
       subject: "Attention & Focus Flow",
       classScore: activeClassAttn,
-      schoolAvg: data?.radar_dimensions?.["Attention & Focus Flow"] ?? 83,
+      schoolAvg: schoolAttn,
     },
     {
       subject: "Social Comfort & Belonging",
       classScore: activeClassSocial,
-      schoolAvg: data?.radar_dimensions?.["Social Comfort & Belonging"] ?? 83,
+      schoolAvg: schoolSocial,
     },
     {
       subject: "Calm & Stress Reset",
       classScore: activeClassLoad,
-      schoolAvg: data?.radar_dimensions?.["Calm & Stress Reset"] ?? 67,
+      schoolAvg: schoolLoad,
     },
     {
       subject: "Inner Grounding & Confidence",
       classScore: activeClassSafety,
-      schoolAvg: data?.radar_dimensions?.["Inner Grounding & Confidence"] ?? 71,
+      schoolAvg: schoolSafety,
     },
   ]
 
@@ -448,21 +455,21 @@ export default function SchoolAnalyticsPage() {
                       Attention & Focus Flow
                     </span>
                     <span className="text-sm font-bold text-sky-600 dark:text-sky-400">
-                      {data.radar_dimensions?.["Attention & Focus Flow"] ?? 83}%
+                      {data.radar_dimensions?.["Attention & Focus Flow"] ?? 0}%
                     </span>
                   </div>
 
                   {/* 3-Color Segmented Bar */}
                   <div className="h-2 w-full rounded-full bg-muted/50 overflow-hidden flex">
                     <div
-                      style={{ width: `${data.cohort_distribution?.ATTN_STABILITY?.stable ?? 82}%` }}
+                      style={{ width: `${data.cohort_distribution?.ATTN_STABILITY?.stable ?? 0}%` }}
                       className="bg-emerald-500 h-full"
-                      title={`Stable: ${data.cohort_distribution?.ATTN_STABILITY?.stable ?? 82}%`}
+                      title={`Stable: ${data.cohort_distribution?.ATTN_STABILITY?.stable ?? 0}%`}
                     />
                     <div
-                      style={{ width: `${data.cohort_distribution?.ATTN_STABILITY?.emerging ?? 18}%` }}
+                      style={{ width: `${data.cohort_distribution?.ATTN_STABILITY?.emerging ?? 0}%` }}
                       className="bg-amber-500 h-full"
-                      title={`Emerging: ${data.cohort_distribution?.ATTN_STABILITY?.emerging ?? 18}%`}
+                      title={`Emerging: ${data.cohort_distribution?.ATTN_STABILITY?.emerging ?? 0}%`}
                     />
                     <div
                       style={{ width: `${data.cohort_distribution?.ATTN_STABILITY?.support_needed ?? 0}%` }}
@@ -473,10 +480,10 @@ export default function SchoolAnalyticsPage() {
 
                   <div className="flex items-center justify-between text-[10px] text-muted-foreground pt-1 border-t border-border/30">
                     <span className="text-emerald-600 dark:text-emerald-400 font-medium">
-                      {data.cohort_distribution?.ATTN_STABILITY?.stable ?? 82}% Stable
+                      {data.cohort_distribution?.ATTN_STABILITY?.stable ?? 0}% Stable
                     </span>
                     <span className="text-amber-600 dark:text-amber-400 font-medium">
-                      {data.cohort_distribution?.ATTN_STABILITY?.emerging ?? 18}% Emerging
+                      {data.cohort_distribution?.ATTN_STABILITY?.emerging ?? 0}% Emerging
                     </span>
                     <span className="text-rose-600 dark:text-rose-400 font-medium">
                       {data.cohort_distribution?.ATTN_STABILITY?.support_needed ?? 0}% Needs Support
@@ -494,20 +501,20 @@ export default function SchoolAnalyticsPage() {
                       Calm & Stress Reset
                     </span>
                     <span className="text-sm font-bold text-amber-600 dark:text-amber-400">
-                      {data.radar_dimensions?.["Calm & Stress Reset"] ?? 67}%
+                      {data.radar_dimensions?.["Calm & Stress Reset"] ?? 0}%
                     </span>
                   </div>
 
                   <div className="h-2 w-full rounded-full bg-muted/50 overflow-hidden flex">
                     <div
-                      style={{ width: `${data.cohort_distribution?.LOAD_REGULATION?.stable ?? 29}%` }}
+                      style={{ width: `${data.cohort_distribution?.LOAD_REGULATION?.stable ?? 0}%` }}
                       className="bg-emerald-500 h-full"
-                      title={`Stable: ${data.cohort_distribution?.LOAD_REGULATION?.stable ?? 29}%`}
+                      title={`Stable: ${data.cohort_distribution?.LOAD_REGULATION?.stable ?? 0}%`}
                     />
                     <div
-                      style={{ width: `${data.cohort_distribution?.LOAD_REGULATION?.emerging ?? 71}%` }}
+                      style={{ width: `${data.cohort_distribution?.LOAD_REGULATION?.emerging ?? 0}%` }}
                       className="bg-amber-500 h-full"
-                      title={`Emerging: ${data.cohort_distribution?.LOAD_REGULATION?.emerging ?? 71}%`}
+                      title={`Emerging: ${data.cohort_distribution?.LOAD_REGULATION?.emerging ?? 0}%`}
                     />
                     <div
                       style={{ width: `${data.cohort_distribution?.LOAD_REGULATION?.support_needed ?? 0}%` }}
@@ -518,10 +525,10 @@ export default function SchoolAnalyticsPage() {
 
                   <div className="flex items-center justify-between text-[10px] text-muted-foreground pt-1 border-t border-border/30">
                     <span className="text-emerald-600 dark:text-emerald-400 font-medium">
-                      {data.cohort_distribution?.LOAD_REGULATION?.stable ?? 29}% Stable
+                      {data.cohort_distribution?.LOAD_REGULATION?.stable ?? 0}% Stable
                     </span>
                     <span className="text-amber-600 dark:text-amber-400 font-medium">
-                      {data.cohort_distribution?.LOAD_REGULATION?.emerging ?? 71}% Emerging
+                      {data.cohort_distribution?.LOAD_REGULATION?.emerging ?? 0}% Emerging
                     </span>
                     <span className="text-rose-600 dark:text-rose-400 font-medium">
                       {data.cohort_distribution?.LOAD_REGULATION?.support_needed ?? 0}% Needs Support
@@ -539,20 +546,20 @@ export default function SchoolAnalyticsPage() {
                       Inner Grounding & Confidence
                     </span>
                     <span className="text-sm font-bold text-rose-600 dark:text-rose-400">
-                      {data.radar_dimensions?.["Inner Grounding & Confidence"] ?? 71}%
+                      {data.radar_dimensions?.["Inner Grounding & Confidence"] ?? 0}%
                     </span>
                   </div>
 
                   <div className="h-2 w-full rounded-full bg-muted/50 overflow-hidden flex">
                     <div
-                      style={{ width: `${data.cohort_distribution?.SELF_SAFETY?.stable ?? 29}%` }}
+                      style={{ width: `${data.cohort_distribution?.SELF_SAFETY?.stable ?? 0}%` }}
                       className="bg-emerald-500 h-full"
-                      title={`Stable: ${data.cohort_distribution?.SELF_SAFETY?.stable ?? 29}%`}
+                      title={`Stable: ${data.cohort_distribution?.SELF_SAFETY?.stable ?? 0}%`}
                     />
                     <div
-                      style={{ width: `${data.cohort_distribution?.SELF_SAFETY?.emerging ?? 71}%` }}
+                      style={{ width: `${data.cohort_distribution?.SELF_SAFETY?.emerging ?? 0}%` }}
                       className="bg-amber-500 h-full"
-                      title={`Emerging: ${data.cohort_distribution?.SELF_SAFETY?.emerging ?? 71}%`}
+                      title={`Emerging: ${data.cohort_distribution?.SELF_SAFETY?.emerging ?? 0}%`}
                     />
                     <div
                       style={{ width: `${data.cohort_distribution?.SELF_SAFETY?.support_needed ?? 0}%` }}
@@ -563,10 +570,10 @@ export default function SchoolAnalyticsPage() {
 
                   <div className="flex items-center justify-between text-[10px] text-muted-foreground pt-1 border-t border-border/30">
                     <span className="text-emerald-600 dark:text-emerald-400 font-medium">
-                      {data.cohort_distribution?.SELF_SAFETY?.stable ?? 29}% Stable
+                      {data.cohort_distribution?.SELF_SAFETY?.stable ?? 0}% Stable
                     </span>
                     <span className="text-amber-600 dark:text-amber-400 font-medium">
-                      {data.cohort_distribution?.SELF_SAFETY?.emerging ?? 71}% Emerging
+                      {data.cohort_distribution?.SELF_SAFETY?.emerging ?? 0}% Emerging
                     </span>
                     <span className="text-rose-600 dark:text-rose-400 font-medium">
                       {data.cohort_distribution?.SELF_SAFETY?.support_needed ?? 0}% Needs Support
@@ -584,20 +591,20 @@ export default function SchoolAnalyticsPage() {
                       Social Comfort & Belonging
                     </span>
                     <span className="text-sm font-bold text-emerald-600 dark:text-emerald-400">
-                      {data.radar_dimensions?.["Social Comfort & Belonging"] ?? 83}%
+                      {data.radar_dimensions?.["Social Comfort & Belonging"] ?? 0}%
                     </span>
                   </div>
 
                   <div className="h-2 w-full rounded-full bg-muted/50 overflow-hidden flex">
                     <div
-                      style={{ width: `${data.cohort_distribution?.SOCIAL_COMFORT?.stable ?? 94}%` }}
+                      style={{ width: `${data.cohort_distribution?.SOCIAL_COMFORT?.stable ?? 0}%` }}
                       className="bg-emerald-500 h-full"
-                      title={`Stable: ${data.cohort_distribution?.SOCIAL_COMFORT?.stable ?? 94}%`}
+                      title={`Stable: ${data.cohort_distribution?.SOCIAL_COMFORT?.stable ?? 0}%`}
                     />
                     <div
-                      style={{ width: `${data.cohort_distribution?.SOCIAL_COMFORT?.emerging ?? 6}%` }}
+                      style={{ width: `${data.cohort_distribution?.SOCIAL_COMFORT?.emerging ?? 0}%` }}
                       className="bg-amber-500 h-full"
-                      title={`Emerging: ${data.cohort_distribution?.SOCIAL_COMFORT?.emerging ?? 6}%`}
+                      title={`Emerging: ${data.cohort_distribution?.SOCIAL_COMFORT?.emerging ?? 0}%`}
                     />
                     <div
                       style={{ width: `${data.cohort_distribution?.SOCIAL_COMFORT?.support_needed ?? 0}%` }}
@@ -608,10 +615,10 @@ export default function SchoolAnalyticsPage() {
 
                   <div className="flex items-center justify-between text-[10px] text-muted-foreground pt-1 border-t border-border/30">
                     <span className="text-emerald-600 dark:text-emerald-400 font-medium">
-                      {data.cohort_distribution?.SOCIAL_COMFORT?.stable ?? 94}% Stable
+                      {data.cohort_distribution?.SOCIAL_COMFORT?.stable ?? 0}% Stable
                     </span>
                     <span className="text-amber-600 dark:text-amber-400 font-medium">
-                      {data.cohort_distribution?.SOCIAL_COMFORT?.emerging ?? 6}% Emerging
+                      {data.cohort_distribution?.SOCIAL_COMFORT?.emerging ?? 0}% Emerging
                     </span>
                     <span className="text-rose-600 dark:text-rose-400 font-medium">
                       {data.cohort_distribution?.SOCIAL_COMFORT?.support_needed ?? 0}% Needs Support
@@ -952,42 +959,52 @@ export default function SchoolAnalyticsPage() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="pt-4">
-                <div className="h-64 w-full">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <RadarChart cx="50%" cy="50%" outerRadius="75%" data={classRadarData}>
-                      <PolarGrid stroke={isDark ? "#334155" : "#e2e8f0"} strokeDasharray="3 3" />
-                      <PolarAngleAxis
-                        dataKey="subject"
-                        tick={{ fill: isDark ? "#f1f5f9" : "#1e293b", fontSize: 10, fontWeight: 500 }}
-                      />
-                      <PolarRadiusAxis domain={[0, 100]} tick={false} axisLine={false} />
-                      <Radar
-                        name={`Class ${selectedGrade}-${selectedSection}`}
-                        dataKey="classScore"
-                        stroke="#0284c7"
-                        fill="#0284c7"
-                        fillOpacity={0.25}
-                        strokeWidth={2}
-                      />
-                      <Radar
-                        name="School Baseline"
-                        dataKey="schoolAvg"
-                        stroke={isDark ? "#64748b" : "#94a3b8"}
-                        fill={isDark ? "#64748b" : "#94a3b8"}
-                        fillOpacity={0.1}
-                        strokeWidth={1.5}
-                        strokeDasharray="2 2"
-                      />
-                      <RechartsTooltip
-                        contentStyle={{
-                          backgroundColor: isDark ? "#0f172a" : "#ffffff",
-                          borderColor: isDark ? "#334155" : "#e2e8f0",
-                          fontSize: "11px",
-                        }}
-                      />
-                    </RadarChart>
-                  </ResponsiveContainer>
-                </div>
+                {!hasActiveClassData ? (
+                  <div className="h-64 w-full flex flex-col items-center justify-center text-center p-4 border border-dashed rounded-lg">
+                    <BarChart3 className="h-8 w-8 text-muted-foreground/30 mb-2" />
+                    <p className="font-semibold text-xs text-foreground">Awaiting Classroom Check-ins</p>
+                    <p className="text-[11px] text-muted-foreground mt-1 max-w-xs">
+                      Classroom radar dimensions will plot dynamically once students in Class {selectedGrade}-{selectedSection} complete their check-ins.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="h-64 w-full">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <RadarChart cx="50%" cy="50%" outerRadius="75%" data={classRadarData}>
+                        <PolarGrid stroke={isDark ? "#334155" : "#e2e8f0"} strokeDasharray="3 3" />
+                        <PolarAngleAxis
+                          dataKey="subject"
+                          tick={{ fill: isDark ? "#f1f5f9" : "#1e293b", fontSize: 10, fontWeight: 500 }}
+                        />
+                        <PolarRadiusAxis domain={[0, 100]} tick={false} axisLine={false} />
+                        <Radar
+                          name={`Class ${selectedGrade}-${selectedSection}`}
+                          dataKey="classScore"
+                          stroke="#0284c7"
+                          fill="#0284c7"
+                          fillOpacity={0.25}
+                          strokeWidth={2}
+                        />
+                        <Radar
+                          name="School Baseline"
+                          dataKey="schoolAvg"
+                          stroke={isDark ? "#64748b" : "#94a3b8"}
+                          fill={isDark ? "#64748b" : "#94a3b8"}
+                          fillOpacity={0.1}
+                          strokeWidth={1.5}
+                          strokeDasharray="2 2"
+                        />
+                        <RechartsTooltip
+                          contentStyle={{
+                            backgroundColor: isDark ? "#0f172a" : "#ffffff",
+                            borderColor: isDark ? "#334155" : "#e2e8f0",
+                            fontSize: "11px",
+                          }}
+                        />
+                      </RadarChart>
+                    </ResponsiveContainer>
+                  </div>
+                )}
               </CardContent>
             </Card>
 

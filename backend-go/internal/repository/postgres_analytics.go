@@ -333,30 +333,41 @@ func (r *postgresAnalytics) GetSchoolsOverview(ctx context.Context) ([]domain.Sc
 			m.CompletionRate = 0
 		}
 
-		var avgFocus, avgResil float64
-		_ = r.db.QueryRow(ctx, `
-			SELECT 
-				COALESCE(AVG((behavioral_diagnostics->>'focusScore')::numeric), 82),
-				COALESCE(AVG((behavioral_diagnostics->>'resilienceScore')::numeric), 68)
-			FROM student_results 
-			WHERE (school_id = $1 OR school_id IN (SELECT id FROM schools WHERE parent_school_id = $1))
-			  AND behavioral_diagnostics->>'focusScore' IS NOT NULL
-		`, m.ID).Scan(&avgFocus, &avgResil)
+		if m.CompletedCheckins > 0 {
+			var avgFocus, avgResil *float64
+			_ = r.db.QueryRow(ctx, `
+				SELECT 
+					AVG((behavioral_diagnostics->>'focusScore')::numeric),
+					AVG((behavioral_diagnostics->>'resilienceScore')::numeric)
+				FROM student_results 
+				WHERE (school_id = $1 OR school_id IN (SELECT id FROM schools WHERE parent_school_id = $1))
+				  AND behavioral_diagnostics->>'focusScore' IS NOT NULL
+			`, m.ID).Scan(&avgFocus, &avgResil)
 
-		m.AvgFocus = int(avgFocus)
-		m.AvgResilience = int(avgResil)
+			if avgFocus != nil {
+				m.AvgFocus = int(math.Round(*avgFocus))
+			}
+			if avgResil != nil {
+				m.AvgResilience = int(math.Round(*avgResil))
+			}
 
-		// Dynamic Clinical Regulation Focus
-		switch {
-		case m.AvgFocus < 75:
-			m.DominantFriction = "Attention & Focus Initiation"
-			m.DominantArchetype = "Attention & Focus Flow"
-		case m.AvgResilience < 70:
-			m.DominantFriction = "Calm & Stress Regulation"
-			m.DominantArchetype = "Calm & Stress Reset"
-		default:
-			m.DominantFriction = "Steady Classroom Engagement"
-			m.DominantArchetype = "All-Round Balance Mode"
+			// Dynamic Clinical Regulation Focus
+			switch {
+			case m.AvgFocus < 75:
+				m.DominantFriction = "Attention & Focus Initiation"
+				m.DominantArchetype = "Attention & Focus Flow"
+			case m.AvgResilience < 70:
+				m.DominantFriction = "Calm & Stress Regulation"
+				m.DominantArchetype = "Calm & Stress Reset"
+			default:
+				m.DominantFriction = "Steady Classroom Engagement"
+				m.DominantArchetype = "All-Round Balance Mode"
+			}
+		} else {
+			m.AvgFocus = 0
+			m.AvgResilience = 0
+			m.DominantFriction = "Pending Assessment"
+			m.DominantArchetype = "Pending Assessment"
 		}
 
 		list = append(list, m)
@@ -389,10 +400,45 @@ func (r *postgresAnalytics) GetDetailedSchoolAnalytics(ctx context.Context, scho
 					targetSchoolIDs = append(targetSchoolIDs, bm.ID)
 					_ = r.db.QueryRow(ctx, `SELECT COUNT(*) FROM students WHERE school_id = $1`, bm.ID).Scan(&bm.TotalStudents)
 					_ = r.db.QueryRow(ctx, `SELECT COUNT(*) FROM student_results WHERE school_id = $1`, bm.ID).Scan(&bm.CompletedCheckins)
-					bm.AvgFocus = 84
-					bm.AvgResilience = 72
-					bm.PrimaryFriction = "Daily Calm & Evening Rest"
-					bm.DominantArchetype = "Calm & Stress Reset"
+					if bm.CompletedCheckins > 0 {
+						var avgF, avgR *float64
+						_ = r.db.QueryRow(ctx, `
+							SELECT AVG((behavioral_diagnostics->>'focusScore')::numeric),
+							       AVG((behavioral_diagnostics->>'resilienceScore')::numeric)
+							FROM student_results
+							WHERE school_id = $1
+						`, bm.ID).Scan(&avgF, &avgR)
+						if avgF != nil {
+							bm.AvgFocus = int(math.Round(*avgF))
+						}
+						if avgR != nil {
+							bm.AvgResilience = int(math.Round(*avgR))
+						}
+						var domArch, domFric *string
+						_ = r.db.QueryRow(ctx, `
+							SELECT behavioral_diagnostics->>'archetype', behavioral_diagnostics->>'primaryFriction'
+							FROM student_results
+							WHERE school_id = $1 AND behavioral_diagnostics->>'archetype' IS NOT NULL
+							GROUP BY behavioral_diagnostics->>'archetype', behavioral_diagnostics->>'primaryFriction'
+							ORDER BY COUNT(*) DESC
+							LIMIT 1
+						`, bm.ID).Scan(&domArch, &domFric)
+						if domArch != nil && *domArch != "" {
+							bm.DominantArchetype = *domArch
+						} else {
+							bm.DominantArchetype = "Steady Regulation"
+						}
+						if domFric != nil && *domFric != "" {
+							bm.PrimaryFriction = *domFric
+						} else {
+							bm.PrimaryFriction = "General Regulation"
+						}
+					} else {
+						bm.AvgFocus = 0
+						bm.AvgResilience = 0
+						bm.PrimaryFriction = "Pending Assessment"
+						bm.DominantArchetype = "Pending Assessment"
+					}
 					d.Branches = append(d.Branches, bm)
 				}
 			}
@@ -413,7 +459,7 @@ func (r *postgresAnalytics) GetDetailedSchoolAnalytics(ctx context.Context, scho
 
 	// Aggregate school-wide regulation stats from live students
 	var sumAttn, sumLoad, sumSafety, sumSocial float64
-	var countStudents = float64(len(students))
+	var assessedCount int
 
 	attnCounts := map[string]int{"stable": 0, "emerging": 0, "support_needed": 0}
 	loadCounts := map[string]int{"stable": 0, "emerging": 0, "support_needed": 0}
@@ -439,64 +485,67 @@ func (r *postgresAnalytics) GetDetailedSchoolAnalytics(ctx context.Context, scho
 	classMap := make(map[string]*classAgg)
 
 	for _, s := range students {
-		sumAttn += float64(s.AttnStabilityScore)
-		sumLoad += float64(s.LoadRegulationScore)
-		sumSafety += float64(s.SelfSafetyScore)
-		sumSocial += float64(s.SocialComfortScore)
+		if s.CheckInCount > 0 {
+			assessedCount++
+			sumAttn += float64(s.AttnStabilityScore)
+			sumLoad += float64(s.LoadRegulationScore)
+			sumSafety += float64(s.SelfSafetyScore)
+			sumSocial += float64(s.SocialComfortScore)
 
-		// Cohort tiers
-		switch s.AttnTier {
-		case "Stable":
-			attnCounts["stable"]++
-		case "Emerging":
-			attnCounts["emerging"]++
-		default:
-			attnCounts["support_needed"]++
-		}
+			// Cohort tiers
+			switch s.AttnTier {
+			case "Stable":
+				attnCounts["stable"]++
+			case "Emerging":
+				attnCounts["emerging"]++
+			case "Support Needed":
+				attnCounts["support_needed"]++
+			}
 
-		switch s.LoadTier {
-		case "Stable":
-			loadCounts["stable"]++
-		case "Emerging":
-			loadCounts["emerging"]++
-		default:
-			loadCounts["support_needed"]++
-		}
+			switch s.LoadTier {
+			case "Stable":
+				loadCounts["stable"]++
+			case "Emerging":
+				loadCounts["emerging"]++
+			case "Support Needed":
+				loadCounts["support_needed"]++
+			}
 
-		switch s.SelfSafetyTier {
-		case "Stable":
-			safetyCounts["stable"]++
-		case "Emerging":
-			safetyCounts["emerging"]++
-		default:
-			safetyCounts["support_needed"]++
-		}
+			switch s.SelfSafetyTier {
+			case "Stable":
+				safetyCounts["stable"]++
+			case "Emerging":
+				safetyCounts["emerging"]++
+			case "Support Needed":
+				safetyCounts["support_needed"]++
+			}
 
-		switch s.SocialTier {
-		case "Stable":
-			socialCounts["stable"]++
-		case "Emerging":
-			socialCounts["emerging"]++
-		default:
-			socialCounts["support_needed"]++
-		}
+			switch s.SocialTier {
+			case "Stable":
+				socialCounts["stable"]++
+			case "Emerging":
+				socialCounts["emerging"]++
+			case "Support Needed":
+				socialCounts["support_needed"]++
+			}
 
-		// Track counts
-		if s.PathwayTrackID != "" {
-			item := trackCounts[s.PathwayTrackID]
-			item.TrackID = s.PathwayTrackID
-			item.TrackName = s.PathwayTrackName
-			item.FocusArea = s.PrimaryBucket
-			item.Count++
-			trackCounts[s.PathwayTrackID] = item
-		}
+			// Track counts
+			if s.PathwayTrackID != "" {
+				item := trackCounts[s.PathwayTrackID]
+				item.TrackID = s.PathwayTrackID
+				item.TrackName = s.PathwayTrackName
+				item.FocusArea = s.PrimaryBucket
+				item.Count++
+				trackCounts[s.PathwayTrackID] = item
+			}
 
-		// Profile counts
-		profKey := s.RegulationProfile
-		if profKey == "" {
-			profKey = "Calm & Stress Reset"
+			// Profile counts
+			profKey := s.RegulationProfile
+			if profKey == "" {
+				profKey = "Calm & Stress Reset"
+			}
+			profileCounts[profKey]++
 		}
-		profileCounts[profKey]++
 
 		// Class aggregation
 		ckey := fmt.Sprintf("%s-%s", s.Grade, s.Section)
@@ -504,42 +553,49 @@ func (r *postgresAnalytics) GetDetailedSchoolAnalytics(ctx context.Context, scho
 			c.total++
 			if s.CheckInCount > 0 {
 				c.checkins++
+				c.attnSum += s.AttnStabilityScore
+				c.loadSum += s.LoadRegulationScore
+				c.safetySum += s.SelfSafetyScore
+				c.socialSum += s.SocialComfortScore
+				c.focusSum += s.FocusScore
+				c.resilSum += s.ResilienceScore
 			}
-			c.attnSum += s.AttnStabilityScore
-			c.loadSum += s.LoadRegulationScore
-			c.safetySum += s.SelfSafetyScore
-			c.socialSum += s.SocialComfortScore
-			c.focusSum += s.FocusScore
-			c.resilSum += s.ResilienceScore
 		} else {
 			ch := 0
+			aSum, lSum, sfSum, scSum, fSum, rSum := 0, 0, 0, 0, 0, 0
 			if s.CheckInCount > 0 {
 				ch = 1
+				aSum = s.AttnStabilityScore
+				lSum = s.LoadRegulationScore
+				sfSum = s.SelfSafetyScore
+				scSum = s.SocialComfortScore
+				fSum = s.FocusScore
+				rSum = s.ResilienceScore
 			}
 			classMap[ckey] = &classAgg{
 				grade:     s.Grade,
 				section:   s.Section,
 				total:     1,
 				checkins:  ch,
-				attnSum:   s.AttnStabilityScore,
-				loadSum:   s.LoadRegulationScore,
-				safetySum: s.SelfSafetyScore,
-				socialSum: s.SocialComfortScore,
-				focusSum:  s.FocusScore,
-				resilSum:  s.ResilienceScore,
+				attnSum:   aSum,
+				loadSum:   lSum,
+				safetySum: sfSum,
+				socialSum: scSum,
+				focusSum:  fSum,
+				resilSum:  rSum,
 			}
 		}
 	}
 
 	// Calculate School Baseline 4-Bucket Radar Averages
 	var avgAttnStab, avgSocialStab, avgLoadStab, avgSafetyStab float64
-	if countStudents > 0 {
-		avgAttnStab = rawScoreToStability(int(math.Round(sumAttn / countStudents)))
-		avgSocialStab = rawScoreToStability(int(math.Round(sumSocial / countStudents)))
-		avgLoadStab = rawScoreToStability(int(math.Round(sumLoad / countStudents)))
-		avgSafetyStab = rawScoreToStability(int(math.Round(sumSafety / countStudents)))
+	if assessedCount > 0 {
+		avgAttnStab = rawScoreToStability(int(math.Round(sumAttn / float64(assessedCount))))
+		avgSocialStab = rawScoreToStability(int(math.Round(sumSocial / float64(assessedCount))))
+		avgLoadStab = rawScoreToStability(int(math.Round(sumLoad / float64(assessedCount))))
+		avgSafetyStab = rawScoreToStability(int(math.Round(sumSafety / float64(assessedCount))))
 	} else {
-		avgAttnStab, avgSocialStab, avgLoadStab, avgSafetyStab = 75, 78, 70, 76
+		avgAttnStab, avgSocialStab, avgLoadStab, avgSafetyStab = 0, 0, 0, 0
 	}
 
 	// Unified 4-Pole Diamond Radar (Top, Right, Bottom, Left)
@@ -564,7 +620,7 @@ func (r *postgresAnalytics) GetDetailedSchoolAnalytics(ctx context.Context, scho
 		}
 		return int(math.Round(float64(c) * 100.0 / float64(total)))
 	}
-	tStud := len(students)
+	tStud := assessedCount
 	d.CohortDistribution = map[string]map[string]int{
 		"ATTN_STABILITY": {
 			"stable":         calcPct(attnCounts["stable"], tStud),
@@ -667,25 +723,6 @@ func (r *postgresAnalytics) GetDetailedSchoolAnalytics(ctx context.Context, scho
 		cm.TotalStudents = c.total
 		cm.CompletedCheckins = c.checkins
 
-		if c.total > 0 {
-			cm.AttnStabilityScore = c.attnSum / c.total
-			cm.LoadRegulationScore = c.loadSum / c.total
-			cm.SelfSafetyScore = c.safetySum / c.total
-			cm.SocialComfortScore = c.socialSum / c.total
-			cm.FocusScore = c.focusSum / c.total
-			cm.ResilienceScore = c.resilSum / c.total
-		} else {
-			cm.AttnStabilityScore = 14
-			cm.LoadRegulationScore = 14
-			cm.SelfSafetyScore = 14
-			cm.SocialComfortScore = 14
-			cm.FocusScore = 80
-			cm.ResilienceScore = 70
-		}
-		cm.PeerDynamicsScore = 78
-		cm.RecoveryScore = int(rawScoreToStability(cm.LoadRegulationScore))
-
-		// Tier classification
 		cleanGrade := strings.TrimPrefix(strings.ToLower(cm.Grade), "class ")
 		switch {
 		case strings.HasPrefix(cleanGrade, "6") || strings.HasPrefix(cleanGrade, "7") || strings.HasPrefix(cleanGrade, "8"):
@@ -696,41 +733,67 @@ func (r *postgresAnalytics) GetDetailedSchoolAnalytics(ctx context.Context, scho
 			cm.Tier = "Senior Secondary"
 		}
 
-		// Find highest friction bucket to set primary focus
-		maxFriction := cm.AttnStabilityScore
-		focusArea := "Attention & Focus Flow"
-		playbook := "Utilize 15-minute visual focus intervals and structured task checklists."
-		dominantProf := "Attention & Focus Flow"
+		if c.checkins > 0 {
+			cm.AttnStabilityScore = c.attnSum / c.checkins
+			cm.LoadRegulationScore = c.loadSum / c.checkins
+			cm.SelfSafetyScore = c.safetySum / c.checkins
+			cm.SocialComfortScore = c.socialSum / c.checkins
+			cm.FocusScore = c.focusSum / c.checkins
+			cm.ResilienceScore = c.resilSum / c.checkins
+			cm.PeerDynamicsScore = int(rawScoreToStability(cm.SocialComfortScore))
+			cm.RecoveryScore = int(rawScoreToStability(cm.LoadRegulationScore))
 
-		if cm.LoadRegulationScore > maxFriction {
-			maxFriction = cm.LoadRegulationScore
-			focusArea = "Calm & Stress Reset"
-			playbook = "Schedule 2-minute physiological calm resets and set an 8:00 PM digital homework wind-down."
-			dominantProf = "Calm & Stress Reset"
-		}
-		if cm.SelfSafetyScore > maxFriction {
-			maxFriction = cm.SelfSafetyScore
-			focusArea = "Inner Grounding & Confidence"
-			playbook = "Replace cold-calling with 2-minute paired turn-and-talk check-ins before classroom sharing."
-			dominantProf = "Inner Grounding & Confidence"
-		}
-		if cm.SocialComfortScore > maxFriction {
-			maxFriction = cm.SocialComfortScore
-			focusArea = "Social Comfort & Belonging"
-			playbook = "Establish clear partner roles and support healthy peer boundaries during group work."
-			dominantProf = "Social Comfort & Belonging"
-		}
+			// Find highest friction bucket to set primary focus
+			maxFriction := cm.AttnStabilityScore
+			focusArea := "Attention & Focus Flow"
+			playbook := "Utilize 15-minute visual focus intervals and structured task checklists."
+			dominantProf := "Attention & Focus Flow"
 
-		cm.PrimaryFocusArea = focusArea
-		cm.DominantProfile = dominantProf
-		cm.DominantArchetype = dominantProf
-		cm.TeacherActionPlaybook = playbook
-		cm.OverallStatus = getBucketTier(maxFriction)
-		cm.ActionPriority = "Standard"
-		if cm.OverallStatus == "Support Needed" {
-			cm.ActionPriority = "High Alert"
-		} else if cm.OverallStatus == "Emerging" {
-			cm.ActionPriority = "Elevated"
+			if cm.LoadRegulationScore > maxFriction {
+				maxFriction = cm.LoadRegulationScore
+				focusArea = "Calm & Stress Reset"
+				playbook = "Schedule 2-minute physiological calm resets and set an 8:00 PM digital homework wind-down."
+				dominantProf = "Calm & Stress Reset"
+			}
+			if cm.SelfSafetyScore > maxFriction {
+				maxFriction = cm.SelfSafetyScore
+				focusArea = "Inner Grounding & Confidence"
+				playbook = "Replace cold-calling with 2-minute paired turn-and-talk check-ins before classroom sharing."
+				dominantProf = "Inner Grounding & Confidence"
+			}
+			if cm.SocialComfortScore > maxFriction {
+				maxFriction = cm.SocialComfortScore
+				focusArea = "Social Comfort & Belonging"
+				playbook = "Establish clear partner roles and support healthy peer boundaries during group work."
+				dominantProf = "Social Comfort & Belonging"
+			}
+
+			cm.PrimaryFocusArea = focusArea
+			cm.DominantProfile = dominantProf
+			cm.DominantArchetype = dominantProf
+			cm.TeacherActionPlaybook = playbook
+			cm.OverallStatus = getBucketTier(maxFriction)
+			cm.ActionPriority = "Standard"
+			if cm.OverallStatus == "Support Needed" {
+				cm.ActionPriority = "High Alert"
+			} else if cm.OverallStatus == "Emerging" {
+				cm.ActionPriority = "Elevated"
+			}
+		} else {
+			cm.AttnStabilityScore = 0
+			cm.LoadRegulationScore = 0
+			cm.SelfSafetyScore = 0
+			cm.SocialComfortScore = 0
+			cm.FocusScore = 0
+			cm.ResilienceScore = 0
+			cm.PeerDynamicsScore = 0
+			cm.RecoveryScore = 0
+			cm.PrimaryFocusArea = "Assessment Pending"
+			cm.DominantProfile = "Pending Assessment"
+			cm.DominantArchetype = "Pending Assessment"
+			cm.TeacherActionPlaybook = "Awaiting student check-ins to generate class insights."
+			cm.OverallStatus = "Pending Assessment"
+			cm.ActionPriority = "Pending Check-in"
 		}
 
 		d.Classes = append(d.Classes, cm)
@@ -743,49 +806,83 @@ func (r *postgresAnalytics) GetDetailedSchoolAnalytics(ctx context.Context, scho
 		return d.Classes[i].Grade < d.Classes[j].Grade
 	})
 
-	// Executive Diagnostic Banner
-	primaryNeed := "Calm & Stress Reset"
-	recommendation := "Incorporate 2-minute physiological calm pauses before key subjects and support an 8:00 PM evening digital study cutoff."
-	if avgAttnStab < avgLoadStab && avgAttnStab < avgSafetyStab {
-		primaryNeed = "Attention & Focus Flow"
-		recommendation = "Structure class periods into 15-minute focused intervals followed by 1-minute mental resets to optimize sustained attention."
-	} else if avgSafetyStab < avgLoadStab {
-		primaryNeed = "Inner Grounding & Confidence"
-		recommendation = "Use paired turn-and-talk discussions and low-stakes question boxes to eliminate hesitance under evaluative pressure."
-	}
+	if assessedCount == 0 {
+		d.ExecutiveBanner = map[string]string{
+			"primary_insight": fmt.Sprintf("%s Cohort Telemetry: Awaiting student check-ins to generate school-wide regulation telemetry.", d.SchoolName),
+			"recommendation":  "Begin onboarding and guide students to complete their baseline check-in.",
+			"impact_score":    "Pending First Assessment Cycle",
+		}
+		d.FrictionDiagnostics = map[string]interface{}{
+			"task_initiation": map[string]interface{}{
+				"high_barrier":     0,
+				"moderate_latency": 0,
+				"fluid_flow":       0,
+				"diagnostic":       "Awaiting baseline check-in data.",
+			},
+			"classroom_voice": map[string]interface{}{
+				"evaluative_silence": 0,
+				"selective_asking":   0,
+				"active_inquiry":     0,
+				"diagnostic":         "Awaiting baseline check-in data.",
+			},
+			"peer_boundary_strain": map[string]interface{}{
+				"acute_mediation":        0,
+				"moderate_crosscurrents": 0,
+				"grounded":               0,
+				"diagnostic":             "Awaiting baseline check-in data.",
+			},
+			"screen_drag": map[string]interface{}{
+				"severe_sleep_debt": 0,
+				"mild_evening_drag": 0,
+				"restorative":        0,
+				"diagnostic":         "Awaiting baseline check-in data.",
+			},
+		}
+	} else {
+		// Executive Diagnostic Banner
+		primaryNeed := "Calm & Stress Reset"
+		recommendation := "Incorporate 2-minute physiological calm pauses before key subjects and support an 8:00 PM evening digital study cutoff."
+		if avgAttnStab < avgLoadStab && avgAttnStab < avgSafetyStab {
+			primaryNeed = "Attention & Focus Flow"
+			recommendation = "Structure class periods into 15-minute focused intervals followed by 1-minute mental resets to optimize sustained attention."
+		} else if avgSafetyStab < avgLoadStab {
+			primaryNeed = "Inner Grounding & Confidence"
+			recommendation = "Use paired turn-and-talk discussions and low-stakes question boxes to eliminate hesitance under evaluative pressure."
+		}
 
-	d.ExecutiveBanner = map[string]string{
-		"primary_insight": fmt.Sprintf("%s Cohort Telemetry: Primary focus area is %s, reflecting students building regulation capacity across study periods.", d.SchoolName, primaryNeed),
-		"recommendation":  recommendation,
-		"impact_score":    "Primary Institutional Priority",
-	}
+		d.ExecutiveBanner = map[string]string{
+			"primary_insight": fmt.Sprintf("%s Cohort Telemetry: Primary focus area is %s, reflecting students building regulation capacity across study periods.", d.SchoolName, primaryNeed),
+			"recommendation":  recommendation,
+			"impact_score":    "Primary Institutional Priority",
+		}
 
-	// Behavioral Friction Diagnostics (Clean, grounded framing)
-	d.FrictionDiagnostics = map[string]interface{}{
-		"task_initiation": map[string]interface{}{
-			"high_barrier":     calcPct(attnCounts["support_needed"], tStud),
-			"moderate_latency": calcPct(attnCounts["emerging"], tStud),
-			"fluid_flow":       calcPct(attnCounts["stable"], tStud),
-			"diagnostic":       fmt.Sprintf("%d%% of students transition into deep focus once clear 15-minute visual intervals are established.", calcPct(attnCounts["stable"], tStud)),
-		},
-		"classroom_voice": map[string]interface{}{
-			"evaluative_silence": calcPct(safetyCounts["support_needed"], tStud),
-			"selective_asking":   calcPct(safetyCounts["emerging"], tStud),
-			"active_inquiry":     calcPct(safetyCounts["stable"], tStud),
-			"diagnostic":         fmt.Sprintf("%d%% benefit from paired discussions before volunteering answers in large classrooms.", calcPct(safetyCounts["support_needed"]+safetyCounts["emerging"], tStud)),
-		},
-		"peer_boundary_strain": map[string]interface{}{
-			"acute_mediation":        calcPct(socialCounts["support_needed"], tStud),
-			"moderate_crosscurrents": calcPct(socialCounts["emerging"], tStud),
-			"grounded":               calcPct(socialCounts["stable"], tStud),
-			"diagnostic":             fmt.Sprintf("%d%% maintain healthy personal boundaries during collaborative group activities.", calcPct(socialCounts["stable"], tStud)),
-		},
-		"screen_drag": map[string]interface{}{
-			"severe_sleep_debt":  calcPct(loadCounts["support_needed"], tStud),
-			"mild_evening_drag": calcPct(loadCounts["emerging"], tStud),
-			"restorative":        calcPct(loadCounts["stable"], tStud),
-			"diagnostic":         fmt.Sprintf("Evening screen boundaries post-8:00 PM directly support restorative recovery in %d%% of learners.", calcPct(loadCounts["support_needed"]+loadCounts["emerging"], tStud)),
-		},
+		// Behavioral Friction Diagnostics (Clean, grounded framing)
+		d.FrictionDiagnostics = map[string]interface{}{
+			"task_initiation": map[string]interface{}{
+				"high_barrier":     calcPct(attnCounts["support_needed"], tStud),
+				"moderate_latency": calcPct(attnCounts["emerging"], tStud),
+				"fluid_flow":       calcPct(attnCounts["stable"], tStud),
+				"diagnostic":       fmt.Sprintf("%d%% of students transition into deep focus once clear 15-minute visual intervals are established.", calcPct(attnCounts["stable"], tStud)),
+			},
+			"classroom_voice": map[string]interface{}{
+				"evaluative_silence": calcPct(safetyCounts["support_needed"], tStud),
+				"selective_asking":   calcPct(safetyCounts["emerging"], tStud),
+				"active_inquiry":     calcPct(safetyCounts["stable"], tStud),
+				"diagnostic":         fmt.Sprintf("%d%% benefit from paired discussions before volunteering answers in large classrooms.", calcPct(safetyCounts["support_needed"]+safetyCounts["emerging"], tStud)),
+			},
+			"peer_boundary_strain": map[string]interface{}{
+				"acute_mediation":        calcPct(socialCounts["support_needed"], tStud),
+				"moderate_crosscurrents": calcPct(socialCounts["emerging"], tStud),
+				"grounded":               calcPct(socialCounts["stable"], tStud),
+				"diagnostic":             fmt.Sprintf("%d%% maintain healthy personal boundaries during collaborative group activities.", calcPct(socialCounts["stable"], tStud)),
+			},
+			"screen_drag": map[string]interface{}{
+				"severe_sleep_debt":  calcPct(loadCounts["support_needed"], tStud),
+				"mild_evening_drag": calcPct(loadCounts["emerging"], tStud),
+				"restorative":        calcPct(loadCounts["stable"], tStud),
+				"diagnostic":         fmt.Sprintf("Evening screen boundaries post-8:00 PM directly support restorative recovery in %d%% of learners.", calcPct(loadCounts["support_needed"]+loadCounts["emerging"], tStud)),
+			},
+		}
 	}
 
 	return &d, nil
@@ -795,14 +892,14 @@ func (r *postgresAnalytics) GetStudentProfiles(ctx context.Context, schoolID, gr
 	query := `
 		SELECT 
 			st.id, st.access_id, st.name, st.grade, st.section, st.school_id, sc.name AS school_name,
-			COALESCE(sr.behavioral_diagnostics->>'archetype', 'pacer') AS archetype,
-			COALESCE((sr.behavioral_diagnostics->>'focusScore')::int, 80) AS focus_score,
-			COALESCE((sr.behavioral_diagnostics->>'resilienceScore')::int, 70) AS resilience_score,
-			COALESCE((sr.behavioral_diagnostics->>'academicTenacity')::int, 82) AS tenacity_score,
-			COALESCE((sr.behavioral_diagnostics->>'stressAdaptability')::int, 64) AS stress_score,
-			COALESCE(sr.behavioral_diagnostics->>'primaryFriction', 'Daily Calm & Focus Rhythm') AS primary_friction,
+			COALESCE(sr.behavioral_diagnostics->>'archetype', '') AS archetype,
+			COALESCE((sr.behavioral_diagnostics->>'focusScore')::int, 0) AS focus_score,
+			COALESCE((sr.behavioral_diagnostics->>'resilienceScore')::int, 0) AS resilience_score,
+			COALESCE((sr.behavioral_diagnostics->>'academicTenacity')::int, 0) AS tenacity_score,
+			COALESCE((sr.behavioral_diagnostics->>'stressAdaptability')::int, 0) AS stress_score,
+			COALESCE(sr.behavioral_diagnostics->>'primaryFriction', '') AS primary_friction,
 			COALESCE(sr.behavioral_diagnostics->>'momentumTrend', 'stable') AS momentum_trend,
-			COALESCE(sr.completed_at::text, st.created_at::text) AS last_check_in_date,
+			COALESCE(sr.completed_at::text, '') AS last_check_in_date,
 			(SELECT COUNT(*) FROM student_results WHERE student_id = st.id) AS check_in_count,
 			COALESCE(sr.pathway_track_id, '') AS pathway_track_id,
 			COALESCE(sr.pathway_track_name, '') AS pathway_track_name,
@@ -856,6 +953,31 @@ func (r *postgresAnalytics) GetStudentProfiles(ctx context.Context, schoolID, gr
 			&secScoresJSON,
 		); err != nil {
 			return nil, err
+		}
+
+		if p.CheckInCount == 0 {
+			p.Archetype = "Unassessed"
+			p.OverallStatus = "Pending Assessment"
+			p.AttnTier = "Pending Assessment"
+			p.LoadTier = "Pending Assessment"
+			p.SelfSafetyTier = "Pending Assessment"
+			p.SocialTier = "Pending Assessment"
+			p.RegulationProfile = "Pending Assessment"
+			p.PrimaryFriction = "Awaiting Assessment"
+			p.RadarDimensions = map[string]float64{
+				"Attention & Focus Flow":       0,
+				"Social Comfort & Belonging":   0,
+				"Calm & Stress Reset":          0,
+				"Inner Grounding & Confidence": 0,
+				"Focus & Cognitive":            0,
+				"Emotional Awareness":          0,
+				"Peer Engagement":              0,
+				"Academic Tenacity":            0,
+				"Stress Adaptability":          0,
+				"Self-Regulation":              0,
+			}
+			profiles = append(profiles, p)
+			continue
 		}
 
 		// Calculate 4 Bucket Raw Scores (each 8 to 32)

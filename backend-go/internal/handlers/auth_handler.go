@@ -32,10 +32,9 @@ func SetupAuthRoutes(app *fiber.App, service domain.AuthService, userRepo domain
 	api.Post("/forgot-password/verify-otp", handler.VerifyForgotPasswordOTP)
 
 	// Protected routes under /api/auth
-	protected := api.Group("", middleware.Protected(jwtSecret))
-	protected.Post("/change-password", handler.ChangePassword)
-	protected.Post("/enable-parent", handler.EnableParentRole)
-	protected.Get("/me", handler.GetMe)
+	api.Post("/change-password", handler.ChangePassword, middleware.Protected(jwtSecret))
+	api.Post("/enable-parent", handler.EnableParentRole, middleware.Protected(jwtSecret))
+	api.Get("/me", handler.GetMe, middleware.Protected(jwtSecret))
 }
 
 func (h *AuthHandler) Login(c fiber.Ctx) error {

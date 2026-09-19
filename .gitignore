@@ -63,3 +63,5 @@ backend-go/ROLES_ARCHITECTURE.md
 frontend-next/AGENTS.md
 frontend-next/CLAUDE.md
 readme.md
+previous_chat_transcript*.jsonl
+previous_chat_readable.md

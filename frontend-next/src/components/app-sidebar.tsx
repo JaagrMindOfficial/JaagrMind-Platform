@@ -39,6 +39,7 @@ import {
 
 const adminItems = [
   { title: "Overview", url: "/internal-ops/admin", icon: LayoutDashboard },
+  { title: "Platform Analytics", url: "/internal-ops/admin/analytics", icon: BarChart3 },
   { title: "Schools", url: "/internal-ops/admin/schools", icon: Building2 },
   { title: "Institution Requests", url: "/internal-ops/admin/institution-applications", icon: BookOpen },
   { title: "Check-ins", url: "/internal-ops/admin/assessments", icon: FileText },

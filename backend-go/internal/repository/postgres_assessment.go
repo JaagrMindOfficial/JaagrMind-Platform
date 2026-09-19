@@ -364,18 +364,23 @@ func (r *postgresAssessment) SubmitResult(ctx context.Context, result domain.Stu
 		diagJSON = []byte("{}")
 	}
 
+	origin := result.Origin
+	if origin == "" {
+		origin = "school"
+	}
+
 	_, err := r.db.Exec(ctx, `
 		INSERT INTO student_results (
 			student_id, school_id, assessment_id, status, total_score,
 			section_scores, section_buckets, primary_skill_area, secondary_skill_area,
 			assigned_bucket, answers, mood, time_taken, behavioral_diagnostics,
-			pathway_track_id, pathway_track_name, primary_bucket, secondary_bucket, is_balance_mode
+			pathway_track_id, pathway_track_name, primary_bucket, secondary_bucket, is_balance_mode, origin
 		)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)
+		VALUES ($1, NULLIF($2, '')::uuid, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)
 	`, result.StudentID, result.SchoolID, result.AssessmentID, result.Status, result.TotalScore,
 		sectionScoresJSON, sectionBucketsJSON, result.PrimarySkillArea, result.SecondarySkillArea,
 		result.AssignedBucket, answersJSON, moodJSON, result.TimeTaken, diagJSON,
-		result.PathwayTrackID, result.PathwayTrackName, result.PrimaryBucket, result.SecondaryBucket, result.IsBalanceMode)
+		result.PathwayTrackID, result.PathwayTrackName, result.PrimaryBucket, result.SecondaryBucket, result.IsBalanceMode, origin)
 	return err
 }
 

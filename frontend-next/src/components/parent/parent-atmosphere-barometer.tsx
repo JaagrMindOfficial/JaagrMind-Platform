@@ -241,7 +241,7 @@ export function ParentAtmosphereBarometer({ atmosphere, childName }: EmotionalAt
                     {getDayLabel(atmosphere.daily_pulse[selectedDay].state)} • {atmosphere.daily_pulse[selectedDay].score}%
                   </span>
                 ) : (
-                  "Tap any day to see how Aarav felt on that day"
+                  `Tap any day to see how ${firstName} felt on that day`
                 )}
               </span>
             </div>

@@ -30,10 +30,18 @@ interface PillarScoresProps {
 export function ParentGrowthRadar({ pillars, childName }: PillarScoresProps) {
   const firstName = childName.split(" ")[0] || "Your child";
 
-  const studyFocusVal = pillars.attn_stability ?? pillars.focus_endurance ?? 86;
-  const friendsVal = pillars.social_comfort ?? pillars.social_ease ?? 88;
-  const calmResetVal = pillars.load_regulation ?? pillars.rest_and_energy ?? 76;
-  const confidenceVal = pillars.self_safety ?? pillars.emotional_resilience ?? 82;
+  const hasData =
+    pillars &&
+    (pillars.attn_stability !== undefined ||
+      pillars.focus_endurance !== undefined ||
+      pillars.social_comfort !== undefined ||
+      pillars.load_regulation !== undefined ||
+      pillars.self_safety !== undefined);
+
+  const studyFocusVal = pillars?.attn_stability ?? pillars?.focus_endurance ?? 0;
+  const friendsVal = pillars?.social_comfort ?? pillars?.social_ease ?? 0;
+  const calmResetVal = pillars?.load_regulation ?? pillars?.rest_and_energy ?? 0;
+  const confidenceVal = pillars?.self_safety ?? pillars?.emotional_resilience ?? 0;
 
   // Unified 4-Pole Diamond Radar (Top, Right, Bottom, Left)
   const radarData = [
@@ -65,52 +73,62 @@ export function ParentGrowthRadar({ pillars, childName }: PillarScoresProps) {
         </div>
       </div>
 
-      {/* Radar Chart */}
-      <div className="py-2 h-56 sm:h-60 w-full relative flex items-center justify-center">
-        <ResponsiveContainer width="100%" height="100%">
-          <RadarChart cx="50%" cy="50%" outerRadius="72%" data={radarData}>
-            <PolarGrid stroke="currentColor" className="text-border/50" />
-            <PolarAngleAxis
-              dataKey="subject"
-              tick={{ fill: "currentColor", fontSize: 11, fontWeight: 600 }}
-              className="text-foreground font-sans"
-            />
-            <Radar
-              name="Score"
-              dataKey="value"
-              stroke="#0ea5e9"
-              strokeWidth={2}
-              fill="#0ea5e9"
-              fillOpacity={0.22}
-            />
-          </RadarChart>
-        </ResponsiveContainer>
-      </div>
+      {/* Radar Chart or Empty State */}
+      {!hasData ? (
+        <div className="py-8 h-56 sm:h-60 w-full flex flex-col items-center justify-center text-center p-4 border border-dashed rounded-xl my-2">
+          <Target className="h-8 w-8 text-muted-foreground/30 mb-2" />
+          <p className="font-semibold text-xs text-foreground">Awaiting First Check-in</p>
+          <p className="text-[11px] text-muted-foreground mt-1 max-w-xs">
+            Start a quick check-in with {firstName} to reveal their focus, calm, and confidence balance map.
+          </p>
+        </div>
+      ) : (
+        <div className="py-2 h-56 sm:h-60 w-full relative flex items-center justify-center">
+          <ResponsiveContainer width="100%" height="100%">
+            <RadarChart cx="50%" cy="50%" outerRadius="72%" data={radarData}>
+              <PolarGrid stroke="currentColor" className="text-border/50" />
+              <PolarAngleAxis
+                dataKey="subject"
+                tick={{ fill: "currentColor", fontSize: 11, fontWeight: 600 }}
+                className="text-foreground font-sans"
+              />
+              <Radar
+                name="Score"
+                dataKey="value"
+                stroke="#0ea5e9"
+                strokeWidth={2}
+                fill="#0ea5e9"
+                fillOpacity={0.22}
+              />
+            </RadarChart>
+          </ResponsiveContainer>
+        </div>
+      )}
 
       {/* Quick Score Bars for Instant Reading */}
       <div className="grid grid-cols-2 gap-2 pt-1 pb-3">
         <div className="p-2 rounded-xl bg-background/60 border border-border/50 flex items-center justify-between">
           <span className="text-[11px] font-medium text-muted-foreground">Study Focus & Flow</span>
           <span className="text-xs font-mono font-bold text-sky-600 dark:text-sky-400">
-            {studyFocusVal}%
+            {hasData ? `${studyFocusVal}%` : "—"}
           </span>
         </div>
         <div className="p-2 rounded-xl bg-background/60 border border-border/50 flex items-center justify-between">
           <span className="text-[11px] font-medium text-muted-foreground">Friends & Belonging</span>
           <span className="text-xs font-mono font-bold text-emerald-600 dark:text-emerald-400">
-            {friendsVal}%
+            {hasData ? `${friendsVal}%` : "—"}
           </span>
         </div>
         <div className="p-2 rounded-xl bg-background/60 border border-border/50 flex items-center justify-between">
           <span className="text-[11px] font-medium text-muted-foreground">Daily Calm & Reset</span>
           <span className="text-xs font-mono font-bold text-amber-600 dark:text-amber-400">
-            {calmResetVal}%
+            {hasData ? `${calmResetVal}%` : "—"}
           </span>
         </div>
         <div className="p-2 rounded-xl bg-background/60 border border-border/50 flex items-center justify-between">
           <span className="text-[11px] font-medium text-muted-foreground">Inner Confidence</span>
           <span className="text-xs font-mono font-bold text-indigo-600 dark:text-indigo-400">
-            {confidenceVal}%
+            {hasData ? `${confidenceVal}%` : "—"}
           </span>
         </div>
       </div>
@@ -123,22 +141,30 @@ export function ParentGrowthRadar({ pillars, childName }: PillarScoresProps) {
             <span>Things {firstName} is Doing Great At</span>
           </div>
           <div className="flex flex-wrap gap-1.5">
-            {pillars.superpowers?.map((power, idx) => (
-              <Badge
-                key={idx}
-                variant="outline"
-                className="text-[11px] font-semibold bg-secondary/50 border-border/80 text-foreground py-1 px-2.5 rounded-lg shadow-2xs"
-              >
-                ✦ {power}
-              </Badge>
-            ))}
+            {pillars?.superpowers && pillars.superpowers.length > 0 ? (
+              pillars.superpowers.map((power, idx) => (
+                <Badge
+                  key={idx}
+                  variant="outline"
+                  className="text-[11px] font-semibold bg-secondary/50 border-border/80 text-foreground py-1 px-2.5 rounded-lg shadow-2xs"
+                >
+                  ✦ {power}
+                </Badge>
+              ))
+            ) : (
+              <span className="text-[11px] text-muted-foreground italic">
+                {hasData ? "No specific superpowers recorded yet" : "Complete check-in to discover superpowers"}
+              </span>
+            )}
           </div>
         </div>
 
         {/* Practical Growth Observation for Parents */}
         <div className="p-3 rounded-xl neo-well text-xs text-muted-foreground leading-relaxed flex items-start gap-2.5">
           <Lightbulb className="h-4 w-4 shrink-0 text-amber-500 mt-0.5" />
-          <span className="text-foreground/90">{pillars.growth_observation}</span>
+          <span className="text-foreground/90">
+            {pillars?.growth_observation || (hasData ? "Observe how daily sleep rhythms impact morning energy." : "Personalized observations will appear here after check-in.")}
+          </span>
         </div>
       </div>
     </div>

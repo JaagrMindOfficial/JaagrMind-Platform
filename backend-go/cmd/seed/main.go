@@ -9,6 +9,7 @@ import (
 	"log"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/jaagrmind/platform-api/internal/repository"
 	"golang.org/x/crypto/argon2"
 )
 
@@ -36,246 +37,24 @@ func main() {
 
 	ctx := context.Background()
 
-	// ── Drop and recreate tables for clean state ──────────────
-	_, _ = dbPool.Exec(ctx, `DROP TABLE IF EXISTS inquiry_messages, parent_counselor_inquiries, parent_students, school_counselors, events, otp_verifications, student_results, counselor_notes, password_resets, assessments, school_invites, user_roles, students, schools, users, tickets, scheduled_promotions, institution_applications CASCADE`)
-
-	_, err = dbPool.Exec(ctx, `
-		CREATE TABLE IF NOT EXISTS users (
-			id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-			email TEXT UNIQUE NOT NULL,
-			name TEXT NOT NULL,
-			password_hash TEXT NOT NULL,
-			phone TEXT,
-			metadata JSONB,
-			is_internal BOOLEAN DEFAULT false,
-			created_at TIMESTAMPTZ DEFAULT NOW()
-		);
-		CREATE TABLE IF NOT EXISTS schools (
-			id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-			school_code TEXT UNIQUE NOT NULL,
-			name TEXT NOT NULL,
-			city TEXT NOT NULL,
-			contact TEXT,
-			phone_number TEXT,
-			logo TEXT,
-			parent_school_id UUID REFERENCES schools(id) ON DELETE SET NULL,
-			is_active BOOLEAN DEFAULT true,
-			is_blocked BOOLEAN DEFAULT false,
-			created_at TIMESTAMPTZ DEFAULT NOW()
-		);
-		CREATE TABLE IF NOT EXISTS students (
-			id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-			school_id UUID REFERENCES schools(id) ON DELETE CASCADE,
-			access_id TEXT NOT NULL,
-			name TEXT NOT NULL,
-			grade TEXT NOT NULL,
-			section TEXT NOT NULL,
-			mobile_number TEXT,
-			email TEXT,
-			academic_year TEXT,
-			is_active BOOLEAN DEFAULT true,
-			created_at TIMESTAMPTZ DEFAULT NOW(),
-			UNIQUE(school_id, access_id)
-		);
-		CREATE TABLE IF NOT EXISTS user_roles (
-			id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-			user_id UUID REFERENCES users(id) ON DELETE CASCADE,
-			role TEXT NOT NULL,
-			entity_id UUID,
-			created_at TIMESTAMPTZ DEFAULT NOW()
-		);
-		CREATE TABLE IF NOT EXISTS school_invites (
-			id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-			school_name TEXT NOT NULL,
-			email TEXT NOT NULL,
-			token TEXT UNIQUE NOT NULL,
-			expires_at TIMESTAMPTZ NOT NULL,
-			accepted_at TIMESTAMPTZ,
-			created_at TIMESTAMPTZ DEFAULT NOW()
-		);
-		CREATE TABLE IF NOT EXISTS assessments (
-			id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-			title TEXT NOT NULL,
-			description TEXT,
-			is_default BOOLEAN DEFAULT false,
-			time_per_question INT DEFAULT 30,
-			total_time INT DEFAULT 15,
-			inactivity_alert_time INT DEFAULT 40,
-			inactivity_end_time INT DEFAULT 120,
-			questions JSONB DEFAULT '[]',
-			buckets JSONB DEFAULT '[]',
-			section_buckets BOOLEAN DEFAULT true,
-			custom_sections JSONB DEFAULT '[]',
-			sections JSONB NOT NULL DEFAULT '[]',
-			is_active BOOLEAN DEFAULT true,
-			tier TEXT DEFAULT 'all',
-			min_grade INT DEFAULT 1,
-			max_grade INT DEFAULT 12,
-			target_grades TEXT[] DEFAULT ARRAY['6','7','8','9','10','11','12'],
-			created_at TIMESTAMPTZ DEFAULT NOW()
-		);
-		CREATE TABLE IF NOT EXISTS student_results (
-			id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-			student_id UUID REFERENCES students(id) ON DELETE CASCADE,
-			school_id UUID REFERENCES schools(id) ON DELETE CASCADE,
-			assessment_id UUID REFERENCES assessments(id) ON DELETE CASCADE,
-			status TEXT DEFAULT 'complete',
-			total_score INT DEFAULT 0,
-			section_scores JSONB DEFAULT '{}',
-			section_buckets JSONB DEFAULT '{}',
-			primary_skill_area TEXT,
-			secondary_skill_area TEXT,
-			assigned_bucket TEXT,
-			answers JSONB NOT NULL DEFAULT '{}',
-			mood JSONB DEFAULT '{}',
-			time_taken INT DEFAULT 0,
-			behavioral_diagnostics JSONB DEFAULT '{}',
-			origin TEXT DEFAULT 'school',
-			completed_at TIMESTAMPTZ DEFAULT NOW()
-		);
-		CREATE TABLE IF NOT EXISTS tickets (
-			id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-			school_id UUID REFERENCES schools(id) ON DELETE CASCADE,
-			reported_by UUID REFERENCES users(id) ON DELETE CASCADE,
-			subject TEXT NOT NULL,
-			description TEXT NOT NULL,
-			priority TEXT DEFAULT 'medium',
-			category TEXT DEFAULT 'General',
-			status TEXT DEFAULT 'open',
-			admin_reply TEXT,
-			created_at TIMESTAMPTZ DEFAULT NOW(),
-			updated_at TIMESTAMPTZ DEFAULT NOW()
-		);
-		CREATE TABLE IF NOT EXISTS scheduled_promotions (
-			id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-			school_id UUID NOT NULL REFERENCES schools(id) ON DELETE CASCADE,
-			from_grade TEXT NOT NULL,
-			to_grade TEXT NOT NULL,
-			scheduled_date TIMESTAMPTZ NOT NULL,
-			status TEXT NOT NULL DEFAULT 'pending',
-			student_count INT NOT NULL DEFAULT 0,
-			created_at TIMESTAMPTZ DEFAULT NOW()
-		);
-		CREATE TABLE IF NOT EXISTS institution_applications (
-			id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-			institute_name TEXT NOT NULL,
-			institute_type TEXT NOT NULL,
-			city TEXT NOT NULL,
-			state TEXT NOT NULL,
-			contact_name TEXT NOT NULL,
-			designation TEXT NOT NULL,
-			email TEXT NOT NULL,
-			phone TEXT NOT NULL,
-			estimated_students INT DEFAULT 500,
-			message TEXT,
-			status TEXT DEFAULT 'pending',
-			created_at TIMESTAMPTZ DEFAULT NOW()
-		);
-		CREATE TABLE IF NOT EXISTS counselor_notes (
-			id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-			school_id UUID NOT NULL REFERENCES schools(id) ON DELETE CASCADE,
-			student_id UUID NOT NULL REFERENCES students(id) ON DELETE CASCADE,
-			author_id UUID REFERENCES users(id),
-			author_name VARCHAR(255) NOT NULL,
-			intervention_type VARCHAR(100) NOT NULL,
-			status VARCHAR(50) NOT NULL DEFAULT 'in_progress',
-			notes TEXT NOT NULL,
-			next_follow_up_date VARCHAR(50),
-			created_at TIMESTAMPTZ DEFAULT NOW(),
-			updated_at TIMESTAMPTZ DEFAULT NOW()
-		);
-		CREATE TABLE IF NOT EXISTS password_resets (
-			id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-			email TEXT NOT NULL,
-			phone TEXT NOT NULL,
-			token TEXT NOT NULL UNIQUE,
-			expires_at TIMESTAMPTZ NOT NULL,
-			used BOOLEAN NOT NULL DEFAULT false,
-			created_at TIMESTAMPTZ DEFAULT NOW()
-		);
-		CREATE TABLE IF NOT EXISTS school_counselors (
-			id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-			school_id UUID REFERENCES schools(id) ON DELETE CASCADE,
-			branch_id UUID REFERENCES schools(id) ON DELETE SET NULL,
-			name TEXT NOT NULL,
-			email TEXT NOT NULL,
-			phone TEXT,
-			role TEXT NOT NULL DEFAULT 'School Wellness Counselor',
-			branch_name TEXT,
-			available_hours TEXT DEFAULT 'Mon-Fri, 9:00 AM - 3:30 PM',
-			is_active BOOLEAN DEFAULT true,
-			created_at TIMESTAMPTZ DEFAULT NOW(),
-			updated_at TIMESTAMPTZ DEFAULT NOW()
-		);
-		CREATE TABLE IF NOT EXISTS events (
-			id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-			school_id UUID REFERENCES schools(id) ON DELETE CASCADE,
-			actor_id UUID,
-			actor_name TEXT,
-			actor_role TEXT,
-			event_type TEXT,
-			action TEXT,
-			title TEXT,
-			description TEXT,
-			metadata JSONB DEFAULT '{}',
-			created_at TIMESTAMPTZ DEFAULT NOW()
-		);
-		CREATE TABLE IF NOT EXISTS parent_students (
-			id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-			parent_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-			student_id UUID NOT NULL REFERENCES students(id) ON DELETE CASCADE,
-			relationship TEXT DEFAULT 'parent',
-			nickname TEXT,
-			created_at TIMESTAMPTZ DEFAULT NOW(),
-			UNIQUE(parent_id, student_id)
-		);
-		CREATE TABLE IF NOT EXISTS parent_counselor_inquiries (
-			id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-			parent_id UUID REFERENCES users(id) ON DELETE CASCADE,
-			student_id UUID REFERENCES students(id) ON DELETE CASCADE,
-			student_name TEXT,
-			school_id UUID REFERENCES schools(id) ON DELETE SET NULL,
-			counselor_id UUID REFERENCES school_counselors(id) ON DELETE SET NULL,
-			counselor_type TEXT DEFAULT 'school',
-			target_recipient TEXT DEFAULT 'school_counselor',
-			parent_name TEXT,
-			parent_email TEXT,
-			subject TEXT,
-			message TEXT,
-			status TEXT DEFAULT 'open',
-			resolution_notes TEXT,
-			meeting_date TEXT,
-			meeting_time TEXT,
-			meeting_link TEXT,
-			created_at TIMESTAMPTZ DEFAULT NOW(),
-			updated_at TIMESTAMPTZ DEFAULT NOW()
-		);
-		CREATE TABLE IF NOT EXISTS inquiry_messages (
-			id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-			inquiry_id UUID NOT NULL REFERENCES parent_counselor_inquiries(id) ON DELETE CASCADE,
-			sender_id UUID,
-			sender_name TEXT NOT NULL,
-			sender_role TEXT NOT NULL,
-			message TEXT NOT NULL,
-			created_at TIMESTAMPTZ DEFAULT NOW()
-		);
-		CREATE TABLE IF NOT EXISTS otp_verifications (
-			id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-			email TEXT NOT NULL,
-			phone TEXT,
-			otp_code TEXT NOT NULL,
-			token TEXT NOT NULL,
-			expires_at TIMESTAMPTZ NOT NULL,
-			verified BOOLEAN DEFAULT false,
-			used BOOLEAN DEFAULT false,
-			created_at TIMESTAMPTZ DEFAULT NOW()
-		);
-		ALTER TABLE students ADD COLUMN IF NOT EXISTS nickname TEXT;
-	`)
-	if err != nil {
-		log.Fatalf("Failed to create tables: %v", err)
+	// ── Drop all 27 tables for clean state ──────────────
+	dropSQL := `DROP TABLE IF EXISTS 
+		inquiry_messages, parent_counselor_inquiries, parent_students, 
+		school_counselors, events, otp_verifications, derived_metrics, 
+		raw_interactions, trait_snapshots, mood_entries, journal_entries, 
+		activity_sessions, daily_pathway, activity_catalog, student_results, 
+		counselor_notes, password_resets, assessments, school_invites, 
+		user_roles, students, schools, users, tickets, scheduled_promotions, 
+		institution_applications, platform_guides CASCADE`
+	if _, err := dbPool.Exec(ctx, dropSQL); err != nil {
+		log.Printf("Warning during drop: %v", err)
 	}
-	fmt.Println("✓ All tables created")
+
+	// ── Auto-Migrate schema (single source of truth) ─────────
+	if err := repository.AutoMigrate(ctx, dbPool); err != nil {
+		log.Fatalf("Failed to auto-migrate database schema: %v", err)
+	}
+	fmt.Println("✓ All 27 tables created and verified via AutoMigrate")
 
 	// ── Schools ───────────────────────────────────────────────
 	schools := []struct {
@@ -433,13 +212,13 @@ func main() {
 	fmt.Printf("✓ %d students and assessment results seeded across 4 campuses\n", len(studentsToSeed))
 
 	// ── Users ─────────────────────────────────────────────────
-	adminHash := hashPassword("admin123")
+	adminHash := hashPassword("admin@123")
 	var adminID string
 	_ = dbPool.QueryRow(ctx, `
 		INSERT INTO users (email, name, password_hash, is_internal) VALUES ('admin@jaagrmind.com', 'Platform Admin', $1, true) RETURNING id
 	`, adminHash).Scan(&adminID)
 	_, _ = dbPool.Exec(ctx, `INSERT INTO user_roles (user_id, role) VALUES ($1, 'superadmin')`, adminID)
-	fmt.Println("✓ admin@jaagrmind.com / admin123 → superadmin (is_internal: true)")
+	fmt.Println("✓ admin@jaagrmind.com / admin@123 → superadmin (is_internal: true)")
 
 	// Central counselor by JaagrMind
 	centralCounselorHash := hashPassword("counsel123")

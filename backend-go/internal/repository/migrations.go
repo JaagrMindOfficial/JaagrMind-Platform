@@ -159,20 +159,31 @@ func AutoMigrate(ctx context.Context, db *pgxpool.Pool) error {
 		CREATE TABLE IF NOT EXISTS scheduled_promotions (
 			id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 			school_id UUID REFERENCES schools(id) ON DELETE CASCADE,
-			scheduled_at TIMESTAMPTZ NOT NULL,
+			from_grade TEXT NOT NULL DEFAULT '',
+			to_grade TEXT NOT NULL DEFAULT '',
+			scheduled_date TEXT NOT NULL DEFAULT '',
+			student_count INTEGER DEFAULT 0,
 			status TEXT DEFAULT 'pending',
 			academic_year TEXT DEFAULT '2025-2026',
 			is_annual_rollover BOOLEAN DEFAULT false,
+			scheduled_at TIMESTAMPTZ DEFAULT NOW(),
 			created_at TIMESTAMPTZ DEFAULT NOW()
 		);
 
 		-- ── 10. Counselor Notes Table ──────────────────────────────────────────
 		CREATE TABLE IF NOT EXISTS counselor_notes (
 			id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+			school_id UUID REFERENCES schools(id) ON DELETE CASCADE,
 			student_id UUID REFERENCES students(id) ON DELETE CASCADE,
-			counselor_id UUID REFERENCES users(id) ON DELETE CASCADE,
-			counselor_name TEXT NOT NULL,
-			note TEXT NOT NULL,
+			author_id UUID REFERENCES users(id) ON DELETE SET NULL,
+			author_name TEXT NOT NULL DEFAULT '',
+			counselor_id UUID REFERENCES users(id) ON DELETE SET NULL,
+			counselor_name TEXT DEFAULT '',
+			intervention_type TEXT DEFAULT '1-on-1 Boundary Coaching',
+			status TEXT DEFAULT 'in_progress',
+			notes TEXT NOT NULL DEFAULT '',
+			note TEXT DEFAULT '',
+			next_follow_up_date TEXT DEFAULT '',
 			created_at TIMESTAMPTZ DEFAULT NOW(),
 			updated_at TIMESTAMPTZ DEFAULT NOW()
 		);
@@ -200,9 +211,12 @@ func AutoMigrate(ctx context.Context, db *pgxpool.Pool) error {
 		-- ── 12. Platform Guides Table ──────────────────────────────────────────
 		CREATE TABLE IF NOT EXISTS platform_guides (
 			id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+			slug TEXT UNIQUE,
 			title TEXT NOT NULL,
 			category TEXT NOT NULL,
 			content TEXT NOT NULL,
+			target_audience TEXT NOT NULL DEFAULT 'all',
+			order_index INTEGER NOT NULL DEFAULT 0,
 			role_visibility TEXT[] DEFAULT ARRAY['all'],
 			created_at TIMESTAMPTZ DEFAULT NOW(),
 			updated_at TIMESTAMPTZ DEFAULT NOW()
@@ -430,9 +444,33 @@ func AutoMigrate(ctx context.Context, db *pgxpool.Pool) error {
 		ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_url TEXT;
 		ALTER TABLE users ADD COLUMN IF NOT EXISTS is_internal BOOLEAN DEFAULT false;
 
+		ALTER TABLE scheduled_promotions ADD COLUMN IF NOT EXISTS from_grade TEXT NOT NULL DEFAULT '';
+		ALTER TABLE scheduled_promotions ADD COLUMN IF NOT EXISTS to_grade TEXT NOT NULL DEFAULT '';
+		ALTER TABLE scheduled_promotions ADD COLUMN IF NOT EXISTS scheduled_date TEXT NOT NULL DEFAULT '';
+		ALTER TABLE scheduled_promotions ADD COLUMN IF NOT EXISTS student_count INTEGER DEFAULT 0;
+		ALTER TABLE scheduled_promotions ADD COLUMN IF NOT EXISTS scheduled_at TIMESTAMPTZ DEFAULT NOW();
+		ALTER TABLE scheduled_promotions ALTER COLUMN scheduled_at DROP NOT NULL;
 		ALTER TABLE scheduled_promotions ADD COLUMN IF NOT EXISTS academic_year TEXT DEFAULT '2025-2026';
 		ALTER TABLE scheduled_promotions ADD COLUMN IF NOT EXISTS is_annual_rollover BOOLEAN DEFAULT false;
 
+		ALTER TABLE counselor_notes ADD COLUMN IF NOT EXISTS school_id UUID REFERENCES schools(id) ON DELETE CASCADE;
+		ALTER TABLE counselor_notes ADD COLUMN IF NOT EXISTS author_id UUID REFERENCES users(id) ON DELETE SET NULL;
+		ALTER TABLE counselor_notes ADD COLUMN IF NOT EXISTS author_name TEXT NOT NULL DEFAULT '';
+		ALTER TABLE counselor_notes ADD COLUMN IF NOT EXISTS intervention_type TEXT DEFAULT '1-on-1 Boundary Coaching';
+		ALTER TABLE counselor_notes ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'in_progress';
+		ALTER TABLE counselor_notes ADD COLUMN IF NOT EXISTS notes TEXT NOT NULL DEFAULT '';
+		ALTER TABLE counselor_notes ADD COLUMN IF NOT EXISTS next_follow_up_date TEXT DEFAULT '';
+		DO $$
+		BEGIN
+			IF EXISTS (
+				SELECT 1 FROM information_schema.columns
+				WHERE table_name = 'counselor_notes' AND column_name = 'note'
+			) THEN
+				UPDATE counselor_notes SET notes = note WHERE (notes IS NULL OR notes = '') AND note IS NOT NULL;
+			END IF;
+		END $$;
+
+		ALTER TABLE student_results ADD COLUMN IF NOT EXISTS origin TEXT DEFAULT 'school';
 		ALTER TABLE student_results ADD COLUMN IF NOT EXISTS pathway_track_id TEXT;
 		ALTER TABLE student_results ADD COLUMN IF NOT EXISTS pathway_track_name TEXT;
 		ALTER TABLE student_results ADD COLUMN IF NOT EXISTS primary_bucket TEXT;

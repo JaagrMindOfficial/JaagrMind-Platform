@@ -339,8 +339,8 @@ func (r *postgresUser) CreateInstitutionApplication(ctx context.Context, app dom
 
 func (r *postgresUser) GetInstitutionApplications(ctx context.Context) ([]domain.InstitutionApplication, error) {
 	rows, err := r.db.Query(ctx, `
-		SELECT id, institute_name, institute_type, city, state, contact_name,
-		       designation, email, phone, estimated_students, message, status, created_at
+		SELECT id, institute_name, institute_type, city, COALESCE(state, ''), contact_name,
+		       COALESCE(designation, ''), email, phone, COALESCE(estimated_students, 0), COALESCE(message, ''), status, created_at
 		FROM institution_applications
 		ORDER BY created_at DESC
 	`)
@@ -368,8 +368,8 @@ func (r *postgresUser) GetInstitutionApplicationByID(ctx context.Context, id str
 	var app domain.InstitutionApplication
 	var createdAt time.Time
 	err := r.db.QueryRow(ctx, `
-		SELECT id, institute_name, institute_type, city, state, contact_name,
-		       designation, email, phone, estimated_students, message, status, created_at
+		SELECT id, institute_name, institute_type, city, COALESCE(state, ''), contact_name,
+		       COALESCE(designation, ''), email, phone, COALESCE(estimated_students, 0), COALESCE(message, ''), status, created_at
 		FROM institution_applications
 		WHERE id = $1
 	`, id).Scan(&app.ID, &app.InstituteName, &app.InstituteType, &app.City,

@@ -183,10 +183,14 @@ func AutoMigrate(ctx context.Context, db *pgxpool.Pool) error {
 			institute_name TEXT NOT NULL,
 			institute_type TEXT NOT NULL,
 			city TEXT NOT NULL,
+			state TEXT DEFAULT '',
 			contact_name TEXT NOT NULL,
+			designation TEXT DEFAULT '',
 			email TEXT NOT NULL,
 			phone TEXT NOT NULL,
+			estimated_students INTEGER DEFAULT 0,
 			student_count TEXT,
+			message TEXT DEFAULT '',
 			remarks TEXT,
 			status TEXT DEFAULT 'pending',
 			created_at TIMESTAMPTZ DEFAULT NOW(),
@@ -434,6 +438,32 @@ func AutoMigrate(ctx context.Context, db *pgxpool.Pool) error {
 		ALTER TABLE student_results ADD COLUMN IF NOT EXISTS primary_bucket TEXT;
 		ALTER TABLE student_results ADD COLUMN IF NOT EXISTS secondary_bucket TEXT;
 		ALTER TABLE student_results ADD COLUMN IF NOT EXISTS is_balance_mode BOOLEAN DEFAULT false;
+
+		ALTER TABLE institution_applications ADD COLUMN IF NOT EXISTS state TEXT DEFAULT '';
+		ALTER TABLE institution_applications ADD COLUMN IF NOT EXISTS designation TEXT DEFAULT '';
+		ALTER TABLE institution_applications ADD COLUMN IF NOT EXISTS estimated_students INTEGER DEFAULT 0;
+		ALTER TABLE institution_applications ADD COLUMN IF NOT EXISTS message TEXT DEFAULT '';
+
+		-- Sync historical columns if present from earlier migrations
+		DO $$ 
+		BEGIN
+			IF EXISTS (
+				SELECT 1 FROM information_schema.columns 
+				WHERE table_name = 'institution_applications' AND column_name = 'student_count'
+			) THEN
+				UPDATE institution_applications 
+				SET estimated_students = COALESCE(NULLIF(regexp_replace(student_count, '\D', '', 'g'), '')::integer, 0)
+				WHERE estimated_students IS NULL OR estimated_students = 0;
+			END IF;
+			IF EXISTS (
+				SELECT 1 FROM information_schema.columns 
+				WHERE table_name = 'institution_applications' AND column_name = 'remarks'
+			) THEN
+				UPDATE institution_applications 
+				SET message = remarks
+				WHERE (message IS NULL OR message = '') AND remarks IS NOT NULL;
+			END IF;
+		END $$;
 
 		-- ── Seed Activity Catalog (24 activities across 4 buckets) ─────────────
 		INSERT INTO activity_catalog (name, title, bucket, instruction, description, duration_minutes)

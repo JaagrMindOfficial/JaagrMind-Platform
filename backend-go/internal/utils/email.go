@@ -40,6 +40,11 @@ func getBaseFrontendURL() string {
 	return strings.TrimRight(strings.TrimSpace(parts[0]), "/")
 }
 
+// GetBaseFrontendURL returns the primary frontend base URL
+func GetBaseFrontendURL() string {
+	return getBaseFrontendURL()
+}
+
 // NewEmailService initializes the Resend email service
 func NewEmailService() EmailService {
 	apiKey := os.Getenv("RESEND_API_KEY")

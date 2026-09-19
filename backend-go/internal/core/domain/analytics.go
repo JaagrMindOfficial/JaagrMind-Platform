@@ -25,10 +25,18 @@ type AnalyticsService interface {
 
 // ── Dashboard Aggregation Models ───────────────────────────────────────
 
+type CitySchoolItem struct {
+	ID         string `json:"id"`
+	Name       string `json:"name"`
+	SchoolCode string `json:"code"`
+	Status     string `json:"status"`
+}
+
 type CityDistribution struct {
-	City  string `json:"city"`
-	State string `json:"state"`
-	Count int    `json:"count"`
+	City    string           `json:"city"`
+	State   string           `json:"state"`
+	Count   int              `json:"count"`
+	Schools []CitySchoolItem `json:"schools,omitempty"`
 }
 
 type AdminAnalytics struct {

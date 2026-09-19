@@ -174,14 +174,15 @@ func (r *postgresAnalytics) GetAdminAnalytics(ctx context.Context) (*domain.Admi
 		"Kochi":     "Kerala",
 	}
 
-	cRows, cErr := r.db.Query(ctx, `SELECT COALESCE(city, '') FROM schools`)
+	cRows, cErr := r.db.Query(ctx, `SELECT id, name, school_code, COALESCE(city, ''), is_active, is_blocked FROM schools`)
 	if cErr == nil {
 		defer cRows.Close()
 		cityAggMap := make(map[string]*domain.CityDistribution)
 
 		for cRows.Next() {
-			var rawCity string
-			if err := cRows.Scan(&rawCity); err == nil {
+			var id, name, code, rawCity string
+			var isActive, isBlocked bool
+			if err := cRows.Scan(&id, &name, &code, &rawCity, &isActive, &isBlocked); err == nil {
 				rawCity = strings.TrimSpace(rawCity)
 				if rawCity == "" {
 					rawCity = "Other"
@@ -203,13 +204,39 @@ func (r *postgresAnalytics) GetAdminAnalytics(ctx context.Context) (*domain.Admi
 					}
 				}
 
+				// Canonical normalization for prominent Indian cities
+				lowerCity := strings.ToLower(normCity)
+				if lowerCity == "bengaluru" || lowerCity == "bangalore" {
+					normCity = "Bengaluru"
+					normState = "Karnataka"
+				} else if lowerCity == "delhi" || lowerCity == "new delhi" || lowerCity == "delhi ncr" {
+					normCity = "Delhi NCR"
+					normState = "Delhi NCR"
+				}
+
+				status := "Active"
+				if isBlocked {
+					status = "Blocked"
+				} else if !isActive {
+					status = "Inactive"
+				}
+
+				schoolItem := domain.CitySchoolItem{
+					ID:         id,
+					Name:       name,
+					SchoolCode: code,
+					Status:     status,
+				}
+
 				if existing, exists := cityAggMap[normCity]; exists {
 					existing.Count++
+					existing.Schools = append(existing.Schools, schoolItem)
 				} else {
 					cityAggMap[normCity] = &domain.CityDistribution{
-						City:  normCity,
-						State: normState,
-						Count: 1,
+						City:    normCity,
+						State:   normState,
+						Count:   1,
+						Schools: []domain.CitySchoolItem{schoolItem},
 					}
 				}
 			}

@@ -25,7 +25,9 @@ interface EmotionalAtmosphereProps {
 
 export function ParentAtmosphereBarometer({ atmosphere, childName }: EmotionalAtmosphereProps) {
   const firstName = childName.split(" ")[0] || "Your child";
-  const score = atmosphere.equilibrium_score || 78;
+  const score = atmosphere?.equilibrium_score || 0;
+  const hasCheckin = score > 0 && atmosphere?.weather_state !== "pending";
+  const hasPulse = atmosphere?.daily_pulse && atmosphere.daily_pulse.length > 0;
   const [selectedDay, setSelectedDay] = useState<number | null>(null);
 
   // Friendly mood icon mapping (warm, human, culturally reassuring)
@@ -38,7 +40,7 @@ export function ParentAtmosphereBarometer({ atmosphere, childName }: EmotionalAt
       case "passing_cloud":
         return <CloudSun className="h-8 w-8 text-sky-500 transition-transform group-hover:scale-110" />;
       default:
-        return <Smile className="h-8 w-8 text-rose-400 transition-transform group-hover:scale-110" />;
+        return <Smile className="h-8 w-8 text-sky-500 transition-transform group-hover:scale-110" />;
     }
   };
 
@@ -95,7 +97,7 @@ export function ParentAtmosphereBarometer({ atmosphere, childName }: EmotionalAt
             variant="outline"
             className="text-[11px] font-mono bg-secondary/60 border-border/80 px-3 py-1 rounded-full shadow-2xs"
           >
-            Updated {atmosphere.last_checkin_date}
+            Updated {atmosphere?.last_checkin_date || "Awaiting check-in"}
           </Badge>
           <div className="p-2 rounded-xl neo-well text-emerald-600 dark:text-emerald-400">
             <Heart className="h-4 w-4" />
@@ -128,7 +130,7 @@ export function ParentAtmosphereBarometer({ atmosphere, childName }: EmotionalAt
                   strokeWidth="6.5"
                   fill="transparent"
                   strokeDasharray="264"
-                  strokeDashoffset={264 - (264 * score) / 100}
+                  strokeDashoffset={hasCheckin ? 264 - (264 * score) / 100 : 264}
                   strokeLinecap="round"
                 />
               </svg>
@@ -136,10 +138,16 @@ export function ParentAtmosphereBarometer({ atmosphere, childName }: EmotionalAt
               {/* Central Living Stone Core */}
               <div className="absolute inset-4 rounded-full bg-gradient-to-b from-card to-card/90 dark:from-slate-900 dark:to-slate-950 flex flex-col items-center justify-center text-center shadow-inner border border-border/60">
                 <div className="mb-0.5 p-2 rounded-full bg-emerald-500/10 text-emerald-500">
-                  {getMoodIcon(atmosphere.weather_state)}
+                  {getMoodIcon(atmosphere?.weather_state || "pending")}
                 </div>
                 <div className="text-3xl sm:text-4xl font-black tracking-tight text-foreground font-mono">
-                  {score}<span className="text-sm text-muted-foreground font-sans font-medium">%</span>
+                  {hasCheckin ? (
+                    <>
+                      {score}<span className="text-sm text-muted-foreground font-sans font-medium">%</span>
+                    </>
+                  ) : (
+                    <span className="text-2xl text-muted-foreground">—%</span>
+                  )}
                 </div>
                 <span className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground font-semibold">
                   Peace of Mind
@@ -151,8 +159,8 @@ export function ParentAtmosphereBarometer({ atmosphere, childName }: EmotionalAt
           {/* Status Capsule */}
           <div className="mt-4 text-center">
             <span className="inline-flex items-center gap-2 text-xs font-bold text-foreground px-3.5 py-1.5 rounded-full bg-background border border-border/80 shadow-xs">
-              <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-              {atmosphere.weather_label || "Calm & Happy"}
+              <span className={`h-2 w-2 rounded-full ${hasCheckin ? "bg-emerald-500 animate-pulse" : "bg-muted-foreground"}`} />
+              {atmosphere?.weather_label || (hasCheckin ? "Calm & Focused" : "Awaiting First Check-in")}
             </span>
           </div>
 
@@ -160,18 +168,18 @@ export function ParentAtmosphereBarometer({ atmosphere, childName }: EmotionalAt
           <div className="grid grid-cols-3 gap-2 w-full mt-4 pt-4 border-t border-border/40 text-center">
             <div className="p-1.5 rounded-xl bg-background/60 border border-border/40">
               <Moon className="h-3.5 w-3.5 text-indigo-500 mx-auto mb-0.5" />
-              <div className="text-[10px] font-mono font-semibold text-foreground">8.5 Hrs</div>
-              <div className="text-[9px] text-muted-foreground">Sleep Rested</div>
+              <div className="text-[10px] font-mono font-semibold text-foreground">{hasCheckin ? "8.5 Hrs" : "—"}</div>
+              <div className="text-[9px] text-muted-foreground">{hasCheckin ? "Sleep Rested" : "Sleep Cycles"}</div>
             </div>
             <div className="p-1.5 rounded-xl bg-background/60 border border-border/40">
               <BookOpen className="h-3.5 w-3.5 text-amber-500 mx-auto mb-0.5" />
-              <div className="text-[10px] font-mono font-semibold text-foreground">Manageable</div>
-              <div className="text-[9px] text-muted-foreground">Study Load</div>
+              <div className="text-[10px] font-mono font-semibold text-foreground">{hasCheckin ? "Manageable" : "—"}</div>
+              <div className="text-[9px] text-muted-foreground">{hasCheckin ? "Study Load" : "Study Rhythm"}</div>
             </div>
             <div className="p-1.5 rounded-xl bg-background/60 border border-border/40">
               <Smile className="h-3.5 w-3.5 text-emerald-500 mx-auto mb-0.5" />
-              <div className="text-[10px] font-mono font-semibold text-foreground">Comfortable</div>
-              <div className="text-[9px] text-muted-foreground">With Friends</div>
+              <div className="text-[10px] font-mono font-semibold text-foreground">{hasCheckin ? "Comfortable" : "—"}</div>
+              <div className="text-[9px] text-muted-foreground">{hasCheckin ? "With Friends" : "Peer Ease"}</div>
             </div>
           </div>
         </div>
@@ -185,13 +193,13 @@ export function ParentAtmosphereBarometer({ atmosphere, childName }: EmotionalAt
                 <Sparkles className="h-3 w-3 text-amber-500" />
                 This Week&apos;s Update for Parents
               </span>
-              <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-1">
+              <span className={`text-[11px] font-bold flex items-center gap-1 ${hasCheckin ? "text-emerald-600 dark:text-emerald-400" : "text-muted-foreground"}`}>
                 <CheckCircle2 className="h-3.5 w-3.5" />
-                Good Steady Routine
+                {hasCheckin ? "Good Steady Routine" : "Rhythm Calibrating"}
               </span>
             </div>
             <p className="text-xs sm:text-sm text-foreground/90 leading-relaxed font-normal">
-              {atmosphere.summary}
+              {atmosphere?.summary || `No wellbeing check-ins recorded yet for ${firstName}. Daily rhythm and mental peace will calibrate once your child submits their first reflection.`}
             </p>
           </div>
 
@@ -201,47 +209,60 @@ export function ParentAtmosphereBarometer({ atmosphere, childName }: EmotionalAt
               <span className="font-mono font-semibold text-muted-foreground uppercase tracking-wider text-[11px]">
                 Past 7 Days Mood Pattern
               </span>
-              <span className="font-mono text-xs text-foreground font-bold">
-                Weekly Stability: 91% (Consistent)
-              </span>
+              {hasPulse ? (
+                <span className="font-mono text-xs text-foreground font-bold">
+                  Weekly Stability: Active
+                </span>
+              ) : (
+                <span className="font-mono text-xs text-muted-foreground">
+                  Awaiting Daily Reflections
+                </span>
+              )}
             </div>
 
-            <div className="grid grid-cols-7 gap-2">
-              {atmosphere.daily_pulse?.map((dayWell, idx) => {
-                const isSelected = selectedDay === idx;
-                return (
-                  <button
-                    key={idx}
-                    type="button"
-                    onClick={() => setSelectedDay(isSelected ? null : idx)}
-                    className={`neo-well p-2.5 rounded-2xl flex flex-col items-center justify-between text-center min-h-[76px] transition-all hover:-translate-y-1 cursor-pointer focus:outline-none ${
-                      isSelected
-                        ? "ring-2 ring-emerald-500 bg-emerald-500/10 border-emerald-500/40"
-                        : "hover:border-foreground/20"
-                    }`}
-                  >
-                    <span className="text-[11px] font-mono font-bold text-muted-foreground">
-                      {dayWell.day}
-                    </span>
-                    <div className={`h-3 w-3 rounded-full ${getDayDotColor(dayWell.state)} ring-2 ring-card/80`} />
-                    <span className="text-[11px] font-mono text-foreground font-bold">
-                      {dayWell.score}%
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
+            {!hasPulse ? (
+              <div className="p-4 rounded-2xl neo-well text-center space-y-1">
+                <p className="text-xs font-semibold text-foreground">No daily reflections recorded this week</p>
+                <p className="text-[11px] text-muted-foreground">Daily mood indicators will populate as {firstName} logs reflections or check-ins.</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-7 gap-2">
+                {atmosphere.daily_pulse.map((dayWell, idx) => {
+                  const isSelected = selectedDay === idx;
+                  return (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => setSelectedDay(isSelected ? null : idx)}
+                      className={`neo-well p-2.5 rounded-2xl flex flex-col items-center justify-between text-center min-h-[76px] transition-all hover:-translate-y-1 cursor-pointer focus:outline-none ${
+                        isSelected
+                          ? "ring-2 ring-emerald-500 bg-emerald-500/10 border-emerald-500/40"
+                          : "hover:border-foreground/20"
+                      }`}
+                    >
+                      <span className="text-[11px] font-mono font-bold text-muted-foreground">
+                        {dayWell.day}
+                      </span>
+                      <div className={`h-3 w-3 rounded-full ${getDayDotColor(dayWell.state)} ring-2 ring-card/80`} />
+                      <span className="text-[11px] font-mono text-foreground font-bold">
+                        {dayWell.score}%
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
 
             {/* Micro helper text when clicking a day */}
             <div className="text-center pt-1">
               <span className="text-[11px] text-muted-foreground font-mono">
-                {selectedDay !== null && atmosphere.daily_pulse[selectedDay] ? (
+                {hasPulse && selectedDay !== null && atmosphere.daily_pulse[selectedDay] ? (
                   <span className="text-foreground font-semibold">
                     {atmosphere.daily_pulse[selectedDay].day} ({atmosphere.daily_pulse[selectedDay].date}):{" "}
                     {getDayLabel(atmosphere.daily_pulse[selectedDay].state)} • {atmosphere.daily_pulse[selectedDay].score}%
                   </span>
                 ) : (
-                  `Tap any day to see how ${firstName} felt on that day`
+                  hasPulse ? `Tap any day to see how ${firstName} felt on that day` : `Check-ins help trace ${firstName}'s weekly mood pattern`
                 )}
               </span>
             </div>

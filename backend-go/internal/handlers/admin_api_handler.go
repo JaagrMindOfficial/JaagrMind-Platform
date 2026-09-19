@@ -596,123 +596,15 @@ func (h *AdminAPIHandler) GetAnalytics(c fiber.Ctx) error {
 	schoolsComparison, _ := h.analyticsRepo.GetSchoolsOverview(c.Context())
 	allSchools, _ := h.schoolRepo.GetAll(c.Context())
 
-	archetypes := []fiber.Map{
-		{
-			"id":                "attn",
-			"name":              "Attention & Focus Flow",
-			"percentage":        30,
-			"tag":               "Focus & Routine Rhythm",
-			"color":             "sky",
-			"description":       "Learners strengthening task initiation and sustained concentration rhythms across academic periods.",
-			"counselorStrategy": "Implement 15-minute visual focus intervals and clear step-by-step checklist cues.",
-		},
-		{
-			"id":                "load",
-			"name":              "Calm & Stress Reset",
-			"percentage":        28,
-			"tag":               "Stress & Workload Reset",
-			"color":             "amber",
-			"description":       "Learners working through daily cognitive fatigue, exam tension, or late-night screen drag.",
-			"counselorStrategy": "Introduce 2-minute physiological calm resets and encourage an 8:00 PM digital homework boundary.",
-		},
-		{
-			"id":                "safety",
-			"name":              "Inner Grounding & Confidence",
-			"percentage":        22,
-			"tag":               "Self-Trust & Grounding",
-			"color":             "rose",
-			"description":       "Learners experiencing evaluative doubt or hesitancy asking questions in large classrooms.",
-			"counselorStrategy": "Replace public cold-calling with 2-minute paired turn-and-talk check-ins and anonymous inquiry.",
-		},
-		{
-			"id":                "social",
-			"name":              "Social Comfort & Belonging",
-			"percentage":        20,
-			"tag":               "Peer Ease & Connectedness",
-			"color":             "emerald",
-			"description":       "Learners navigating collaborative dynamics, peer sharing, and healthy personal boundaries.",
-			"counselorStrategy": "Assign structured collaborative roles and facilitate small-group connection activities.",
-		},
-	}
-
-	gradeHeatmaps := []fiber.Map{
-		{
-			"grade":             "Grade 6",
-			"tier":              "Middle School",
-			"focusScore":        72,
-			"resilienceScore":   80,
-			"peerDynamicsScore": 86,
-			"recoveryScore":     78,
-			"primaryFriction":   "Task initiation inertia & routine transitions",
-			"actionPriority":    "Standard",
-			"actionGuide":       "Utilize 15-minute visual timers and clear transition checklists.",
-		},
-		{
-			"grade":             "Grade 7",
-			"tier":              "Middle School",
-			"focusScore":        69,
-			"resilienceScore":   76,
-			"peerDynamicsScore": 89,
-			"recoveryScore":     74,
-			"primaryFriction":   "Lunch break gossip strain & secret-keeping fatigue",
-			"actionPriority":    "Moderate",
-			"actionGuide":       "Conduct peer boundary roleplay workshops during advisory period.",
-		},
-		{
-			"grade":             "Grade 8",
-			"tier":              "Middle School",
-			"focusScore":        71,
-			"resilienceScore":   74,
-			"peerDynamicsScore": 84,
-			"recoveryScore":     71,
-			"primaryFriction":   "Evening screen drag & pre-study procrastination",
-			"actionPriority":    "Moderate",
-			"actionGuide":       "Distribute bedtime digital hygiene guidance to parents.",
-		},
-		{
-			"grade":             "Grade 9",
-			"tier":              "Secondary",
-			"focusScore":        78,
-			"resilienceScore":   68,
-			"peerDynamicsScore": 79,
-			"recoveryScore":     64,
-			"primaryFriction":   "Classroom voice hesitancy under public conceptual confusion",
-			"actionPriority":    "Elevated",
-			"actionGuide":       "Introduce anonymous digital query submission before math/science tests.",
-		},
-		{
-			"grade":             "Grade 10",
-			"tier":              "Secondary",
-			"focusScore":        82,
-			"resilienceScore":   59,
-			"peerDynamicsScore": 74,
-			"recoveryScore":     58,
-			"primaryFriction":   "High Tenacity / Stress Asymmetry (Board Exam Anxiety)",
-			"actionPriority":    "High Alert",
-			"actionGuide":       "Schedule mandatory 10-minute active recovery breaks between double periods.",
-		},
-		{
-			"grade":             "Grade 11",
-			"tier":              "Senior Secondary",
-			"focusScore":        85,
-			"resilienceScore":   56,
-			"peerDynamicsScore": 71,
-			"recoveryScore":     52,
-			"primaryFriction":   "Chronic sleep debt & post-midnight screen study cycles",
-			"actionPriority":    "High Alert",
-			"actionGuide":       "Calibrate digital assignment deadlines to 8:00 PM instead of midnight.",
-		},
-		{
-			"grade":             "Grade 12",
-			"tier":              "Senior Secondary",
-			"focusScore":        89,
-			"resilienceScore":   54,
-			"peerDynamicsScore": 68,
-			"recoveryScore":     51,
-			"primaryFriction":   "Competitive burnout isolation & high-stakes stamina fatigue",
-			"actionPriority":    "Urgent",
-			"actionGuide":       "Facilitate 1-on-1 counselor check-ins and peer study circles.",
-		},
+	natOverview, err := h.analyticsRepo.GetNationalOverview(c.Context())
+	if err != nil {
+		natOverview = &domain.NationalOverview{
+			NationalRadar:       []map[string]interface{}{},
+			ExecutiveBanner:     map[string]string{},
+			FrictionDiagnostics: map[string]interface{}{},
+			Archetypes:          []map[string]interface{}{},
+			GradeHeatmaps:       []map[string]interface{}{},
+		}
 	}
 
 	return c.JSON(fiber.Map{
@@ -734,41 +626,13 @@ func (h *AdminAPIHandler) GetAnalytics(c fiber.Ctx) error {
 			"total_tickets": stats.TotalTickets,
 			"open_tickets":  stats.OpenTickets,
 		},
-		"executive_banner": fiber.Map{
-			"primary_insight": "National Cohort Signal: 41% of Secondary & Senior students maintain high Tenacity while internalizing stress, yielding acute classroom silence under conceptual confusion.",
-			"recommendation":  "Institutionalize anonymous doubt-clearing channels across affiliated campuses and train faculty on non-punitive hesitation handling.",
-			"impact_score":    "Pan-Campus Behavioral Priority",
-		},
-		"friction_diagnostics": fiber.Map{
-			"task_initiation": fiber.Map{
-				"high_barrier": 38,
-				"moderate_latency": 42,
-				"fluid_flow": 20,
-				"diagnostic": "Across campuses, 62% sustain deep cognitive focus once past the 12-minute activation hurdle.",
-			},
-			"classroom_voice": fiber.Map{
-				"evaluative_silence": 41,
-				"selective_asking": 35,
-				"active_inquiry": 24,
-				"diagnostic": "41% of students withhold clarification questions due to fear of peer judgment in competitive environments.",
-			},
-			"peer_boundary_strain": fiber.Map{
-				"acute_mediation": 29,
-				"moderate_crosscurrents": 45,
-				"grounded": 26,
-				"diagnostic": "29% experience emotional fatigue from peer gossip mediation or group chat conflicts.",
-			},
-			"screen_drag": fiber.Map{
-				"severe_sleep_debt": 46,
-				"mild_evening_drag": 34,
-				"restorative": 20,
-				"diagnostic": "Post-10:30 PM digital device consumption suppresses restorative sleep cycles in 46% of secondary students.",
-			},
-		},
-		"archetypes":         archetypes,
-		"grade_heatmaps":     gradeHeatmaps,
-		"schools_comparison": schoolsComparison,
-		"schools_list":       allSchools,
+		"national_radar":       natOverview.NationalRadar,
+		"executive_banner":     natOverview.ExecutiveBanner,
+		"friction_diagnostics": natOverview.FrictionDiagnostics,
+		"archetypes":           natOverview.Archetypes,
+		"grade_heatmaps":       natOverview.GradeHeatmaps,
+		"schools_comparison":   schoolsComparison,
+		"schools_list":         allSchools,
 	})
 }
 

@@ -504,7 +504,7 @@ export default function AdminSchoolsPage() {
                           variant="ghost" 
                           size="icon" 
                           className="h-8 w-8 text-muted-foreground hover:text-foreground"
-                          onClick={() => router.push(`/admin/analytics`)}
+                          onClick={() => router.push(`/internal-ops/admin/analytics?school_id=${school.id}`)}
                           title="View Analytics"
                         >
                           <BarChart2 className="h-3.5 w-3.5" />

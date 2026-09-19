@@ -36,6 +36,7 @@ import {
   AlertTriangle,
   GraduationCap,
   Layers,
+  BarChart3,
 } from "lucide-react"
 import {
   Radar,
@@ -90,6 +91,16 @@ interface SchoolComparisonItem {
 }
 
 interface AdminAnalyticsResponse {
+  total_schools?: number
+  active_schools?: number
+  blocked_schools?: number
+  total_students?: number
+  total_assessments?: number
+  national_radar?: Array<{
+    subject: string
+    score: number
+    benchmark: number
+  }>
   platform_stats: {
     total_schools: number
     active_schools: number
@@ -224,15 +235,23 @@ export default function AdminAnalyticsPage() {
   const schoolsList = data.schools_list || []
   const schoolsComparison = data.schools_comparison || []
 
-  // National Radar Data
-  const nationalRadarData = [
-    { subject: "Emotional Awareness", score: 76, benchmark: 68 },
-    { subject: "Peer Engagement", score: 79, benchmark: 71 },
-    { subject: "Academic Tenacity", score: 84, benchmark: 72 },
-    { subject: "Stress Adaptability", score: 61, benchmark: 65 },
-    { subject: "Focus & Cognitive", score: 82, benchmark: 70 },
-    { subject: "Self-Regulation", score: 74, benchmark: 70 },
-  ]
+  // National Radar Data from API (zero fallback if unassessed)
+  const nationalRadarData: Array<{ subject: string; score: number; benchmark: number }> =
+    data.national_radar && data.national_radar.length > 0
+      ? data.national_radar
+      : [
+          { subject: "Emotional Awareness", score: 0, benchmark: 0 },
+          { subject: "Peer Engagement", score: 0, benchmark: 0 },
+          { subject: "Academic Tenacity", score: 0, benchmark: 0 },
+          { subject: "Stress Adaptability", score: 0, benchmark: 0 },
+          { subject: "Focus & Cognitive", score: 0, benchmark: 0 },
+          { subject: "Self-Regulation", score: 0, benchmark: 0 },
+        ]
+
+  const totalEvaluationsCount =
+    schoolsComparison.reduce((acc: number, s: any) => acc + (s.completed_checkins || 0), 0) ||
+    (data.total_assessments || 0)
+  const hasNationalRadarData = totalEvaluationsCount > 0 && nationalRadarData.some((r) => r.score > 0)
 
   // Filtered Students for School Drilldown
   const filteredStudents: StudentProfileData[] = (schoolData?.students || []).filter((s: StudentProfileData) => {
@@ -400,7 +419,14 @@ export default function AdminAnalyticsPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {schoolsComparison.map((s) => (
+                    {schoolsComparison.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={7} className="h-32 text-center text-muted-foreground text-xs">
+                          No affiliated institutions benchmarked yet. Campuses will populate as they onboard and sync student cohorts.
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      schoolsComparison.map((s) => (
                       <TableRow key={s.id} className="text-xs hover:bg-muted/20 transition-colors">
                         <TableCell>
                           <div className="space-y-0.5">
@@ -463,7 +489,8 @@ export default function AdminAnalyticsPage() {
                           </Button>
                         </TableCell>
                       </TableRow>
-                    ))}
+                      ))
+                    )}
                   </TableBody>
                 </Table>
               </div>
@@ -480,42 +507,52 @@ export default function AdminAnalyticsPage() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="pt-4">
-                <div className="h-72 w-full">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <RadarChart cx="50%" cy="50%" outerRadius="75%" data={nationalRadarData}>
-                      <PolarGrid stroke={isDark ? "#334155" : "#e2e8f0"} strokeDasharray="3 3" />
-                      <PolarAngleAxis
-                        dataKey="subject"
-                        tick={{ fill: isDark ? "#f1f5f9" : "#1e293b", fontSize: 11, fontWeight: 500 }}
-                      />
-                      <PolarRadiusAxis domain={[0, 100]} tick={false} axisLine={false} />
-                      <Radar
-                        name="Active Cohort"
-                        dataKey="score"
-                        stroke="#0284c7"
-                        fill="#0284c7"
-                        fillOpacity={0.25}
-                        strokeWidth={2}
-                      />
-                      <Radar
-                        name="Baseline Norm"
-                        dataKey="benchmark"
-                        stroke={isDark ? "#64748b" : "#94a3b8"}
-                        fill={isDark ? "#64748b" : "#94a3b8"}
-                        fillOpacity={0.1}
-                        strokeWidth={1.5}
-                        strokeDasharray="3 3"
-                      />
-                      <RechartsTooltip
-                        contentStyle={{
-                          backgroundColor: isDark ? "#0f172a" : "#ffffff",
-                          borderColor: isDark ? "#334155" : "#e2e8f0",
-                          fontSize: "11px",
-                        }}
-                      />
-                    </RadarChart>
-                  </ResponsiveContainer>
-                </div>
+                {!hasNationalRadarData ? (
+                  <div className="h-72 w-full flex flex-col items-center justify-center text-center p-6 border border-dashed rounded-lg">
+                    <BarChart3 className="h-10 w-10 text-muted-foreground/30 mb-3" />
+                    <p className="font-semibold text-sm text-foreground">Awaiting Cohort Telemetry</p>
+                    <p className="text-xs text-muted-foreground mt-1 max-w-sm">
+                      National behavioral polygon will render dynamically once affiliated campuses or independent students complete diagnostic check-ins.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="h-72 w-full">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <RadarChart cx="50%" cy="50%" outerRadius="75%" data={nationalRadarData}>
+                        <PolarGrid stroke={isDark ? "#334155" : "#e2e8f0"} strokeDasharray="3 3" />
+                        <PolarAngleAxis
+                          dataKey="subject"
+                          tick={{ fill: isDark ? "#f1f5f9" : "#1e293b", fontSize: 11, fontWeight: 500 }}
+                        />
+                        <PolarRadiusAxis domain={[0, 100]} tick={false} axisLine={false} />
+                        <Radar
+                          name="Active Cohort"
+                          dataKey="score"
+                          stroke="#0284c7"
+                          fill="#0284c7"
+                          fillOpacity={0.25}
+                          strokeWidth={2}
+                        />
+                        <Radar
+                          name="Baseline Norm"
+                          dataKey="benchmark"
+                          stroke={isDark ? "#64748b" : "#94a3b8"}
+                          fill={isDark ? "#64748b" : "#94a3b8"}
+                          fillOpacity={0.1}
+                          strokeWidth={1.5}
+                          strokeDasharray="3 3"
+                        />
+                        <RechartsTooltip
+                          contentStyle={{
+                            backgroundColor: isDark ? "#0f172a" : "#ffffff",
+                            borderColor: isDark ? "#334155" : "#e2e8f0",
+                            fontSize: "11px",
+                          }}
+                        />
+                      </RadarChart>
+                    </ResponsiveContainer>
+                  </div>
+                )}
               </CardContent>
             </Card>
 
@@ -529,11 +566,11 @@ export default function AdminAnalyticsPage() {
                       Task Initiation Barrier
                     </span>
                     <Badge variant="outline" className="text-[10px] text-amber-600 bg-amber-500/10 border-amber-500/20">
-                      38% High Barrier
+                      {data.friction_diagnostics?.task_initiation?.high_barrier ?? 0}% {data.friction_diagnostics?.task_initiation?.high_barrier ? "High Barrier" : "Pending Data"}
                     </Badge>
                   </div>
                   <p className="text-xs text-muted-foreground leading-relaxed">
-                    Across campuses, 62% sustain deep cognitive focus once past the 12-minute activation hurdle.
+                    {data.friction_diagnostics?.task_initiation?.diagnostic || "Awaiting initial assessment telemetry to calculate task initiation friction."}
                   </p>
                 </CardContent>
               </Card>
@@ -546,11 +583,11 @@ export default function AdminAnalyticsPage() {
                       Classroom Voice Hesitancy
                     </span>
                     <Badge variant="outline" className="text-[10px] text-rose-600 bg-rose-500/10 border-rose-500/20">
-                      41% Evaluative Silence
+                      {data.friction_diagnostics?.classroom_voice?.evaluative_silence ?? 0}% {data.friction_diagnostics?.classroom_voice?.evaluative_silence ? "Evaluative Silence" : "Pending Data"}
                     </Badge>
                   </div>
                   <p className="text-xs text-muted-foreground leading-relaxed">
-                    41% of students report withholding clarifying questions due to peer social evaluation concerns.
+                    {data.friction_diagnostics?.classroom_voice?.diagnostic || "Awaiting assessment telemetry to calibrate classroom query hesitations."}
                   </p>
                 </CardContent>
               </Card>
@@ -563,11 +600,11 @@ export default function AdminAnalyticsPage() {
                       Peer Boundary Strain
                     </span>
                     <Badge variant="outline" className="text-[10px] text-amber-600 bg-amber-500/10 border-amber-500/20">
-                      29% Mediation Fatigue
+                      {data.friction_diagnostics?.peer_boundary_strain?.acute_mediation ?? 0}% {data.friction_diagnostics?.peer_boundary_strain?.acute_mediation ? "Mediation Fatigue" : "Pending Data"}
                     </Badge>
                   </div>
                   <p className="text-xs text-muted-foreground leading-relaxed">
-                    29% experience emotional fatigue from group chat conflicts or being secret-keepers between mutual friends.
+                    {data.friction_diagnostics?.peer_boundary_strain?.diagnostic || "Awaiting peer dynamic responses to evaluate social boundary strain."}
                   </p>
                 </CardContent>
               </Card>
@@ -580,11 +617,11 @@ export default function AdminAnalyticsPage() {
                       Evening Screen Drag
                     </span>
                     <Badge variant="outline" className="text-[10px] text-rose-600 bg-rose-500/10 border-rose-500/20">
-                      46% Sleep Debt
+                      {data.friction_diagnostics?.screen_drag?.severe_sleep_debt ?? 0}% {data.friction_diagnostics?.screen_drag?.severe_sleep_debt ? "Sleep Debt" : "Pending Data"}
                     </Badge>
                   </div>
                   <p className="text-xs text-muted-foreground leading-relaxed">
-                    Post-10:30 PM device use suppresses restorative sleep cycles in 46% of secondary students.
+                    {data.friction_diagnostics?.screen_drag?.diagnostic || "Awaiting evening recovery and sleep hygiene diagnostic data."}
                   </p>
                 </CardContent>
               </Card>

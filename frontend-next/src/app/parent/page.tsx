@@ -28,6 +28,7 @@ import {
   MessageSquare,
   Video,
   Calendar,
+  CheckCircle2,
 } from "lucide-react";
 
 export default function ParentDashboardPage() {
@@ -156,10 +157,15 @@ export default function ParentDashboardPage() {
     );
   }
 
-  const activeChild = overview.active_child;
-  const preferredName = activeChild.nickname || activeChild.name;
+  const hasChildren = !!(overview.all_children && overview.all_children.length > 0 && overview.active_child && overview.active_child.id);
+  const activeChild = overview.active_child || {};
+  const preferredName = activeChild.nickname || activeChild.name || "Your child";
   const firstName = activeChild.nickname || (activeChild.name ? activeChild.name.split(" ")[0] : "Your child");
-  const counselor = overview.counselor;
+  const counselor = overview.counselor || {
+    name: "JaagrMind Platform Counselor",
+    role: "Central Wellness & Child Psychology Desk",
+    is_platform: true,
+  };
   const isPlatformCounselor = counselor?.is_platform;
 
   return (
@@ -180,258 +186,324 @@ export default function ParentDashboardPage() {
 
       {/* Main Dashboard Canvas */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8 relative z-10">
-        {/* Top Greeting & Child Identity */}
-        <section className="space-y-4">
-          <div className="flex flex-wrap items-end justify-between gap-3 px-1">
-            <div>
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-muted-foreground">
-                  Parent Portal
-                </span>
-                <span className="text-muted-foreground/40">•</span>
-                <span className="text-xs font-mono text-emerald-600 dark:text-emerald-400 font-bold">
-                  {activeChild.nickname ? `${activeChild.nickname} (${activeChild.name})` : activeChild.name} • Class {activeChild.grade}
-                </span>
-                {activeChild.is_linked ? (
-                  <Badge variant="outline" className="text-[10px] font-mono text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border-emerald-500/20">
-                    {activeChild.school_name}
-                  </Badge>
-                ) : (
-                  <Badge variant="outline" className="text-[10px] font-mono text-amber-600 dark:text-amber-400 bg-amber-500/10 border-amber-500/20">
-                    Independent Study
-                  </Badge>
-                )}
+        {!hasChildren ? (
+          <section className="space-y-6">
+            <div className="clay-card p-8 sm:p-12 text-center max-w-2xl mx-auto space-y-6 relative overflow-hidden">
+              <div className="h-16 w-16 rounded-2xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mx-auto shadow-inner border border-emerald-500/20">
+                <Sparkles className="h-8 w-8" />
               </div>
-              <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-foreground mt-1">
-                Welcome back, {overview.parent_name ? overview.parent_name.split(" ")[0] : "Parent"}
-              </h1>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                Daily wellbeing overview and practical support for {preferredName}.
-              </p>
-            </div>
+              <div className="space-y-2">
+                <h2 className="text-2xl sm:text-3xl font-black tracking-tight text-foreground">
+                  Welcome to Your Family Space, {overview.parent_name ? overview.parent_name.split(" ")[0] : "Parent"}
+                </h2>
+                <p className="text-sm text-muted-foreground max-w-md mx-auto leading-relaxed">
+                  Connect your child using their School Access Code or add an independent student profile to view their daily wellbeing rhythm, focus cadence, and care support.
+                </p>
+              </div>
 
-            {/* Quick Actions: Link to School if Independent + Edit Child Profile */}
-            <div className="flex items-center gap-2 flex-wrap">
-              {!activeChild.is_linked && (
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
                 <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setEditChildModalOpen(true)}
-                  className="text-xs h-8 gap-1.5 border-sky-500/40 text-sky-600 dark:text-sky-400 bg-sky-500/10 hover:bg-sky-500/20 font-semibold cursor-pointer shadow-2xs"
-                >
-                  <School className="h-3.5 w-3.5" />
-                  <span>Link to School</span>
-                </Button>
-              )}
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setEditChildModalOpen(true)}
-                className="text-xs h-8 gap-1.5 neo-well hover:bg-muted/40 font-medium cursor-pointer"
-              >
-                <Pencil className="h-3 w-3 text-muted-foreground" />
-                <span>Edit Profile</span>
-              </Button>
-              <div className="sm:hidden">
-                <Button
-                  variant="outline"
-                  size="sm"
+                  size="lg"
                   onClick={() => setAddChildModalOpen(true)}
-                  className="text-xs h-8 gap-1.5 neo-well cursor-pointer"
+                  className="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700 text-white font-bold gap-2 px-6 shadow-md cursor-pointer"
                 >
-                  <UserPlus className="h-3.5 w-3.5" />
-                  <span>Add Child</span>
+                  <UserPlus className="h-4 w-4" />
+                  <span>Connect or Add Student Profile</span>
                 </Button>
               </div>
-            </div>
-          </div>
 
-          {/* Living Mood Dial & 7-Day Pulse Tablets */}
-          <ParentAtmosphereBarometer
-            atmosphere={overview.atmosphere}
-            childName={preferredName}
-          />
-        </section>
-
-        {/* Core Practical Row: Routine & Study Balance + Direct Counselor Desk */}
-        <section className="grid grid-cols-1 lg:grid-cols-12 gap-7 items-stretch">
-          {/* Left (7 cols): Routine & Study Balance Matrix */}
-          <div className="lg:col-span-7">
-            <ParentGrowthRadar
-              pillars={overview.pillars}
-              childName={activeChild.name}
-            />
-          </div>
-
-          {/* Right (5 cols): Dynamic Counselor Card (School or JaagrMind) */}
-          <div className="lg:col-span-5">
-            <div className="clay-card p-6 sm:p-8 relative overflow-hidden transition-all flex flex-col justify-between h-full group">
-              {/* Top liquid specular line */}
-              <div className="absolute top-0 left-6 right-6 h-[1px] bg-gradient-to-r from-transparent via-foreground/15 to-transparent" />
-
-              <div className="space-y-4">
-                <div className="flex items-center justify-between pb-4 border-b border-border/40">
-                  <div className="space-y-0.5">
-                    <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-sky-600 dark:text-sky-400">
-                      {isPlatformCounselor ? "JAAGRMIND STUDENT CARE DESK" : "SCHOOL COUNSELOR"}
-                    </span>
-                    <h3 className="text-lg font-bold tracking-tight text-foreground">
-                      Direct Support for {firstName}
-                    </h3>
-                  </div>
-                  <div className="p-2 rounded-xl neo-well text-sky-600 dark:text-sky-400">
-                    <HeartHandshake className="h-4 w-4" />
-                  </div>
+              <div className="pt-6 border-t border-border/40 grid grid-cols-1 sm:grid-cols-3 gap-4 text-left">
+                <div className="p-3.5 rounded-xl neo-well space-y-1">
+                  <span className="text-[11px] font-bold text-foreground flex items-center gap-1.5">
+                    <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
+                    School Link
+                  </span>
+                  <p className="text-[11px] text-muted-foreground">
+                    Instantly sync with school check-ins using campus access code.
+                  </p>
                 </div>
-
-                <div className="p-5 rounded-2xl bg-card border border-border/70 shadow-xs space-y-3">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h4 className="text-sm font-bold text-foreground">
-                        {counselor.name}
-                      </h4>
-                      <p className="text-xs text-muted-foreground font-mono">
-                        {counselor.role}
-                      </p>
-                    </div>
-                    {isPlatformCounselor ? (
-                      <Badge variant="outline" className="text-[10px] font-mono text-sky-600 dark:text-sky-400 bg-sky-500/10 border-sky-500/20">
-                        Platform Support
+                <div className="p-3.5 rounded-xl neo-well space-y-1">
+                  <span className="text-[11px] font-bold text-foreground flex items-center gap-1.5">
+                    <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
+                    Independent Study
+                  </span>
+                  <p className="text-[11px] text-muted-foreground">
+                    Support home study with dedicated wellbeing reflections.
+                  </p>
+                </div>
+                <div className="p-3.5 rounded-xl neo-well space-y-1">
+                  <span className="text-[11px] font-bold text-foreground flex items-center gap-1.5">
+                    <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
+                    Care Desk
+                  </span>
+                  <p className="text-[11px] text-muted-foreground">
+                    Confidential guidance desk for family and student support.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </section>
+        ) : (
+          <>
+            {/* Top Greeting & Child Identity */}
+            <section className="space-y-4">
+              <div className="flex flex-wrap items-end justify-between gap-3 px-1">
+                <div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-muted-foreground">
+                      Parent Portal
+                    </span>
+                    <span className="text-muted-foreground/40">•</span>
+                    <span className="text-xs font-mono text-emerald-600 dark:text-emerald-400 font-bold">
+                      {activeChild.nickname ? `${activeChild.nickname} (${activeChild.name})` : activeChild.name} • Class {activeChild.grade}
+                    </span>
+                    {activeChild.is_linked ? (
+                      <Badge variant="outline" className="text-[10px] font-mono text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border-emerald-500/20">
+                        {activeChild.school_name}
                       </Badge>
                     ) : (
-                      <Badge variant="outline" className="text-[10px] font-mono text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border-emerald-500/20">
-                        On Campus
+                      <Badge variant="outline" className="text-[10px] font-mono text-amber-600 dark:text-amber-400 bg-amber-500/10 border-amber-500/20">
+                        Independent Study
                       </Badge>
                     )}
                   </div>
-
-                  <p className="text-xs text-foreground/85 leading-relaxed font-normal">
-                    {isPlatformCounselor
-                      ? `Because ${firstName} is studying independently, you have direct access to JaagrMind's platform counseling team. Any questions or notes you submit are handled directly by our senior team.`
-                      : `Available for private guidance on exam nervousness, study concentration, and teacher feedback at ${counselor.school_name}.`}
+                  <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-foreground mt-1">
+                    Welcome back, {overview.parent_name ? overview.parent_name.split(" ")[0] : "Parent"}
+                  </h1>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Daily wellbeing overview and practical support for {preferredName}.
                   </p>
-
-                  <div className="pt-1 flex flex-col gap-1.5 text-[11px] text-muted-foreground font-mono">
-                    <div className="flex items-center gap-1.5">
-                      <Building2 className="h-3.5 w-3.5 shrink-0 text-foreground/60" />
-                      <span>{counselor.school_name}{counselor.branch_name ? ` • ${counselor.branch_name}` : ""}</span>
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                      <Clock className="h-3.5 w-3.5 shrink-0 text-foreground/60" />
-                      <span>{counselor.available_hours}</span>
-                    </div>
-                  </div>
                 </div>
 
-                {/* Direct Action */}
-                <Button
-                  onClick={() => setCounselorModalOpen(true)}
-                  className="w-full h-11 text-xs font-bold gap-2 bg-sky-600 hover:bg-sky-700 text-white rounded-xl shadow-xs tactile-pill cursor-pointer"
-                >
-                  <HeartHandshake className="h-4 w-4" />
-                  <span>
-                    {isPlatformCounselor ? "Message JaagrMind Counselor" : "Message School Counselor"}
-                  </span>
-                </Button>
+                {/* Quick Actions: Link to School if Independent + Edit Child Profile */}
+                <div className="flex items-center gap-2 flex-wrap">
+                  {!activeChild.is_linked && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setEditChildModalOpen(true)}
+                      className="text-xs h-8 gap-1.5 border-sky-500/40 text-sky-600 dark:text-sky-400 bg-sky-500/10 hover:bg-sky-500/20 font-semibold cursor-pointer shadow-2xs"
+                    >
+                      <School className="h-3.5 w-3.5" />
+                      <span>Link to School</span>
+                    </Button>
+                  )}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setEditChildModalOpen(true)}
+                    className="text-xs h-8 gap-1.5 neo-well hover:bg-muted/40 font-medium cursor-pointer"
+                  >
+                    <Pencil className="h-3 w-3 text-muted-foreground" />
+                    <span>Edit Profile</span>
+                  </Button>
+                  <div className="sm:hidden">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setAddChildModalOpen(true)}
+                      className="text-xs h-8 gap-1.5 neo-well cursor-pointer"
+                    >
+                      <UserPlus className="h-3.5 w-3.5" />
+                      <span>Add Child</span>
+                    </Button>
+                  </div>
+                </div>
+              </div>
 
-                {/* Active Consultation Threads & Virtual Meetings */}
-                {inquiries.length > 0 && (
-                  <div className="pt-3 space-y-2 border-t border-border/40">
-                    <div className="flex items-center justify-between text-xs font-semibold text-foreground">
-                      <span className="flex items-center gap-1.5">
-                        <MessageSquare className="w-3.5 h-3.5 text-sky-500" />
-                        Active Inquiries & Discussions ({inquiries.length})
-                      </span>
+              {/* Living Mood Dial & 7-Day Pulse Tablets */}
+              <ParentAtmosphereBarometer
+                atmosphere={overview.atmosphere}
+                childName={preferredName}
+              />
+            </section>
+
+            {/* Core Practical Row: Routine & Study Balance + Direct Counselor Desk */}
+            <section className="grid grid-cols-1 lg:grid-cols-12 gap-7 items-stretch">
+              {/* Left (7 cols): Routine & Study Balance Matrix */}
+              <div className="lg:col-span-7">
+                <ParentGrowthRadar
+                  pillars={overview.pillars}
+                  childName={activeChild.name || preferredName}
+                />
+              </div>
+
+              {/* Right (5 cols): Dynamic Counselor Card (School or JaagrMind) */}
+              <div className="lg:col-span-5">
+                <div className="clay-card p-6 sm:p-8 relative overflow-hidden transition-all flex flex-col justify-between h-full group">
+                  {/* Top liquid specular line */}
+                  <div className="absolute top-0 left-6 right-6 h-[1px] bg-gradient-to-r from-transparent via-foreground/15 to-transparent" />
+
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between pb-4 border-b border-border/40">
+                      <div className="space-y-0.5">
+                        <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-sky-600 dark:text-sky-400">
+                          {isPlatformCounselor ? "JAAGRMIND STUDENT CARE DESK" : "SCHOOL COUNSELOR"}
+                        </span>
+                        <h3 className="text-lg font-bold tracking-tight text-foreground">
+                          Direct Support for {firstName}
+                        </h3>
+                      </div>
+                      <div className="p-2 rounded-xl neo-well text-sky-600 dark:text-sky-400">
+                        <HeartHandshake className="h-4 w-4" />
+                      </div>
                     </div>
 
-                    <div className="space-y-2 max-h-[340px] overflow-y-auto pr-0.5">
-                      {inquiries.map((inq) => {
-                        const hasMeeting = Boolean(inq.meeting_link || inq.meeting_date || inq.meeting_time);
-                        return (
-                          <div
-                            key={inq.id}
-                            className="p-3.5 rounded-xl border border-border/70 bg-card/90 space-y-2.5 shadow-xs"
-                          >
-                            <div className="flex items-start justify-between gap-2">
-                              <div className="min-w-0 flex-1">
-                                <h5 className="text-xs font-bold text-foreground truncate">
-                                  {inq.subject}
-                                </h5>
-                                <p className="text-[11px] text-muted-foreground">
-                                  {inq.created_at ? new Date(inq.created_at).toLocaleDateString() : ""} &bull; {inq.student_name}
-                                </p>
-                              </div>
-                              <span
-                                className={`px-2 py-0.5 rounded-full text-[10px] font-medium border shrink-0 ${
-                                  inq.status === "resolved"
-                                    ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800"
-                                    : inq.status === "in_progress"
-                                    ? "bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300 border-amber-200 dark:border-amber-800"
-                                    : "bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300 border-blue-200 dark:border-blue-800"
-                                }`}
-                              >
-                                {inq.status === "resolved"
-                                  ? "Resolved"
-                                  : inq.status === "in_progress"
-                                  ? "In Progress"
-                                  : "Open"}
-                              </span>
-                            </div>
+                    <div className="p-5 rounded-2xl bg-card border border-border/70 shadow-xs space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <h4 className="text-sm font-bold text-foreground">
+                            {counselor.name}
+                          </h4>
+                          <p className="text-xs text-muted-foreground font-mono">
+                            {counselor.role}
+                          </p>
+                        </div>
+                        {isPlatformCounselor ? (
+                          <Badge variant="outline" className="text-[10px] font-mono text-sky-600 dark:text-sky-400 bg-sky-500/10 border-sky-500/20">
+                            Platform Support
+                          </Badge>
+                        ) : (
+                          <Badge variant="outline" className="text-[10px] font-mono text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border-emerald-500/20">
+                            Campus Assigned
+                          </Badge>
+                        )}
+                      </div>
 
-                            {/* Recognized Meeting Card Banner with direct Click to Join button */}
-                            {hasMeeting && (
-                              <MeetingCard
-                                meetingDate={inq.meeting_date}
-                                meetingTime={inq.meeting_time}
-                                meetingLink={inq.meeting_link}
-                                compact={true}
-                              />
-                            )}
-
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => {
-                                setSelectedInquiryForThread(inq);
-                                setThreadModalOpen(true);
-                              }}
-                              className="w-full h-8 text-xs font-medium gap-1.5 rounded-lg border-border hover:bg-muted/50"
-                            >
-                              <MessageSquare className="w-3.5 h-3.5" />
-                              <span>View Discussion & Reply</span>
-                            </Button>
+                      <div className="space-y-1.5 pt-2 border-t border-border/40 text-xs text-muted-foreground font-mono">
+                        {!isPlatformCounselor && counselor.school_name && (
+                          <div className="flex items-center gap-2">
+                            <Building2 className="h-3.5 w-3.5 text-muted-foreground" />
+                            <span>{counselor.school_name} {counselor.branch_name ? `(${counselor.branch_name})` : ""}</span>
                           </div>
-                        );
-                      })}
+                        )}
+                        <div className="flex items-center gap-2">
+                          <Clock className="h-3.5 w-3.5 text-muted-foreground" />
+                          <span>{counselor.available_hours || "Mon-Fri, 9:00 AM - 4:00 PM"}</span>
+                        </div>
+                        {counselor.email && (
+                          <div className="flex items-center gap-2">
+                            <Mail className="h-3.5 w-3.5 text-muted-foreground" />
+                            <span>{counselor.email}</span>
+                          </div>
+                        )}
+                      </div>
                     </div>
+
+                    <p className="text-xs text-muted-foreground leading-relaxed">
+                      {isPlatformCounselor
+                        ? `Because ${firstName} is studying independently, you have direct access to JaagrMind's central child psychology desk for routine planning, screen regulation, and study balance.`
+                        : `Your family is directly connected to ${counselor.name} at ${counselor.school_name} for coordinated academic and wellbeing guidance.`}
+                    </p>
                   </div>
-                )}
-              </div>
 
-              {/* Practical Guidance Note */}
-              <div className="mt-6 pt-5 border-t border-border/40 space-y-1.5">
-                <div className="flex items-center gap-1.5 text-xs font-bold text-foreground">
-                  <Sparkles className="h-3.5 w-3.5 text-amber-500" />
-                  <span>Confidential Support</span>
+                  <div className="pt-5 border-t border-border/40 mt-4">
+                    <Button
+                      onClick={() => setCounselorModalOpen(true)}
+                      className="w-full bg-sky-600 hover:bg-sky-700 text-white font-semibold text-xs h-9 gap-2 shadow-xs cursor-pointer"
+                    >
+                      <MessageSquare className="h-3.5 w-3.5" />
+                      <span>{isPlatformCounselor ? "Message Care Desk" : "Consult School Counselor"}</span>
+                    </Button>
+                  </div>
                 </div>
-                <p className="text-[11px] text-muted-foreground leading-relaxed">
-                  {isPlatformCounselor
-                    ? "Inquiries submitted here route securely to JaagrMind platform supervisors. We follow up with you via email."
-                    : `Notes sent here are private between you and the school wellness counselor.`}
-                </p>
               </div>
-            </div>
-          </div>
-        </section>
+            </section>
 
-        {/* Standard Check-ins Set by Superadmin for this Grade */}
-        <ParentStandardCheckins
-          childName={activeChild.name}
-          preferredName={activeChild.nickname || activeChild.name}
-          grade={activeChild.grade}
-          checkins={overview.standard_checkins || []}
-          onStartCheckin={handleStartCheckin}
-        />
+            {/* Active Consultations & Follow-up Meetings Section */}
+            {inquiries.length > 0 && (
+              <section className="space-y-4">
+                <div className="flex items-center justify-between px-1">
+                  <div className="space-y-0.5">
+                    <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-muted-foreground">
+                      TWO-WAY COUNSELOR DIALOGUES
+                    </span>
+                    <h2 className="text-xl font-bold tracking-tight text-foreground">
+                      Counselor Conversations & Scheduled Sessions
+                    </h2>
+                  </div>
+                  <Badge variant="outline" className="text-xs font-mono">
+                    {inquiries.length} {inquiries.length === 1 ? "Active Thread" : "Active Threads"}
+                  </Badge>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {inquiries.map((inq) => {
+                    const hasMeeting = Boolean(inq.meeting_link || inq.meeting_date || inq.meeting_time);
+                    return (
+                      <div
+                        key={inq.id}
+                        className="clay-card p-5 space-y-3 flex flex-col justify-between hover:border-foreground/30 transition-all group"
+                      >
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-muted-foreground">
+                              {inq.counselor_type === "school_counselor" ? "School Counselor" : "JaagrMind Central"}
+                            </span>
+                            <Badge
+                              variant="outline"
+                              className={`text-[10px] font-mono capitalize ${
+                                inq.status === "resolved"
+                                  ? "text-emerald-600 border-emerald-500/20 bg-emerald-500/10"
+                                  : inq.status === "in_progress"
+                                  ? "text-sky-600 border-sky-500/20 bg-sky-500/10"
+                                  : "text-amber-600 border-amber-500/20 bg-amber-500/10"
+                              }`}
+                            >
+                              {inq.status === "resolved"
+                                ? "Resolved"
+                                : inq.status === "in_progress"
+                                ? "In Progress"
+                                : "Open"}
+                            </Badge>
+                          </div>
+
+                          <h4 className="text-sm font-semibold text-foreground line-clamp-1">
+                            {inq.subject}
+                          </h4>
+                          <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed">
+                            {inq.note || ""}
+                          </p>
+
+                          {hasMeeting && (
+                            <MeetingCard
+                              meetingDate={inq.meeting_date}
+                              meetingTime={inq.meeting_time}
+                              meetingLink={inq.meeting_link}
+                              compact={true}
+                            />
+                          )}
+
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              setSelectedInquiryForThread(inq);
+                              setThreadModalOpen(true);
+                            }}
+                            className="w-full h-8 text-xs font-medium gap-1.5 rounded-lg border-border hover:bg-muted/50 cursor-pointer"
+                          >
+                            <MessageSquare className="w-3.5 h-3.5" />
+                            <span>View Discussion & Reply</span>
+                          </Button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </section>
+            )}
+
+            {/* Standard Check-ins Set by Superadmin for this Grade */}
+            <ParentStandardCheckins
+              childName={activeChild.name}
+              preferredName={activeChild.nickname || activeChild.name}
+              grade={activeChild.grade}
+              checkins={overview.standard_checkins || []}
+              onStartCheckin={handleStartCheckin}
+            />
+          </>
+        )}
       </main>
 
       {/* Modals */}

@@ -405,7 +405,7 @@ export default function AdminDashboardPage() {
             </div>
           </CardHeader>
           <CardContent className="pt-2 pb-4 space-y-3">
-            {totalStudents === 0 ? (
+            {totalStudents === 0 || totalAssessments === 0 ? (
               <div className="h-[280px] w-full flex flex-col items-center justify-center text-center p-6 border border-dashed rounded-lg">
                 <BarChart3 className="h-10 w-10 text-muted-foreground/40 mb-3" />
                 <p className="font-semibold text-sm">Awaiting First Cohort Check-in</p>

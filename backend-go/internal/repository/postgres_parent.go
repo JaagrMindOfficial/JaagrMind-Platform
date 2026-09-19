@@ -60,31 +60,31 @@ func (r *postgresParent) GetChildren(ctx context.Context, parentID string) ([]do
 			var meta map[string]any
 			if err := json.Unmarshal(metaBytes, &meta); err == nil {
 				childName, _ := meta["child_name"].(string)
-				grade, _ := meta["grade"].(string)
-				schoolName, _ := meta["school_name"].(string)
+				childName = strings.TrimSpace(childName)
+				// Only register if the user actually supplied a child name! Never inject fake fallback names
+				if childName != "" {
+					grade, _ := meta["grade"].(string)
+					schoolName, _ := meta["school_name"].(string)
+					if strings.TrimSpace(grade) == "" {
+						grade = "10th"
+					}
+					if strings.TrimSpace(schoolName) == "" {
+						schoolName = "Independent Study / Home"
+					}
 
-				if strings.TrimSpace(childName) == "" {
-					childName = "Aarav Sharma"
+					children = append(children, domain.ChildSummary{
+						ID:           "self-registered",
+						Name:         childName,
+						Grade:        grade,
+						Section:      "A",
+						AccessID:     "HOME-01",
+						SchoolID:     "",
+						SchoolName:   schoolName,
+						SchoolCode:   "HOME",
+						Relationship: "parent",
+						IsLinked:     false,
+					})
 				}
-				if strings.TrimSpace(grade) == "" {
-					grade = "10th"
-				}
-				if strings.TrimSpace(schoolName) == "" {
-					schoolName = "Independent Study / Home"
-				}
-
-				children = append(children, domain.ChildSummary{
-					ID:           "self-registered",
-					Name:         childName,
-					Grade:        grade,
-					Section:      "A",
-					AccessID:     "HOME-01",
-					SchoolID:     "",
-					SchoolName:   schoolName,
-					SchoolCode:   "HOME",
-					Relationship: "parent",
-					IsLinked:     false,
-				})
 			}
 		}
 	}
@@ -102,19 +102,41 @@ func (r *postgresParent) GetParentOverview(ctx context.Context, parentID string,
 
 	// 2. Fetch children
 	children, err := r.GetChildren(ctx, parentID)
-	if err != nil || len(children) == 0 {
-		children = []domain.ChildSummary{{
-			ID:           "default",
-			Name:         "Aarav Sharma",
-			Grade:        "Class 10-A",
-			Section:      "A",
-			AccessID:     "101",
-			SchoolID:     "",
-			SchoolName:   "Oakwood High School",
-			SchoolCode:   "OAKWOOD",
-			Relationship: "parent",
-			IsLinked:     true,
-		}}
+	if err != nil {
+		children = []domain.ChildSummary{}
+	}
+
+	// If parent has no children registered or linked, return clean empty state
+	if len(children) == 0 {
+		return &domain.ParentOverviewResponse{
+			ParentName:  parentName,
+			AllChildren: []domain.ChildSummary{},
+			ActiveChild: domain.ChildSummary{},
+			Atmosphere: domain.EmotionalAtmosphere{
+				EquilibriumScore: 0,
+				WeatherState:     "pending",
+				WeatherLabel:     "No Student Profile Linked",
+				Summary:          "Connect your child using their School Access ID or add an independent student profile to view their wellbeing rhythm.",
+				LastCheckinDate:  "—",
+				DailyPulse:       []domain.DailyPulseWell{},
+			},
+			Pillars: domain.PillarScores{
+				GrowthObservation: "No active student profile linked yet.",
+				Superpowers:       []string{},
+			},
+			Counselor: domain.CounselorContact{
+				ID:             "",
+				Type:           "jaagrmind_counselor",
+				Name:           "JaagrMind Platform Counselor",
+				Role:           "Central Wellness & Child Psychology Desk",
+				SchoolName:     "JaagrMind Platform",
+				BranchName:     "National Support",
+				Email:          "counseling@jaagrmind.com",
+				AvailableHours: "24/7 Crisis & Weekday Guidance",
+				IsPlatform:     true,
+			},
+			StandardCheckins: []domain.StudentGradeCheckin{},
+		}, nil
 	}
 
 	// Select active child
@@ -134,32 +156,38 @@ func (r *postgresParent) GetParentOverview(ctx context.Context, parentID string,
 		displayName = activeChild.Nickname
 	}
 	firstName := strings.Split(displayName, " ")[0]
-
-	atmosphere := domain.EmotionalAtmosphere{
-		EquilibriumScore: 78,
-		WeatherState:     "sunny_calm",
-		WeatherLabel:     "Calm & Focused",
-		Summary:          fmt.Sprintf("%s has had a good, steady week. There was some study stress around midweek tests, but %s relaxed nicely over the weekend. Sleep and energy levels have been good.", firstName, firstName),
-		LastCheckinDate:  "Yesterday at 4:15 PM",
-		DailyPulse: []domain.DailyPulseWell{
-			{Day: "Mon", Date: "Sep 08", State: "optimal", Score: 92},
-			{Day: "Tue", Date: "Sep 09", State: "optimal", Score: 90},
-			{Day: "Wed", Date: "Sep 10", State: "mild_tension", Score: 74},
-			{Day: "Thu", Date: "Sep 11", State: "mild_tension", Score: 72},
-			{Day: "Fri", Date: "Sep 12", State: "calm", Score: 84},
-			{Day: "Sat", Date: "Sep 13", State: "optimal", Score: 94},
-			{Day: "Sun", Date: "Sep 14", State: "optimal", Score: 91},
-		},
+	if firstName == "" {
+		firstName = "Your child"
 	}
 
-	// If child is linked, check real student_results if available
-	if activeChild.IsLinked && activeChild.ID != "self-registered" {
+	atmosphere := domain.EmotionalAtmosphere{
+		EquilibriumScore: 0,
+		WeatherState:     "pending",
+		WeatherLabel:     "Awaiting First Check-in",
+		Summary:          fmt.Sprintf("No wellbeing check-ins recorded yet for %s. Daily rhythm and mental peace will calibrate once your child submits their first reflection.", firstName),
+		LastCheckinDate:  "Awaiting check-in",
+		DailyPulse:       []domain.DailyPulseWell{},
+	}
+
+	// 4. Core Pillars of Growth
+	pillars := domain.PillarScores{
+		FocusEndurance:      0,
+		EmotionalResilience: 0,
+		SocialEase:          0,
+		SelfExpression:      0,
+		RestAndEnergy:       0,
+		Superpowers:         []string{},
+		GrowthObservation:   fmt.Sprintf("Awaiting first assessment data to evaluate %s's daily routine balance.", firstName),
+	}
+
+	// If child is linked or has results, calibrate atmosphere and pillars dynamically
+	if activeChild.ID != "" && activeChild.ID != "self-registered" {
 		var avgScore float64
 		var count int
 		_ = r.db.QueryRow(ctx, `
-			SELECT COALESCE(AVG(total_score), 78), COUNT(*)
+			SELECT COALESCE(AVG(total_score), 0), COUNT(*)
 			FROM student_results
-			WHERE student_id = $1
+			WHERE student_id = $1::uuid
 		`, activeChild.ID).Scan(&avgScore, &count)
 
 		if count > 0 {
@@ -174,55 +202,66 @@ func (r *postgresParent) GetParentOverview(ctx context.Context, parentID string,
 				atmosphere.WeatherState = "passing_cloud"
 				atmosphere.WeatherLabel = "Under Study Pressure"
 			}
-		}
-	}
+			atmosphere.Summary = fmt.Sprintf("%s has completed %d wellbeing check-ins. Longitudinal stability is currently tracking at %d%% peace of mind.", firstName, count, atmosphere.EquilibriumScore)
+			atmosphere.LastCheckinDate = "Recent"
 
-	// 4. Core Pillars of Growth (Plain terms for parents)
-	pillars := domain.PillarScores{
-		FocusEndurance:      84,
-		EmotionalResilience: 80,
-		SocialEase:          86,
-		SelfExpression:      88,
-		RestAndEnergy:       76,
-		Superpowers: []string{
-			"Good Problem Solver",
-			"Calm Under Exam Pressure",
-			"Helpful to Friends",
-		},
-		GrowthObservation: fmt.Sprintf("%s is studying with good focus. The best help at home is winding down phone screen time 30 minutes before bed so %s wakes up refreshed.", firstName, firstName),
-	}
+			mRows, mErr := r.db.Query(ctx, `
+				SELECT TO_CHAR(recorded_at, 'Dy'), TO_CHAR(recorded_at, 'Mon DD'), mood_value 
+				FROM mood_entries 
+				WHERE student_id = $1::uuid 
+				ORDER BY recorded_at DESC 
+				LIMIT 7
+			`, activeChild.ID)
+			if mErr == nil {
+				defer mRows.Close()
+				for mRows.Next() {
+					var dayStr, dateStr string
+					var mVal int
+					if err := mRows.Scan(&dayStr, &dateStr, &mVal); err == nil {
+						state := "calm"
+						if mVal >= 80 {
+							state = "optimal"
+						} else if mVal < 60 {
+							state = "mild_tension"
+						}
+						atmosphere.DailyPulse = append(atmosphere.DailyPulse, domain.DailyPulseWell{
+							Day: dayStr, Date: dateStr, State: state, Score: mVal,
+						})
+					}
+				}
+			}
 
-	// If child has student_results, calibrate pillars dynamically from the latest check-in
-	if activeChild.IsLinked && activeChild.ID != "self-registered" {
-		var latestSecScoresJSON []byte
-		var latestScore int
-		err := r.db.QueryRow(ctx, `
-			SELECT section_scores, total_score
-			FROM student_results
-			WHERE student_id = $1::uuid
-			ORDER BY completed_at DESC
-			LIMIT 1
-		`, activeChild.ID).Scan(&latestSecScoresJSON, &latestScore)
-		if err == nil && len(latestSecScoresJSON) > 0 {
-			var secScores map[string]int
-			if err := json.Unmarshal(latestSecScoresJSON, &secScores); err == nil {
-				if sA, ok := secScores["A"]; ok && sA > 0 {
-					pillars.FocusEndurance = minInt(100, sA*100/16)
-				}
-				if sB, ok := secScores["B"]; ok && sB > 0 {
-					pillars.EmotionalResilience = minInt(100, sB*100/16)
-					pillars.SelfExpression = minInt(100, (sB*100/16)+4)
-				}
-				if sC, ok := secScores["C"]; ok && sC > 0 {
-					pillars.SocialEase = minInt(100, sC*100/16)
-				}
-				if sD, ok := secScores["D"]; ok && sD > 0 {
-					pillars.RestAndEnergy = minInt(100, sD*100/16)
-				}
-				if latestScore >= 75 {
-					pillars.Superpowers = []string{"Rapid Initiation & Focus", "High Stress Adaptability", "Helpful Peer Communicator"}
-				} else if latestScore >= 55 {
-					pillars.Superpowers = []string{"Steady Study Cadence", "Reflective Thinker", "Thoughtful Peer Friend"}
+			var latestSecScoresJSON []byte
+			var latestScore int
+			err := r.db.QueryRow(ctx, `
+				SELECT section_scores, total_score
+				FROM student_results
+				WHERE student_id = $1::uuid
+				ORDER BY completed_at DESC
+				LIMIT 1
+			`, activeChild.ID).Scan(&latestSecScoresJSON, &latestScore)
+			if err == nil && len(latestSecScoresJSON) > 0 {
+				var secScores map[string]int
+				if err := json.Unmarshal(latestSecScoresJSON, &secScores); err == nil {
+					if sA, ok := secScores["A"]; ok && sA > 0 {
+						pillars.FocusEndurance = minInt(100, sA*100/16)
+					}
+					if sB, ok := secScores["B"]; ok && sB > 0 {
+						pillars.EmotionalResilience = minInt(100, sB*100/16)
+						pillars.SelfExpression = minInt(100, (sB*100/16)+4)
+					}
+					if sC, ok := secScores["C"]; ok && sC > 0 {
+						pillars.SocialEase = minInt(100, sC*100/16)
+					}
+					if sD, ok := secScores["D"]; ok && sD > 0 {
+						pillars.RestAndEnergy = minInt(100, sD*100/16)
+					}
+					if latestScore >= 75 {
+						pillars.Superpowers = []string{"Rapid Initiation & Focus", "High Stress Adaptability", "Helpful Peer Communicator"}
+					} else if latestScore >= 55 {
+						pillars.Superpowers = []string{"Steady Study Cadence", "Reflective Thinker", "Thoughtful Peer Friend"}
+					}
+					pillars.GrowthObservation = fmt.Sprintf("%s is studying with steady focus. The best help at home is winding down screen time 30 minutes before bed so %s wakes up refreshed.", firstName, firstName)
 				}
 			}
 		}

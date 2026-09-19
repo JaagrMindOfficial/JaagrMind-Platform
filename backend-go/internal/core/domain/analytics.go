@@ -195,10 +195,19 @@ type DetailedSchoolAnalytics struct {
 	Archetypes          []map[string]interface{}   `json:"archetypes"`
 }
 
+type NationalOverview struct {
+	NationalRadar       []map[string]interface{} `json:"national_radar"`
+	ExecutiveBanner     map[string]string        `json:"executive_banner"`
+	FrictionDiagnostics map[string]interface{}   `json:"friction_diagnostics"`
+	Archetypes          []map[string]interface{} `json:"archetypes"`
+	GradeHeatmaps       []map[string]interface{} `json:"grade_heatmaps"`
+}
+
 type AnalyticsRepository interface {
 	GetAdminAnalytics(ctx context.Context) (*AdminAnalytics, error)
 	GetSchoolsOverview(ctx context.Context) ([]SchoolComparativeMetric, error)
 	GetSchoolAnalytics(ctx context.Context, schoolID string) (*SchoolAnalytics, error)
 	GetDetailedSchoolAnalytics(ctx context.Context, schoolID, branchID, grade, section string) (*DetailedSchoolAnalytics, error)
 	GetStudentProfiles(ctx context.Context, schoolID, grade, section, search string) ([]StudentAnalyticsProfile, error)
+	GetNationalOverview(ctx context.Context) (*NationalOverview, error)
 }

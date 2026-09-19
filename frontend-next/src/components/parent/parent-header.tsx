@@ -85,14 +85,18 @@ export function ParentHeader({
             <DropdownMenu>
               <DropdownMenuTrigger className="flex items-center gap-2 px-3 py-1.5 rounded-full neo-well hover:bg-muted/50 border border-border/80 transition-all text-left shadow-2xs">
                 <div className="h-6 w-6 rounded-full bg-sky-500/10 text-sky-600 dark:text-sky-400 flex items-center justify-center text-xs font-bold font-mono">
-                  {activeChild?.name ? activeChild.name.charAt(0) : "C"}
+                  {activeChild?.name ? activeChild.name.charAt(0) : "+"}
                 </div>
                 <div className="flex flex-col max-w-[120px] sm:max-w-[160px]">
                   <span className="text-xs font-semibold text-foreground truncate">
-                    {activeChild?.name || "Select Child"}
+                    {activeChild?.name || "Add Child"}
                   </span>
                   <span className="text-[10px] text-muted-foreground font-mono truncate">
-                    {activeChild?.grade || "Standard"} • {activeChild?.school_name || "Enrolled"}
+                    {activeChild?.grade
+                      ? activeChild.school_name
+                        ? `Class ${activeChild.grade} • ${activeChild.school_name}`
+                        : `Class ${activeChild.grade}`
+                      : "No Student Linked"}
                   </span>
                 </div>
                 <ChevronDown className="h-3.5 w-3.5 text-muted-foreground ml-0.5" />

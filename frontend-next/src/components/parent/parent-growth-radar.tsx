@@ -30,18 +30,12 @@ interface PillarScoresProps {
 export function ParentGrowthRadar({ pillars, childName }: PillarScoresProps) {
   const firstName = childName.split(" ")[0] || "Your child";
 
-  const hasData =
-    pillars &&
-    (pillars.attn_stability !== undefined ||
-      pillars.focus_endurance !== undefined ||
-      pillars.social_comfort !== undefined ||
-      pillars.load_regulation !== undefined ||
-      pillars.self_safety !== undefined);
-
   const studyFocusVal = pillars?.attn_stability ?? pillars?.focus_endurance ?? 0;
   const friendsVal = pillars?.social_comfort ?? pillars?.social_ease ?? 0;
   const calmResetVal = pillars?.load_regulation ?? pillars?.rest_and_energy ?? 0;
   const confidenceVal = pillars?.self_safety ?? pillars?.emotional_resilience ?? 0;
+
+  const hasData = studyFocusVal > 0 || friendsVal > 0 || calmResetVal > 0 || confidenceVal > 0;
 
   // Unified 4-Pole Diamond Radar (Top, Right, Bottom, Left)
   const radarData = [

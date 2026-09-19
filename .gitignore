@@ -65,3 +65,8 @@ frontend-next/CLAUDE.md
 readme.md
 previous_chat_transcript*.jsonl
 previous_chat_readable.md
+
+# Local-only seed scripts & flow diagrams (development testing)
+backend-go/cmd/seed-workflow/
+platform_flow.md
+backend-go/seed-workflow

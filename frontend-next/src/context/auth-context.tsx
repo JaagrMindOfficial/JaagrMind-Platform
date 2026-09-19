@@ -36,7 +36,7 @@ interface AuthContextType {
   enableParentRole: () => Promise<void>;
   studentLogin: (accessId: string, schoolId: string, mobileNumber?: string, email?: string) => Promise<void>;
   setAuthSession: (token: string, user: User) => void;
-  logout: () => void;
+  logout: (redirectTo?: unknown) => void;
   isSuperAdmin: boolean;
   isSchoolAdmin: boolean;
   isCounselor: boolean;
@@ -200,12 +200,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(userData);
   };
 
-  const logout = () => {
+  const logout = (redirectTo?: unknown) => {
     localStorage.removeItem("token");
     localStorage.removeItem("user");
     localStorage.removeItem("superadmin_impersonating");
     clearAuthCookie();
     setUser(null);
+    if (typeof redirectTo === "string") {
+      router.push(redirectTo);
+      return;
+    }
     if (pathname.startsWith("/admin") || pathname.startsWith("/care-desk") || pathname.startsWith("/internal-ops")) {
       router.push("/internal-ops/signin");
     } else {

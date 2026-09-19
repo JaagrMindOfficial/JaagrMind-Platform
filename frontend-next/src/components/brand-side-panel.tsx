@@ -10,7 +10,7 @@ interface BrandSidePanelProps {
 export function BrandSidePanel({ subtitle }: BrandSidePanelProps) {
   return (
     <div className="w-full md:w-5/12 lg:w-[46%] h-full flex flex-col justify-between p-8 sm:p-12 lg:p-14 border-b md:border-b-0 md:border-r border-[#222222]/10 dark:border-white/10 relative overflow-hidden bg-[#FFF5EA]/70 dark:bg-[#151515] shrink-0 select-none">
-      
+
       {/* ── Floating Brand Pill Graphics (from Brand Kit, strictly no purple) ── */}
       <div className="absolute -top-16 -right-20 w-80 h-32 rounded-full bg-[#42B677]/15 -rotate-[32deg] pointer-events-none blur-xs" />
       <div className="absolute top-1/3 -left-20 w-96 h-36 rounded-full bg-[#005456]/12 -rotate-[32deg] pointer-events-none blur-xs" />
@@ -35,7 +35,7 @@ export function BrandSidePanel({ subtitle }: BrandSidePanelProps) {
       {/* ── Center: Brand Philosophy Typography ─────────────────────────────── */}
       <div className="relative z-10 space-y-4 my-auto py-6">
         <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-semibold tracking-wide bg-[#222222]/5 dark:bg-white/10 border border-[#222222]/10 dark:border-white/15 text-[#222222]/80 dark:text-[#FFF8F0]/90">
-          <Sparkles className="h-3 w-3 text-[#42B677]" />
+
           <span>EMOTIONS MADE EASY</span>
         </div>
 
@@ -52,11 +52,6 @@ export function BrandSidePanel({ subtitle }: BrandSidePanelProps) {
         </p>
       </div>
 
-      {/* ── Bottom: Clinical Foundations Indicator ─────────────────────────── */}
-      <div className="relative z-10 flex items-center gap-3 text-[11px] font-mono uppercase tracking-widest text-[#222222]/50 dark:text-[#FFF8F0]/50">
-        <span className="h-2 w-2 rounded-full bg-[#42B677] animate-pulse" />
-        <span>4-Pole Regulation Framework</span>
-      </div>
     </div>
   );
 }

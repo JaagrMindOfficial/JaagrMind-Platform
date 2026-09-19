@@ -392,11 +392,10 @@ export default function AdminDashboardPage() {
                     key={c.id}
                     type="button"
                     onClick={() => setActiveCohort(c.id)}
-                    className={`px-2 py-0.5 text-[11px] font-medium rounded-md transition-colors ${
-                      activeCohort === c.id
+                    className={`px-2 py-0.5 text-[11px] font-medium rounded-md transition-colors ${activeCohort === c.id
                         ? "bg-background text-foreground shadow-xs"
                         : "text-muted-foreground hover:text-foreground"
-                    }`}
+                      }`}
                   >
                     {c.label}
                   </button>
@@ -566,7 +565,7 @@ export default function AdminDashboardPage() {
           </CardContent>
           <div className="p-3 border-t border-border/40 bg-muted/20 text-[11px] text-muted-foreground flex items-center justify-between">
             <span>Aggregated across {totalAssessments > 0 ? totalAssessments : 4} assessment instruments</span>
-            <span className="font-medium text-foreground">99.4% Uptime</span>
+
           </div>
         </Card>
       </div>

@@ -11,12 +11,16 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { BrandSidePanel } from "@/components/brand-side-panel";
 import { api } from "@/lib/api";
 import { useAuth } from "@/context/auth-context";
+import { getActiveSessionDetails } from "@/lib/session-utils";
 import {
   Building2,
   Users,
   HeartHandshake,
   CheckCircle2,
   ArrowRight,
+  ArrowUpRight,
+  LogOut,
+  ShieldCheck,
   School,
   GraduationCap,
   Lightbulb,
@@ -25,7 +29,14 @@ import {
 function SignupContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const { login } = useAuth();
+  const { login, user, logout, hasRole } = useAuth();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  const activeSession = mounted && user ? getActiveSessionDetails(user, hasRole) : null;
 
   // Tab State: "institute" (Educational Application) or "independent" (Family & Parent)
   const [activeTab, setActiveTab] = useState<"institute" | "independent">("institute");
@@ -137,8 +148,30 @@ function SignupContent() {
   return (
     <div className="h-screen max-h-screen overflow-hidden w-screen bg-[#FFF8F0] dark:bg-[#121212] text-[#222222] dark:text-[#FFF8F0] flex flex-col md:flex-row relative select-none">
       
-      {/* ── Discreet Top-Right Theme Toggle ──────────────────────────── */}
-      <div className="absolute top-4 right-5 z-30">
+      {/* ── Top-Right Controls: Visit Our Page + JM Internal-Ops + Theme Toggle ── */}
+      <div className="absolute top-4 right-5 z-30 flex items-center gap-2.5">
+        <a
+          href="https://jaagrmind.com"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-xs font-medium text-[#222222]/70 dark:text-[#FFF8F0]/70 hover:text-[#42B677] dark:hover:text-[#42B677] transition-colors flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl hover:bg-[#222222]/5 dark:hover:bg-white/5"
+        >
+          <span>Visit our page</span>
+          <ArrowUpRight className="h-3.5 w-3.5" />
+        </a>
+
+        <div className="h-4 w-px bg-[#222222]/15 dark:bg-white/15" />
+
+        <Link
+          href="/internal-ops/signin"
+          className="text-xs font-semibold text-[#005456] dark:text-[#91D17C] hover:text-[#42B677] transition-colors flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border border-[#005456]/20 dark:border-[#42B677]/30 bg-white/60 dark:bg-[#181818]/60 hover:bg-[#005456]/10 shadow-2xs"
+        >
+          <ShieldCheck className="h-3.5 w-3.5 text-[#42B677]" />
+          <span>JM Internal-Ops</span>
+        </Link>
+
+        <div className="h-4 w-px bg-[#222222]/15 dark:bg-white/15" />
+
         <ThemeToggle />
       </div>
 
@@ -151,7 +184,83 @@ function SignupContent() {
         {/* Subtle Ambient Radial Glow */}
         <div className="absolute top-1/4 right-1/4 w-72 h-72 bg-[#42B677]/8 rounded-full blur-[100px] pointer-events-none" />
 
-        <div className="max-w-xl w-full mx-auto space-y-3 relative z-10">
+        {activeSession ? (
+          <div className="max-w-md w-full mx-auto space-y-5 relative z-10 my-auto">
+            {/* Header */}
+            <div className="space-y-1.5">
+              <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-[#222222] dark:text-[#FFF8F0]">
+                Already signed in
+              </h2>
+              <p className="text-xs text-[#222222]/65 dark:text-[#FFF8F0]/65">
+                You are currently logged in with active credentials.
+              </p>
+            </div>
+
+            {/* Card */}
+            <div className="rounded-2xl border border-[#222222]/15 dark:border-white/10 bg-white/80 dark:bg-[#181818]/80 backdrop-blur-md p-6 sm:p-7 shadow-md space-y-5 relative overflow-hidden">
+              {/* Top Accent Strip */}
+              <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-[#005456] via-[#42B677] to-[#91D17C]" />
+
+              {/* Space Pill */}
+              <div className="flex items-center justify-between">
+                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold tracking-wide uppercase bg-[#42B677]/10 text-[#42B677] border border-[#42B677]/20">
+                  <span className="h-2 w-2 rounded-full bg-[#42B677] animate-pulse" />
+                  <span>{activeSession.space}</span>
+                </div>
+                <span className="text-[11px] font-mono uppercase tracking-wider text-[#222222]/50 dark:text-[#FFF8F0]/50">
+                  {activeSession.spaceBadge}
+                </span>
+              </div>
+
+              {/* Profile & Role Info */}
+              <div className="flex items-start gap-3.5">
+                <div className="h-11 w-11 rounded-xl bg-[#42B677]/15 dark:bg-[#42B677]/20 text-[#42B677] flex items-center justify-center shrink-0">
+                  <activeSession.icon className="h-5 w-5" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <h3 className="text-base font-bold text-[#222222] dark:text-[#FFF8F0]">
+                    {activeSession.role}
+                  </h3>
+                  <p className="text-xs font-medium text-[#222222]/70 dark:text-[#FFF8F0]/70 mt-0.5 truncate">
+                    {user?.name} <span className="text-[#222222]/40 dark:text-white/40 font-mono">({user?.email})</span>
+                  </p>
+                  <p className="text-[11px] text-[#222222]/60 dark:text-[#FFF8F0]/60 mt-0.5 line-clamp-2">
+                    {activeSession.subtitle}
+                  </p>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="space-y-2.5 pt-1">
+                <Button
+                  onClick={() => router.push(activeSession.destination)}
+                  className="w-full h-11 text-xs font-semibold bg-[#42B677] hover:bg-[#42B677]/90 text-white rounded-xl shadow-xs cursor-pointer flex items-center justify-center gap-2 transition-all"
+                >
+                  <span>Continue to Dashboard</span>
+                  <ArrowRight className="h-3.5 w-3.5" />
+                </Button>
+
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => logout("/signup")}
+                  className="w-full h-10 text-xs font-semibold border-[#222222]/15 dark:border-white/15 hover:border-destructive/40 text-destructive dark:text-red-400 hover:bg-destructive/10 dark:hover:bg-destructive/20 rounded-xl cursor-pointer flex items-center justify-center gap-2 transition-colors"
+                >
+                  <LogOut className="h-3.5 w-3.5" />
+                  <span>Sign Out & Create New Account</span>
+                </Button>
+              </div>
+            </div>
+
+            {/* Discrete Return Link */}
+            <div className="text-center text-xs text-[#222222]/60 dark:text-[#FFF8F0]/60">
+              <Link href="/" className="hover:text-[#42B677] transition-colors">
+                ← Return to Spaces Portal
+              </Link>
+            </div>
+          </div>
+        ) : (
+          <div className="max-w-xl w-full mx-auto space-y-3 relative z-10">
           
           {/* Compact Header */}
           <div className="space-y-0.5">
@@ -623,6 +732,7 @@ function SignupContent() {
             </div>
           </div>
         </div>
+        )}
       </div>
 
       {/* ── Discrete Bottom-Right Copyright Overlay ──────────────────── */}

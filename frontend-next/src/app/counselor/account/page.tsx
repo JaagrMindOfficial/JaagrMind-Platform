@@ -95,7 +95,7 @@ export default function CounselorAccountPage() {
             <Button
               variant="outline"
               size="sm"
-              onClick={logout}
+              onClick={() => logout()}
               className="text-xs gap-1.5 text-destructive hover:bg-destructive/10 border-destructive/30"
             >
               <LogOut className="h-3.5 w-3.5" />

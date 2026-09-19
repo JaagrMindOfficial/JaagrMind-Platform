@@ -17,7 +17,7 @@ const caveat = Caveat({
 });
 
 export const metadata: Metadata = {
-  title: "JaagrMind • Emotions Made Easy | Adolescent Behavioral Health Platform",
+  title: "JaagrMind • Emotions Made Easy",
   description: "Next-generation multidimensional student assessment and 4-bucket clinical behavioral regulation platform.",
   icons: {
     icon: [

@@ -5,13 +5,12 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { BrandSidePanel } from "@/components/brand-side-panel";
+import { useAuth } from "@/context/auth-context";
 import {
   Building2,
-  Stethoscope,
   HeartHandshake,
   GraduationCap,
   ArrowRight,
-  Sparkles,
 } from "lucide-react";
 
 interface WorkspaceItem {
@@ -19,8 +18,8 @@ interface WorkspaceItem {
   num: string;
   keyNumber: string;
   title: string;
+  bracket?: string;
   subtitle: string;
-  href: string;
   icon: any;
   accent: string;
   badge: string;
@@ -28,45 +27,32 @@ interface WorkspaceItem {
 
 const workspaces: WorkspaceItem[] = [
   {
-    id: "campus",
+    id: "institutional",
     num: "01",
     keyNumber: "1",
-    title: "Campus Portal",
-    subtitle: "School leadership, multi-branch telemetry & faculty",
-    href: "/school",
+    title: "Institutional",
+    bracket: "(School Admin, Teacher, School Counselor)",
+    subtitle: "School leadership, multi-branch telemetry, classroom & campus counseling",
     icon: Building2,
     accent: "#42B677",
-    badge: "Institutional",
-  },
-  {
-    id: "counselor",
-    num: "02",
-    keyNumber: "2",
-    title: "Care Desk",
-    subtitle: "Clinical 4-bucket regulation triage & student dossiers",
-    href: "/counselor",
-    icon: Stethoscope,
-    accent: "#005456",
-    badge: "Clinical",
+    badge: "Campus",
   },
   {
     id: "family",
-    num: "03",
-    keyNumber: "3",
-    title: "Family Desk",
-    subtitle: "Parent growth radar, atmosphere barometer & consultations",
-    href: "/parent",
+    num: "02",
+    keyNumber: "2",
+    title: "Family & Guardian",
+    subtitle: "Parent growth radar, living atmosphere barometer & care advisory",
     icon: HeartHandshake,
     accent: "#42B677",
     badge: "Home Care",
   },
   {
     id: "student",
-    num: "04",
-    keyNumber: "4",
-    title: "Student Check-in",
-    subtitle: "Access ID login, centering breath & reflective dilemmas",
-    href: "/student/login",
+    num: "03",
+    keyNumber: "3",
+    title: "Student",
+    subtitle: "Access ID check-in, centering breath & reflective dilemmas",
     icon: GraduationCap,
     accent: "#91D17C",
     badge: "Learner",
@@ -75,24 +61,62 @@ const workspaces: WorkspaceItem[] = [
 
 export default function Home() {
   const router = useRouter();
+  const { user, loading, hasRole } = useAuth();
   const [hoveredId, setHoveredId] = useState<string | null>(null);
 
-  // Keyboard shortcut listener: Press 1, 2, 3, or 4 to immediately enter
+  const getWorkspaceDestination = (workspaceId: string): string => {
+    // Check if session / cookies / token are valid
+    const token = typeof window !== "undefined"
+      ? localStorage.getItem("token") || (document.cookie.match(/(?:^|; )token=([^;]*)/)?.[1] ?? null)
+      : null;
+    const isValidSession = Boolean(token && user);
+
+    if (workspaceId === "institutional") {
+      if (isValidSession) {
+        if (hasRole("counselor")) return "/counselor";
+        if (hasRole("school_admin") || hasRole("teacher")) return "/school";
+        if (hasRole("superadmin") || user?.is_internal) return "/internal-ops/admin";
+        return "/school";
+      }
+      return "/login?redirect=/school";
+    }
+
+    if (workspaceId === "family") {
+      if (isValidSession) return "/parent";
+      return "/login?redirect=/parent&role=parent";
+    }
+
+    if (workspaceId === "student") {
+      if (isValidSession && (hasRole("student") || (user as any)?.role === "student")) return "/student";
+      return "/student/login";
+    }
+
+    return "/";
+  };
+
+  const handleWorkspaceClick = (e: React.MouseEvent, item: WorkspaceItem) => {
+    e.preventDefault();
+    const dest = getWorkspaceDestination(item.id);
+    router.push(dest);
+  };
+
+  // Keyboard shortcut listener: Press 1, 2, or 3 to immediately enter
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
       const target = workspaces.find((w) => w.keyNumber === e.key);
       if (target) {
-        router.push(target.href);
+        const dest = getWorkspaceDestination(target.id);
+        router.push(dest);
       }
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [router]);
+  }, [router, user, loading]);
 
   return (
     <div className="h-screen max-h-screen overflow-hidden w-screen bg-[#FFF8F0] dark:bg-[#121212] text-[#222222] dark:text-[#FFF8F0] flex flex-col md:flex-row relative select-none">
-      
+
       {/* ── Discreet Top-Right Theme Toggle ──────────────────────────── */}
       <div className="absolute top-5 right-6 z-30">
         <ThemeToggle />
@@ -103,48 +127,48 @@ export default function Home() {
 
       {/* ── RIGHT SIDE: Workspace Portal Launcher ─────────────────────── */}
       <div className="w-full md:w-7/12 lg:w-[54%] h-full flex flex-col justify-center px-8 sm:px-12 lg:px-16 py-8 relative">
-        
+
         {/* Subtle Ambient Radial Glow */}
         <div className="absolute top-1/4 right-1/4 w-80 h-80 bg-[#42B677]/8 rounded-full blur-[120px] pointer-events-none" />
 
         <div className="max-w-xl w-full mx-auto space-y-6 relative z-10">
-          
+
           {/* Header */}
           <div className="space-y-1.5">
             <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-[#222222] dark:text-[#FFF8F0]">
-              Select your workspace
+              Select your space
             </h2>
             <p className="text-xs text-[#222222]/60 dark:text-[#FFF8F0]/60 flex items-center gap-2">
               <span>Choose a portal to enter or press</span>
               <span className="inline-flex items-center font-mono text-[10px] font-bold px-1.5 py-0.5 rounded bg-[#222222]/10 dark:bg-white/10 text-[#222222] dark:text-white">
-                1 – 4
+                1 – 3
               </span>
             </p>
           </div>
 
-          {/* 4 Sleek Horizontal Workspace Rows */}
+          {/* 3 Sleek Horizontal Workspace Rows */}
           <div className="space-y-3">
             {workspaces.map((item) => {
               const Icon = item.icon;
               const isHovered = hoveredId === item.id;
+              const destination = getWorkspaceDestination(item.id);
 
               return (
                 <Link
                   key={item.id}
-                  href={item.href}
+                  href={destination}
+                  onClick={(e) => handleWorkspaceClick(e, item)}
                   onMouseEnter={() => setHoveredId(item.id)}
                   onMouseLeave={() => setHoveredId(null)}
-                  className={`group w-full p-4 rounded-2xl border transition-all duration-200 flex items-center justify-between cursor-pointer relative overflow-hidden ${
-                    isHovered
+                  className={`group w-full p-4 rounded-2xl border transition-all duration-200 flex items-center justify-between cursor-pointer relative overflow-hidden ${isHovered
                       ? "border-[#222222] dark:border-[#42B677] bg-white dark:bg-[#1a1a1a] shadow-md -translate-y-0.5"
                       : "border-[#222222]/15 dark:border-white/10 bg-white/70 dark:bg-[#181818]/60 backdrop-blur-sm hover:border-[#222222]/40"
-                  }`}
+                    }`}
                 >
                   {/* Left Pill Accent on hover */}
                   <div
-                    className={`absolute left-0 top-0 bottom-0 w-1 transition-all duration-200 ${
-                      isHovered ? "bg-[#42B677] opacity-100" : "opacity-0"
-                    }`}
+                    className={`absolute left-0 top-0 bottom-0 w-1 transition-all duration-200 ${isHovered ? "bg-[#42B677] opacity-100" : "opacity-0"
+                      }`}
                   />
 
                   <div className="flex items-center gap-3.5 pl-1.5">
@@ -163,10 +187,15 @@ export default function Home() {
 
                     {/* Titles */}
                     <div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 flex-wrap">
                         <h3 className="text-sm font-bold text-[#222222] dark:text-[#FFF8F0] group-hover:text-[#005456] dark:group-hover:text-[#91D17C] transition-colors">
                           {item.title}
                         </h3>
+                        {item.bracket && (
+                          <span className="text-xs text-[#222222]/70 dark:text-[#FFF8F0]/70 font-medium">
+                            {item.bracket}
+                          </span>
+                        )}
                         <span className="text-[10px] uppercase font-bold tracking-wider text-[#42B677]">
                           {item.badge}
                         </span>

@@ -49,6 +49,24 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
+function setAuthCookie(token: string) {
+  if (typeof document !== "undefined") {
+    document.cookie = `token=${encodeURIComponent(token)}; path=/; max-age=604800; SameSite=Lax`;
+  }
+}
+
+function clearAuthCookie() {
+  if (typeof document !== "undefined") {
+    document.cookie = "token=; path=/; max-age=0; SameSite=Lax";
+  }
+}
+
+function getAuthCookie(): string | null {
+  if (typeof document === "undefined") return null;
+  const match = document.cookie.match(/(?:^|; )token=([^;]*)/);
+  return match ? decodeURIComponent(match[1]) : null;
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -56,15 +74,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const token = localStorage.getItem("token");
+    let token = localStorage.getItem("token");
+    if (!token) {
+      token = getAuthCookie();
+      if (token) {
+        localStorage.setItem("token", token);
+      }
+    }
     const storedUser = localStorage.getItem("user");
 
     if (token && storedUser) {
       try {
         setUser(JSON.parse(storedUser));
+        setAuthCookie(token);
       } catch {
         localStorage.removeItem("user");
         localStorage.removeItem("token");
+        clearAuthCookie();
       }
     }
     setLoading(false);
@@ -75,6 +101,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const data = await api.post("/api/auth/login", { email, password }, { skipAuth: true });
     localStorage.setItem("token", data.token);
     localStorage.setItem("user", JSON.stringify(data.user));
+    setAuthCookie(data.token);
     setUser(data.user);
 
     const roles = data.user.roles?.map((r: UserRole) => r.role) || [];
@@ -112,6 +139,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const data = await api.post("/api/auth/internal/login", { email, password }, { skipAuth: true });
     localStorage.setItem("token", data.token);
     localStorage.setItem("user", JSON.stringify(data.user));
+    setAuthCookie(data.token);
     setUser(data.user);
 
     const roles = data.user.roles?.map((r: UserRole) => r.role) || [];
@@ -140,6 +168,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (data.token && data.user) {
       localStorage.setItem("token", data.token);
       localStorage.setItem("user", JSON.stringify(data.user));
+      setAuthCookie(data.token);
       setUser(data.user);
     }
   };
@@ -147,6 +176,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const studentLogin = async (accessId: string, schoolId: string, mobileNumber?: string, email?: string) => {
     const data = await api.post("/api/auth/student/login", { accessId, schoolId, mobileNumber, email }, { skipAuth: true });
     localStorage.setItem("token", data.token);
+    setAuthCookie(data.token);
     
     // Construct a user object that fits our AuthContext model
     const studentUser: User = {
@@ -166,6 +196,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const setAuthSession = (token: string, userData: User) => {
     localStorage.setItem("token", token);
     localStorage.setItem("user", JSON.stringify(userData));
+    setAuthCookie(token);
     setUser(userData);
   };
 
@@ -173,6 +204,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.removeItem("token");
     localStorage.removeItem("user");
     localStorage.removeItem("superadmin_impersonating");
+    clearAuthCookie();
     setUser(null);
     if (pathname.startsWith("/admin") || pathname.startsWith("/care-desk") || pathname.startsWith("/internal-ops")) {
       router.push("/internal-ops/signin");

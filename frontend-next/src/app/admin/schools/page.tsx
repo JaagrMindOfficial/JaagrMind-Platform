@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge"
 import { 
   Search, Plus, Edit, ShieldBan, ShieldCheck, Trash2, 
   Building2, School as SchoolIcon, BarChart2, Check, AlertCircle, Phone, MapPin,
-  Mail, Key, Copy, CheckCircle2, GitBranch, ExternalLink, History
+  Mail, Key, Copy, CheckCircle2, GitBranch, ExternalLink, History, RefreshCw, AlertTriangle
 } from "lucide-react"
 import { 
   Dialog, DialogContent, DialogHeader, DialogTitle, 
@@ -36,12 +36,44 @@ interface School {
   created_at: string
 }
 
+interface SchoolInvite {
+  id: string
+  school_name: string
+  email: string
+  token: string
+  expires_at: string
+  accepted_at?: string | null
+  created_at: string
+}
+
 export default function AdminSchoolsPage() {
   const router = useRouter()
   const [search, setSearch] = useState("")
   const [schools, setSchools] = useState<School[]>([])
   const [loading, setLoading] = useState(true)
   const [pendingApplicationsCount, setPendingApplicationsCount] = useState(0)
+
+  // Tab navigation
+  const [activeTab, setActiveTab] = useState<"campuses" | "invites">("campuses")
+
+  // Invites state
+  const [invites, setInvites] = useState<SchoolInvite[]>([])
+  const [loadingInvites, setLoadingInvites] = useState(false)
+  const [copiedInviteId, setCopiedInviteId] = useState<string | null>(null)
+  const [revokeTarget, setRevokeTarget] = useState<SchoolInvite | null>(null)
+  const [revoking, setRevoking] = useState(false)
+
+  // Native invite success modal
+  const [inviteSuccessModal, setInviteSuccessModal] = useState<{
+    school_name: string
+    email: string
+    token: string
+    invite_link: string
+  } | null>(null)
+  const [inviteCopied, setInviteCopied] = useState(false)
+
+  // Action error message modal
+  const [errorMessage, setErrorMessage] = useState<string | null>(null)
 
   // Invite modal state
   const [isAddOpen, setIsAddOpen] = useState(false)
@@ -110,8 +142,21 @@ export default function AdminSchoolsPage() {
     }
   }
 
+  const fetchInvites = async () => {
+    setLoadingInvites(true)
+    try {
+      const data = await api.get("/api/admin/school-invites")
+      setInvites(Array.isArray(data) ? data : [])
+    } catch (err) {
+      console.error("Failed to load school invitations", err)
+    } finally {
+      setLoadingInvites(false)
+    }
+  }
+
   useEffect(() => {
     fetchSchools()
+    fetchInvites()
   }, [])
 
   const handleInviteSubmit = async (e: React.FormEvent) => {
@@ -120,13 +165,53 @@ export default function AdminSchoolsPage() {
     try {
       const res = await api.post("/api/admin/invite-school", inviteData)
       setIsAddOpen(false)
+      const link = res.invite_link || `${window.location.origin}/invite/${res.token}`
+      setInviteSuccessModal({
+        school_name: inviteData.school_name,
+        email: inviteData.email,
+        token: res.token,
+        invite_link: link,
+      })
       setInviteData({ school_name: "", email: "", phone_number: "" })
-      alert(`Invitation generated successfully! Direct onboarding link: http://localhost:3000/invite/${res.token}`)
       fetchSchools()
+      fetchInvites()
     } catch (err: any) {
-      alert(err.message || "Failed to send invitation")
+      setErrorMessage(err.message || "Failed to send invitation")
     } finally {
       setInviteSubmitting(false)
+    }
+  }
+
+  const handleConfirmRevoke = async () => {
+    if (!revokeTarget) return
+    setRevoking(true)
+    try {
+      await api.delete(`/api/admin/school-invites/${revokeTarget.id}`)
+      setRevokeTarget(null)
+      fetchInvites()
+    } catch (err: any) {
+      setErrorMessage(err.message || "Failed to revoke invitation")
+    } finally {
+      setRevoking(false)
+    }
+  }
+
+  const handleResendInvite = async (inv: SchoolInvite) => {
+    try {
+      const res = await api.post("/api/admin/invite-school", {
+        school_name: inv.school_name,
+        email: inv.email,
+      })
+      const link = res.invite_link || `${window.location.origin}/invite/${res.token}`
+      setInviteSuccessModal({
+        school_name: inv.school_name,
+        email: inv.email,
+        token: res.token,
+        invite_link: link,
+      })
+      fetchInvites()
+    } catch (err: any) {
+      setErrorMessage(err.message || "Failed to renew invitation")
     }
   }
 
@@ -174,7 +259,7 @@ export default function AdminSchoolsPage() {
       setEditingSchool(null)
       fetchSchools()
     } catch (err: any) {
-      alert(err.message || "Failed to update school")
+      setErrorMessage(err.message || "Failed to update school")
     } finally {
       setEditSubmitting(false)
     }
@@ -189,7 +274,7 @@ export default function AdminSchoolsPage() {
       setDeletingSchool(null)
       fetchSchools()
     } catch (err: any) {
-      alert(err.message || "Failed to delete school")
+      setErrorMessage(err.message || "Failed to delete school")
     } finally {
       setDeleteSubmitting(false)
     }
@@ -208,7 +293,7 @@ export default function AdminSchoolsPage() {
         window.location.href = "/school"
       }
     } catch (err: any) {
-      alert(err.message || "Failed to enter school portal")
+      setErrorMessage(err.message || "Failed to enter school portal")
     } finally {
       setImpersonatingId(null)
     }
@@ -225,7 +310,7 @@ export default function AdminSchoolsPage() {
         resetUrl: res.reset_url || `${window.location.origin}/reset-password?token=${res.token}`,
       })
     } catch (err: any) {
-      alert(err.message || "Failed to generate setup link")
+      setErrorMessage(err.message || "Failed to generate setup link")
     }
   }
 
@@ -238,7 +323,7 @@ export default function AdminSchoolsPage() {
       setBlockingSchool(null)
       fetchSchools()
     } catch (err: any) {
-      alert(err.message || "Failed to update institution access status")
+      setErrorMessage(err.message || "Failed to update institution access status")
     } finally {
       setBlockSubmitting(false)
     }
@@ -363,21 +448,203 @@ export default function AdminSchoolsPage() {
         </Card>
       </div>
 
+      {/* Views Switcher: Registered Campuses vs Sent Invitations */}
+      <div className="flex items-center gap-2 border-b border-border/60 pb-3">
+        <button
+          type="button"
+          onClick={() => setActiveTab("campuses")}
+          className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+            activeTab === "campuses"
+              ? "bg-primary text-primary-foreground shadow-xs"
+              : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+          }`}
+        >
+          <Building2 className="h-3.5 w-3.5" />
+          <span>Active Campuses</span>
+          <Badge variant="outline" className={`text-[10px] px-1.5 py-0 ${activeTab === "campuses" ? "border-primary-foreground/30 text-primary-foreground" : ""}`}>
+            {schools.length}
+          </Badge>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab("invites")}
+          className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+            activeTab === "invites"
+              ? "bg-primary text-primary-foreground shadow-xs"
+              : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+          }`}
+        >
+          <Mail className="h-3.5 w-3.5" />
+          <span>Sent Invitations</span>
+          <Badge variant="outline" className={`text-[10px] px-1.5 py-0 ${activeTab === "invites" ? "border-primary-foreground/30 text-primary-foreground" : "bg-amber-500/10 text-amber-600 border-amber-500/30"}`}>
+            {invites.filter(i => !i.accepted_at).length} Pending
+          </Badge>
+        </button>
+      </div>
+
       {/* Table Card */}
       <Card className="border-border/60 shadow-sm">
         <CardHeader className="pb-3 border-b border-border/40 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="relative w-full max-w-sm">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
             <Input
-              placeholder="Search by name, code, phone, or city..."
+              placeholder={activeTab === "campuses" ? "Search by name, code, phone, or city..." : "Search invitations by school name or email..."}
               className="pl-9 h-9 text-sm"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
           </div>
+          {activeTab === "invites" && (
+            <Button size="sm" variant="outline" onClick={fetchInvites} disabled={loadingInvites} className="h-8 text-xs gap-1.5 cursor-pointer">
+              <RefreshCw className={`h-3 w-3 ${loadingInvites ? "animate-spin" : ""}`} />
+              <span>Refresh Invitations</span>
+            </Button>
+          )}
         </CardHeader>
         <CardContent className="p-0">
-          {loading ? (
+          {activeTab === "invites" ? (
+            loadingInvites ? (
+              <div className="p-12 text-center text-muted-foreground text-sm">Loading invitations...</div>
+            ) : invites.length === 0 ? (
+              <div className="p-12 text-center text-muted-foreground space-y-2">
+                <Mail className="h-8 w-8 mx-auto text-muted-foreground/40" />
+                <p className="text-sm font-medium text-foreground">No School Invitations Dispatched Yet</p>
+                <p className="text-xs text-muted-foreground max-w-sm mx-auto">
+                  Click &quot;Invite School&quot; in the header above to dispatch a secure 7-day onboarding invitation.
+                </p>
+              </div>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Institution Name</TableHead>
+                    <TableHead>Admin Recipient</TableHead>
+                    <TableHead>Dispatched On</TableHead>
+                    <TableHead>Expiration Status</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Direct Onboarding Link</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {invites
+                    .filter(inv =>
+                      !search ||
+                      inv.school_name.toLowerCase().includes(search.toLowerCase()) ||
+                      inv.email.toLowerCase().includes(search.toLowerCase())
+                    )
+                    .map((inv) => {
+                      const isAccepted = Boolean(inv.accepted_at)
+                      const isExpired = !isAccepted && new Date(inv.expires_at).getTime() <= Date.now()
+                      const inviteUrl = `${typeof window !== "undefined" ? window.location.origin : ""}/invite/${inv.token}`
+
+                      return (
+                        <TableRow key={inv.id} className="hover:bg-muted/40 transition-colors">
+                          <TableCell className="font-semibold text-foreground">
+                            <div className="flex items-center gap-2">
+                              <Building2 className="h-4 w-4 text-muted-foreground shrink-0" />
+                              <span>{inv.school_name}</span>
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-muted-foreground font-mono text-xs">
+                            {inv.email}
+                          </TableCell>
+                          <TableCell className="text-muted-foreground text-xs font-mono">
+                            {inv.created_at ? new Date(inv.created_at).toLocaleDateString() : "—"}
+                          </TableCell>
+                          <TableCell className="text-xs">
+                            {isAccepted ? (
+                              <span className="text-muted-foreground font-mono text-[11px]">
+                                Activated {new Date(inv.accepted_at!).toLocaleDateString()}
+                              </span>
+                            ) : isExpired ? (
+                              <span className="text-rose-600 dark:text-rose-400 font-mono text-[11px]">
+                                Expired on {new Date(inv.expires_at).toLocaleDateString()}
+                              </span>
+                            ) : (
+                              <span className="text-amber-600 dark:text-amber-400 font-mono text-[11px]">
+                                Valid until {new Date(inv.expires_at).toLocaleDateString()}
+                              </span>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            {isAccepted ? (
+                              <Badge variant="outline" className="text-[10px] font-mono text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border-emerald-500/20">
+                                Accepted & Active
+                              </Badge>
+                            ) : isExpired ? (
+                              <Badge variant="outline" className="text-[10px] font-mono text-rose-600 dark:text-rose-400 bg-rose-500/10 border-rose-500/20">
+                                Expired
+                              </Badge>
+                            ) : (
+                              <Badge variant="outline" className="text-[10px] font-mono text-amber-600 dark:text-amber-400 bg-amber-500/10 border-amber-500/20">
+                                Pending Activation
+                              </Badge>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-1.5">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-7 text-xs gap-1.5 cursor-pointer font-mono"
+                                onClick={() => {
+                                  navigator.clipboard.writeText(inviteUrl)
+                                  setCopiedInviteId(inv.id)
+                                  setTimeout(() => setCopiedInviteId(null), 2000)
+                                }}
+                              >
+                                {copiedInviteId === inv.id ? (
+                                  <CheckCircle2 className="h-3 w-3 text-emerald-500" />
+                                ) : (
+                                  <Copy className="h-3 w-3 text-muted-foreground" />
+                                )}
+                                <span>{copiedInviteId === inv.id ? "Copied" : "Copy Link"}</span>
+                              </Button>
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <div className="flex items-center justify-end gap-1">
+                              {!isAccepted && (
+                                <>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-7 text-xs text-sky-600 hover:text-sky-700 hover:bg-sky-500/10 cursor-pointer"
+                                    onClick={() => handleResendInvite(inv)}
+                                    title="Renew & Re-dispatch Invitation"
+                                  >
+                                    <RefreshCw className="h-3 w-3 mr-1" />
+                                    <span>Renew</span>
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-7 text-xs text-rose-600 hover:text-rose-700 hover:bg-rose-500/10 cursor-pointer"
+                                    onClick={() => setRevokeTarget(inv)}
+                                    title="Revoke and cancel invitation"
+                                  >
+                                    <Trash2 className="h-3 w-3 mr-1" />
+                                    <span>Revoke</span>
+                                  </Button>
+                                </>
+                              )}
+                              {isAccepted && (
+                                <span className="text-[11px] text-muted-foreground italic mr-2">
+                                  Completed
+                                </span>
+                              )}
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      )
+                    })}
+                </TableBody>
+              </Table>
+            )
+          ) : (
+            loading ? (
             <div className="p-12 text-center text-muted-foreground text-sm">Loading institutions...</div>
           ) : filtered.length === 0 ? (
             <div className="p-12 text-center text-muted-foreground text-sm">No institutions found.</div>
@@ -504,7 +771,7 @@ export default function AdminSchoolsPage() {
                           variant="ghost" 
                           size="icon" 
                           className="h-8 w-8 text-muted-foreground hover:text-foreground"
-                          onClick={() => router.push(`/admin/analytics`)}
+                          onClick={() => router.push(`/internal-ops/admin/analytics?school_id=${school.id}`)}
                           title="View Analytics"
                         >
                           <BarChart2 className="h-3.5 w-3.5" />
@@ -555,7 +822,7 @@ export default function AdminSchoolsPage() {
                 })}
               </TableBody>
             </Table>
-          )}
+          ) )}
         </CardContent>
       </Card>
 
@@ -820,6 +1087,123 @@ export default function AdminSchoolsPage() {
         onSuccess={() => fetchSchools()}
         isAdminMode={true}
       />
+
+      {/* Native School Invitation Dispatched Dialog */}
+      <Dialog open={!!inviteSuccessModal} onOpenChange={(open) => !open && setInviteSuccessModal(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-foreground">
+              <Mail className="h-4 w-4 text-sky-500" />
+              School Onboarding Invitation Dispatched
+            </DialogTitle>
+            <DialogDescription>
+              A secure onboarding token has been generated for <strong>{inviteSuccessModal?.school_name}</strong>.
+            </DialogDescription>
+          </DialogHeader>
+
+          {inviteSuccessModal && (
+            <div className="space-y-4 py-2 text-xs">
+              <div className="rounded-lg bg-muted/50 p-3.5 border border-border/80 space-y-2">
+                <div className="flex justify-between items-center">
+                  <span className="text-muted-foreground">Institution Name:</span>
+                  <span className="font-semibold text-foreground">{inviteSuccessModal.school_name}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-muted-foreground">Admin Recipient:</span>
+                  <span className="font-medium text-foreground">{inviteSuccessModal.email}</span>
+                </div>
+                <div className="flex justify-between items-center text-[11px] text-emerald-600 dark:text-emerald-400">
+                  <span>Validity Window:</span>
+                  <span className="font-semibold">7 Days Active</span>
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="font-medium text-foreground">Direct Onboarding Link:</label>
+                <div className="flex gap-2">
+                  <Input
+                    readOnly
+                    value={inviteSuccessModal.invite_link}
+                    className="h-8 text-xs font-mono bg-background"
+                  />
+                  <Button
+                    size="sm"
+                    className="h-8 text-xs shrink-0 cursor-pointer"
+                    onClick={() => {
+                      navigator.clipboard.writeText(inviteSuccessModal.invite_link)
+                      setInviteCopied(true)
+                      setTimeout(() => setInviteCopied(false), 2000)
+                    }}
+                  >
+                    {inviteCopied ? <CheckCircle2 className="h-3.5 w-3.5 mr-1 text-emerald-400" /> : <Copy className="h-3.5 w-3.5 mr-1" />}
+                    {inviteCopied ? "Copied" : "Copy Link"}
+                  </Button>
+                </div>
+              </div>
+
+              <div className="rounded-lg border border-sky-500/30 bg-sky-500/10 p-3 text-[11px] text-sky-700 dark:text-sky-300 leading-relaxed">
+                An invitation email has been queued to the recipient address. The administrator can follow this secure link to designate campus branches, register teachers, and set their admin password.
+              </div>
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button className="w-full h-8 text-xs cursor-pointer" onClick={() => setInviteSuccessModal(null)}>
+              Done
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Revoke Invitation Confirmation Dialog */}
+      <Dialog open={!!revokeTarget} onOpenChange={(open) => !open && setRevokeTarget(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-destructive">
+              <AlertTriangle className="h-4 w-4" />
+              Revoke School Invitation
+            </DialogTitle>
+            <DialogDescription>
+              Are you sure you want to revoke the onboarding invitation for <strong>{revokeTarget?.school_name}</strong> ({revokeTarget?.email})?
+            </DialogDescription>
+          </DialogHeader>
+          <div className="text-xs text-muted-foreground py-2">
+            This will immediately invalidate the onboarding token and prevent the recipient from completing registration with this link.
+          </div>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" onClick={() => setRevokeTarget(null)}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={revoking}
+              onClick={handleConfirmRevoke}
+            >
+              {revoking ? "Revoking..." : "Yes, Revoke Invitation"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Action Error / Notice Dialog */}
+      <Dialog open={!!errorMessage} onOpenChange={(open) => !open && setErrorMessage(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-rose-600">
+              <AlertCircle className="h-4 w-4" />
+              Action Notice
+            </DialogTitle>
+            <DialogDescription className="text-xs pt-1">
+              {errorMessage}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button onClick={() => setErrorMessage(null)} className="h-8 text-xs cursor-pointer">
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

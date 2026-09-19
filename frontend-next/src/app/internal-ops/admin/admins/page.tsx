@@ -96,8 +96,7 @@ export default function AdminsPage() {
         name: counselorName,
         email: counselorEmail,
         phone: counselorPhone,
-        role: counselorRole,
-        school_id: counselorSchoolId || undefined,
+        role: "JaagrMind Central Counselor",
       })
       setOnboardResult({
         temp_password: data.temp_password,
@@ -183,43 +182,20 @@ export default function AdminsPage() {
                     onChange={(e) => setCounselorPhone(e.target.value)}
                   />
                 </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Role</label>
-                  <div className="flex gap-2">
-                    <Button
-                      type="button"
-                      variant={counselorRole === "JaagrMind Central Counselor" ? "default" : "outline"}
-                      size="sm"
-                      onClick={() => { setCounselorRole("JaagrMind Central Counselor"); setCounselorSchoolId(""); }}
-                      className="text-xs flex-1"
-                    >
-                      Central (Care Desk)
-                    </Button>
-                    <Button
-                      type="button"
-                      variant={counselorRole === "School Wellness Counselor" ? "default" : "outline"}
-                      size="sm"
-                      onClick={() => setCounselorRole("School Wellness Counselor")}
-                      className="text-xs flex-1"
-                    >
-                      School Counselor
-                    </Button>
+                <div className="space-y-1.5 p-3 rounded-lg bg-muted/40 border border-border/60">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold text-foreground">Role: Central Care Desk Counselor</span>
+                    <Badge variant="outline" className="text-[10px] font-mono text-sky-600 dark:text-sky-400 bg-sky-500/10 border-sky-500/20">
+                      JaagrMind Platform
+                    </Badge>
                   </div>
+                  <p className="text-[11px] text-muted-foreground leading-relaxed">
+                    Platform counselors provide central wellbeing oversight and direct parent dialogues for independent learners. Institutional school counselors are managed directly by school administrators on their campus portal.
+                  </p>
                 </div>
-                {counselorRole === "School Wellness Counselor" && (
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium">School ID (UUID)</label>
-                    <Input 
-                      placeholder="School UUID (from Schools page)" 
-                      value={counselorSchoolId}
-                      onChange={(e) => setCounselorSchoolId(e.target.value)}
-                    />
-                    <p className="text-[10px] text-muted-foreground">Optional. Copy the School ID from the Schools management page.</p>
-                  </div>
-                )}
                 <DialogFooter>
                   <Button type="submit" disabled={onboarding} className="w-full sm:w-auto">
-                    {onboarding ? "Creating..." : "Create Counselor Account"}
+                    {onboarding ? "Creating..." : "Create Central Counselor Account"}
                   </Button>
                 </DialogFooter>
               </form>

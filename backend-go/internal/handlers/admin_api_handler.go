@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"context"
 	"fmt"
 	"strings"
 	"time"
@@ -1086,12 +1085,12 @@ func (h *AdminAPIHandler) OnboardAdminCounselor(c fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Name and email are required"})
 	}
 
-	if req.Role == "" {
-		if req.SchoolID != "" {
-			req.Role = "School Wellness Counselor"
-		} else {
-			req.Role = "JaagrMind Central Counselor"
-		}
+	// Platform Superadmin strictly onboards JaagrMind Central Care Desk counselors.
+	// School-level counselors are managed by individual school admins on their school portals.
+	req.Role = "JaagrMind Central Counselor"
+	req.SchoolID = ""
+	if req.BranchName == "" {
+		req.BranchName = "National Care Desk"
 	}
 	if req.AvailableHours == "" {
 		req.AvailableHours = "Mon-Fri, 9:00 AM - 5:00 PM"
@@ -1127,24 +1126,17 @@ func (h *AdminAPIHandler) OnboardAdminCounselor(c fiber.Ctx) error {
 	if existingUser != nil {
 		_ = h.userRepo.UpdatePassword(c.Context(), existingUser.ID, hash)
 		_ = h.userRepo.AddRole(c.Context(), existingUser.ID, domain.RoleCounselor, req.SchoolID)
+		_ = h.userRepo.SetUserInternal(c.Context(), existingUser.ID, true)
 
 		if h.emailSvc != nil {
 			go func(toEmail, counselorName, tempPass, pURL, schoolID, role string) {
-				if schoolID != "" {
-					schoolName := "Partner Institution"
-					if sc, err := h.schoolRepo.GetByID(context.Background(), schoolID); err == nil && sc != nil && sc.Name != "" {
-						schoolName = sc.Name
-					}
-					_ = h.emailSvc.SendSchoolCounselorOnboardingEmail(toEmail, counselorName, schoolName, role, tempPass)
-				} else {
-					_ = h.emailSvc.SendCentralCounselorOnboardingEmail(toEmail, counselorName, tempPass, pURL)
-				}
+				_ = h.emailSvc.SendCentralCounselorOnboardingEmail(toEmail, counselorName, tempPass, pURL)
 			}(req.Email, req.Name, tempPassword, portalURL, req.SchoolID, req.Role)
 		}
 
 		return c.JSON(fiber.Map{
 			"success":       true,
-			"message":       "Counselor credentials refreshed successfully",
+			"message":       "Central Counselor credentials refreshed successfully",
 			"counselor":     created,
 			"email":         req.Email,
 			"name":          req.Name,
@@ -1156,11 +1148,7 @@ func (h *AdminAPIHandler) OnboardAdminCounselor(c fiber.Ctx) error {
 	metadata := map[string]any{
 		"counselor_id": created.ID,
 		"role":         req.Role,
-	}
-	if req.SchoolID != "" {
-		metadata["school_id"] = req.SchoolID
-	} else {
-		metadata["affiliation"] = "jaagrmind_central"
+		"affiliation":  "jaagrmind_central",
 	}
 
 	newUser, err := h.userRepo.CreateIndependentUser(c.Context(), req.Email, req.Name, hash, req.Phone, metadata)
@@ -1171,19 +1159,12 @@ func (h *AdminAPIHandler) OnboardAdminCounselor(c fiber.Ctx) error {
 	if err := h.userRepo.AddRole(c.Context(), newUser.ID, domain.RoleCounselor, req.SchoolID); err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to assign counselor role: " + err.Error()})
 	}
+	_ = h.userRepo.SetUserInternal(c.Context(), newUser.ID, true)
 
 	if h.emailSvc != nil {
-		go func(toEmail, counselorName, tempPass, pURL, schoolID, role string) {
-			if schoolID != "" {
-				schoolName := "Partner Institution"
-				if sc, err := h.schoolRepo.GetByID(context.Background(), schoolID); err == nil && sc != nil && sc.Name != "" {
-					schoolName = sc.Name
-				}
-				_ = h.emailSvc.SendSchoolCounselorOnboardingEmail(toEmail, counselorName, schoolName, role, tempPass)
-			} else {
-				_ = h.emailSvc.SendCentralCounselorOnboardingEmail(toEmail, counselorName, tempPass, pURL)
-			}
-		}(req.Email, req.Name, tempPassword, portalURL, req.SchoolID, req.Role)
+		go func(toEmail, counselorName, tempPass, pURL string) {
+			_ = h.emailSvc.SendCentralCounselorOnboardingEmail(toEmail, counselorName, tempPass, pURL)
+		}(req.Email, req.Name, tempPassword, portalURL)
 	}
 
 	return c.Status(fiber.StatusCreated).JSON(fiber.Map{

@@ -948,7 +948,7 @@ export default function AdminSchoolsPage() {
                 <div className="flex gap-2">
                   <Input
                     readOnly
-                    value={resetLinkModal.resetUrl}
+                    value={resetLinkModal?.resetUrl ?? ""}
                     className="h-8 text-xs font-mono bg-background"
                   />
                   <Button

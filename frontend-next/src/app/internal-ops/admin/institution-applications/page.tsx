@@ -426,7 +426,7 @@ export default function InstitutionApplicationsPage() {
               <div className="flex gap-2">
                 <Input
                   readOnly
-                  value={approvedModal?.resetUrl}
+                  value={approvedModal?.resetUrl ?? ""}
                   className="h-8 text-xs font-mono bg-background"
                 />
                 <Button size="sm" onClick={copyResetUrl} className="h-8 text-xs shrink-0">

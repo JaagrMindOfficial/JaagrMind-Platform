@@ -226,6 +226,7 @@ func AutoMigrate(ctx context.Context, db *pgxpool.Pool) error {
 		CREATE TABLE IF NOT EXISTS password_resets (
 			id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 			email TEXT NOT NULL,
+			phone TEXT,
 			token TEXT UNIQUE NOT NULL,
 			expires_at TIMESTAMPTZ NOT NULL,
 			used BOOLEAN DEFAULT false,
@@ -425,6 +426,14 @@ func AutoMigrate(ctx context.Context, db *pgxpool.Pool) error {
 		);
 
 		-- ── Incremental Column Migrations ──────────────────────────────────────
+		ALTER TABLE password_resets ADD COLUMN IF NOT EXISTS phone TEXT;
+
+		CREATE TABLE IF NOT EXISTS cached_analytics (
+			key TEXT PRIMARY KEY,
+			payload JSONB NOT NULL DEFAULT '{}',
+			updated_at TIMESTAMPTZ DEFAULT NOW()
+		);
+
 		ALTER TABLE students ADD COLUMN IF NOT EXISTS nickname TEXT;
 		ALTER TABLE students ADD COLUMN IF NOT EXISTS avatar_url TEXT;
 		ALTER TABLE students ADD COLUMN IF NOT EXISTS level INTEGER DEFAULT 1;

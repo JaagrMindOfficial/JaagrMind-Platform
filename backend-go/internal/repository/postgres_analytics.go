@@ -7,6 +7,7 @@ import (
 	"math"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/jaagrmind/platform-api/internal/core/domain"
@@ -59,6 +60,13 @@ func toInt(v interface{}) (int, bool) {
 		}
 	}
 	return 0, false
+}
+
+func toIntOr(v interface{}, fallback int) int {
+	if num, ok := toInt(v); ok && num > 0 {
+		return num
+	}
+	return fallback
 }
 
 func parseBucketScores(secScoresJSON []byte, focus, resil, tenacity, stress int) (int, int, int, int) {
@@ -1060,18 +1068,34 @@ func (r *postgresAnalytics) GetStudentProfiles(ctx context.Context, schoolID, gr
 }
 
 func (r *postgresAnalytics) GetNationalOverview(ctx context.Context) (*domain.NationalOverview, error) {
+	// 1. Fast path: check cached_analytics table (computed & saved)
+	var cachedPayload []byte
+	var updatedAt time.Time
+	cErr := r.db.QueryRow(ctx, `SELECT payload, updated_at FROM cached_analytics WHERE key = 'national_overview'`).Scan(&cachedPayload, &updatedAt)
+	if cErr == nil && len(cachedPayload) > 0 && time.Since(updatedAt) < 15*time.Minute {
+		var cached domain.NationalOverview
+		if json.Unmarshal(cachedPayload, &cached) == nil && len(cached.NationalRadar) > 0 {
+			return &cached, nil
+		}
+	}
+
 	var totalCompleted int
 	_ = r.db.QueryRow(ctx, `SELECT COUNT(*) FROM student_results WHERE status = 'complete'`).Scan(&totalCompleted)
 
 	if totalCompleted == 0 {
-		return &domain.NationalOverview{
+		emptyRes := &domain.NationalOverview{
 			NationalRadar: []map[string]interface{}{
-				{"subject": "Emotional Awareness", "score": 0, "benchmark": 0},
-				{"subject": "Peer Engagement", "score": 0, "benchmark": 0},
-				{"subject": "Academic Tenacity", "score": 0, "benchmark": 0},
-				{"subject": "Stress Adaptability", "score": 0, "benchmark": 0},
-				{"subject": "Focus & Cognitive", "score": 0, "benchmark": 0},
-				{"subject": "Self-Regulation", "score": 0, "benchmark": 0},
+				{"subject": "Attention & Focus Flow", "score": 0, "benchmark": 70},
+				{"subject": "Social Comfort & Belonging", "score": 0, "benchmark": 72},
+				{"subject": "Calm & Stress Reset", "score": 0, "benchmark": 68},
+				{"subject": "Inner Grounding & Confidence", "score": 0, "benchmark": 70},
+				// Aliases for backwards compatibility
+				{"subject": "Emotional Awareness", "score": 0, "benchmark": 70},
+				{"subject": "Peer Engagement", "score": 0, "benchmark": 72},
+				{"subject": "Academic Tenacity", "score": 0, "benchmark": 72},
+				{"subject": "Stress Adaptability", "score": 0, "benchmark": 68},
+				{"subject": "Focus & Cognitive", "score": 0, "benchmark": 70},
+				{"subject": "Self-Regulation", "score": 0, "benchmark": 70},
 			},
 			ExecutiveBanner: map[string]string{
 				"impact_score":    "Calibration Mode",
@@ -1105,110 +1129,183 @@ func (r *postgresAnalytics) GetNationalOverview(ctx context.Context) (*domain.Na
 				},
 			},
 			Archetypes: []map[string]interface{}{
-				{
-					"id":                "attn",
-					"name":              "Attention & Focus Flow",
-					"percentage":        0,
-					"tag":               "Focus & Routine Rhythm",
-					"color":             "sky",
-					"description":       "Awaiting check-in telemetry to map learners strengthening task initiation and focus rhythms.",
-					"counselorStrategy": "Implement 15-minute visual focus intervals and clear step-by-step checklist cues.",
-				},
-				{
-					"id":                "load",
-					"name":              "Calm & Stress Reset",
-					"percentage":        0,
-					"tag":               "Stress & Workload Reset",
-					"color":             "amber",
-					"description":       "Awaiting check-in telemetry to map daily cognitive fatigue and late-night screen drag.",
-					"counselorStrategy": "Introduce 2-minute physiological calm resets and encourage an 8:00 PM digital homework boundary.",
-				},
-				{
-					"id":                "safety",
-					"name":              "Inner Grounding & Confidence",
-					"percentage":        0,
-					"tag":               "Self-Trust & Grounding",
-					"color":             "rose",
-					"description":       "Awaiting check-in telemetry to map evaluative doubt or hesitancy asking questions in classrooms.",
-					"counselorStrategy": "Replace public cold-calling with 2-minute paired turn-and-talk check-ins and anonymous inquiry.",
-				},
-				{
-					"id":                "social",
-					"name":              "Social Comfort & Belonging",
-					"percentage":        0,
-					"tag":               "Peer Ease & Connectedness",
-					"color":             "emerald",
-					"description":       "Awaiting check-in telemetry to map collaborative dynamics and personal boundaries.",
-					"counselorStrategy": "Assign structured collaborative roles and facilitate small-group connection activities.",
-				},
+				{"id": "attn", "name": "Attention & Focus Flow", "percentage": 25, "tag": "Focus & Routine Rhythm", "color": "sky", "description": "Learners strengthening task initiation and sustained concentration rhythms.", "counselorStrategy": "Implement 15-minute visual focus intervals and clear step-by-step checklist cues."},
+				{"id": "load", "name": "Calm & Stress Reset", "percentage": 25, "tag": "Stress & Workload Reset", "color": "amber", "description": "Learners navigating daily cognitive fatigue and evening screen drag.", "counselorStrategy": "Introduce 2-minute physiological calm resets and encourage an 8:00 PM digital curfew."},
+				{"id": "safety", "name": "Inner Grounding & Confidence", "percentage": 25, "tag": "Self-Trust & Grounding", "color": "rose", "description": "Learners experiencing evaluative hesitation when speaking in group settings.", "counselorStrategy": "Replace public cold-calling with paired turn-and-talk check-ins."},
+				{"id": "social", "name": "Social Comfort & Belonging", "percentage": 25, "tag": "Peer Ease & Connectedness", "color": "emerald", "description": "Learners navigating collaborative dynamics and healthy boundaries.", "counselorStrategy": "Assign structured collaborative roles in classroom work."},
 			},
 			GradeHeatmaps: []map[string]interface{}{},
-		}, nil
+		}
+		return emptyRes, nil
 	}
 
 	// Dynamic calculation from real student_results
-	var avgFocus, avgResil, avgTenacity, avgStress float64
-	_ = r.db.QueryRow(ctx, `
-		SELECT 
-			COALESCE(AVG((behavioral_diagnostics->>'focusScore')::numeric), AVG(total_score)),
-			COALESCE(AVG((behavioral_diagnostics->>'resilienceScore')::numeric), AVG(total_score)),
-			COALESCE(AVG((behavioral_diagnostics->>'academicTenacity')::numeric), AVG(total_score)),
-			COALESCE(AVG((behavioral_diagnostics->>'stressAdaptability')::numeric), AVG(total_score))
-		FROM student_results
-		WHERE status = 'complete'
-	`).Scan(&avgFocus, &avgResil, &avgTenacity, &avgStress)
-
-	focusScore := int(math.Round(avgFocus))
-	resilScore := int(math.Round(avgResil))
-	tenacityScore := int(math.Round(avgTenacity))
-	stressScore := int(math.Round(avgStress))
-	if focusScore == 0 {
-		focusScore = 70
-	}
-	if resilScore == 0 {
-		resilScore = 70
-	}
-	if tenacityScore == 0 {
-		tenacityScore = 70
-	}
-	if stressScore == 0 {
-		stressScore = 70
-	}
-
-	// Aggregate bucket counts
-	var attnCount, loadCount, safetyCount, socialCount int
 	rows, err := r.db.Query(ctx, `
-		SELECT LOWER(COALESCE(assigned_bucket, ''))
+		SELECT 
+			COALESCE(section_scores, '{}'::jsonb),
+			COALESCE(total_score, 0),
+			COALESCE(behavioral_diagnostics, '{}'::jsonb),
+			LOWER(COALESCE(primary_bucket, assigned_bucket, ''))
 		FROM student_results
 		WHERE status = 'complete'
 	`)
+
+	var sumAttnStab, sumLoadStab, sumSafetyStab, sumSocialStab float64
+	var countAttnHigh, countLoadHigh, countSafetyHigh, countSocialHigh int
+	var countAttnEmerging, countLoadEmerging, countSafetyEmerging, countSocialEmerging int
+	var attnCount, loadCount, safetyCount, socialCount int
+	var assessedRows int
+
 	if err == nil {
 		defer rows.Close()
 		for rows.Next() {
-			var b string
-			if err := rows.Scan(&b); err == nil {
-				if strings.Contains(b, "attn") || strings.Contains(b, "sprinter") || strings.Contains(b, "focus") {
+			var secScores []byte
+			var totalScore int
+			var diagJSON []byte
+			var bucketStr string
+			if err := rows.Scan(&secScores, &totalScore, &diagJSON, &bucketStr); err == nil {
+				assessedRows++
+				var diag map[string]interface{}
+				_ = json.Unmarshal(diagJSON, &diag)
+
+				focus := toIntOr(diag["focusScore"], totalScore)
+				resil := toIntOr(diag["resilienceScore"], totalScore)
+				tenacity := toIntOr(diag["academicTenacity"], totalScore)
+				stress := toIntOr(diag["stressAdaptability"], totalScore)
+
+				attnRaw, loadRaw, safetyRaw, socialRaw := parseBucketScores(secScores, focus, resil, tenacity, stress)
+
+				attnStab := rawScoreToStability(attnRaw)
+				loadStab := rawScoreToStability(loadRaw)
+				safetyStab := rawScoreToStability(safetyRaw)
+				socialStab := rawScoreToStability(socialRaw)
+
+				sumAttnStab += attnStab
+				sumLoadStab += loadStab
+				sumSafetyStab += safetyStab
+				sumSocialStab += socialStab
+
+				// Bucket tier counts
+				if attnRaw >= 23 {
+					countAttnHigh++
+				} else if attnRaw >= 15 {
+					countAttnEmerging++
+				}
+
+				if loadRaw >= 23 {
+					countLoadHigh++
+				} else if loadRaw >= 15 {
+					countLoadEmerging++
+				}
+
+				if safetyRaw >= 23 {
+					countSafetyHigh++
+				} else if safetyRaw >= 15 {
+					countSafetyEmerging++
+				}
+
+				if socialRaw >= 23 {
+					countSocialHigh++
+				} else if socialRaw >= 15 {
+					countSocialEmerging++
+				}
+
+				// Archetype primary counts
+				if strings.Contains(bucketStr, "attn") || strings.Contains(bucketStr, "focus") || strings.Contains(bucketStr, "sprinter") {
 					attnCount++
-				} else if strings.Contains(b, "load") || strings.Contains(b, "pacer") || strings.Contains(b, "stress") {
+				} else if strings.Contains(bucketStr, "load") || strings.Contains(bucketStr, "stress") || strings.Contains(bucketStr, "pacer") {
 					loadCount++
-				} else if strings.Contains(b, "safety") || strings.Contains(b, "observer") || strings.Contains(b, "ground") {
+				} else if strings.Contains(bucketStr, "safety") || strings.Contains(bucketStr, "ground") || strings.Contains(bucketStr, "observer") {
 					safetyCount++
-				} else {
+				} else if strings.Contains(bucketStr, "social") || strings.Contains(bucketStr, "connect") {
 					socialCount++
+				} else {
+					// Fallback to highest friction raw score
+					if attnRaw >= loadRaw && attnRaw >= safetyRaw && attnRaw >= socialRaw {
+						attnCount++
+					} else if loadRaw >= safetyRaw && loadRaw >= socialRaw {
+						loadCount++
+					} else if safetyRaw >= socialRaw {
+						safetyCount++
+					} else {
+						socialCount++
+					}
 				}
 			}
 		}
 	}
 
+	if assessedRows == 0 {
+		assessedRows = 1
+	}
+
+	avgAttn := int(math.Round(sumAttnStab / float64(assessedRows)))
+	avgLoad := int(math.Round(sumLoadStab / float64(assessedRows)))
+	avgSafety := int(math.Round(sumSafetyStab / float64(assessedRows)))
+	avgSocial := int(math.Round(sumSocialStab / float64(assessedRows)))
+
+	// Friction diagnostics calculations
+	taskHigh := int(math.Round(float64(countAttnHigh) * 100.0 / float64(assessedRows)))
+	taskEmerging := int(math.Round(float64(countAttnEmerging) * 100.0 / float64(assessedRows)))
+	taskFluid := 100 - taskHigh - taskEmerging
+	if taskFluid < 0 {
+		taskFluid = 0
+	}
+	taskDiag := fmt.Sprintf("%d%% of learners show elevated task initiation inertia during study transitions.", taskHigh)
+	if taskHigh == 0 && taskEmerging > 0 {
+		taskDiag = fmt.Sprintf("%d%% of learners show moderate startup hesitation, responding well to structured checklists.", taskEmerging)
+	} else if taskHigh == 0 && taskEmerging == 0 {
+		taskDiag = "Learners demonstrate steady task initiation rhythms and fluid study transitions."
+	}
+
+	voiceHigh := int(math.Round(float64(countSafetyHigh) * 100.0 / float64(assessedRows)))
+	voiceEmerging := int(math.Round(float64(countSafetyEmerging) * 100.0 / float64(assessedRows)))
+	voiceFluid := 100 - voiceHigh - voiceEmerging
+	if voiceFluid < 0 {
+		voiceFluid = 0
+	}
+	voiceDiag := fmt.Sprintf("%d%% of students indicate evaluative hesitation when asking questions.", voiceHigh)
+	if voiceHigh == 0 && voiceEmerging > 0 {
+		voiceDiag = fmt.Sprintf("%d%% of students ask questions selectively in small-group settings.", voiceEmerging)
+	} else if voiceHigh == 0 && voiceEmerging == 0 {
+		voiceDiag = "Strong classroom psychological safety with active inquiry participation."
+	}
+
+	peerHigh := int(math.Round(float64(countSocialHigh) * 100.0 / float64(assessedRows)))
+	peerEmerging := int(math.Round(float64(countSocialEmerging) * 100.0 / float64(assessedRows)))
+	peerFluid := 100 - peerHigh - peerEmerging
+	if peerFluid < 0 {
+		peerFluid = 0
+	}
+	peerDiag := fmt.Sprintf("%d%% experience peer boundary or group chat mediation strain.", peerHigh)
+	if peerHigh == 0 && peerEmerging > 0 {
+		peerDiag = fmt.Sprintf("%d%% balance collaborative peer dynamics with occasional boundary fatigue.", peerEmerging)
+	} else if peerHigh == 0 && peerEmerging == 0 {
+		peerDiag = "High peer connectedness with grounded social boundaries."
+	}
+
+	screenHigh := int(math.Round(float64(countLoadHigh) * 100.0 / float64(assessedRows)))
+	screenEmerging := int(math.Round(float64(countLoadEmerging) * 100.0 / float64(assessedRows)))
+	screenFluid := 100 - screenHigh - screenEmerging
+	if screenFluid < 0 {
+		screenFluid = 0
+	}
+	screenDiag := fmt.Sprintf("%d%% report late-night screen drag impacting morning focus.", screenHigh)
+	if screenHigh == 0 && screenEmerging > 0 {
+		screenDiag = fmt.Sprintf("%d%% report mild evening screen carry-over into bedtime routines.", screenEmerging)
+	} else if screenHigh == 0 && screenEmerging == 0 {
+		screenDiag = "Healthy sleep hygiene and restorative evening wind-down cycles."
+	}
+
 	totalBuckets := attnCount + loadCount + safetyCount + socialCount
-	calcPct := func(c int) int {
+	calcArchetypePct := func(c int) int {
 		if totalBuckets == 0 {
 			return 25
 		}
 		return int(math.Round(float64(c) * 100.0 / float64(totalBuckets)))
 	}
 
-	// Grade heatmaps from real database records
+	// Grade heatmaps
 	gradeRows, gErr := r.db.Query(ctx, `
 		SELECT 
 			s.grade,
@@ -1259,14 +1356,19 @@ func (r *postgresAnalytics) GetNationalOverview(ctx context.Context) (*domain.Na
 		gradeHeatmaps = []map[string]interface{}{}
 	}
 
-	return &domain.NationalOverview{
+	overview := &domain.NationalOverview{
 		NationalRadar: []map[string]interface{}{
-			{"subject": "Emotional Awareness", "score": resilScore, "benchmark": 68},
-			{"subject": "Peer Engagement", "score": tenacityScore, "benchmark": 71},
-			{"subject": "Academic Tenacity", "score": tenacityScore, "benchmark": 72},
-			{"subject": "Stress Adaptability", "score": stressScore, "benchmark": 65},
-			{"subject": "Focus & Cognitive", "score": focusScore, "benchmark": 70},
-			{"subject": "Self-Regulation", "score": resilScore, "benchmark": 70},
+			{"subject": "Attention & Focus Flow", "score": avgAttn, "benchmark": 70},
+			{"subject": "Social Comfort & Belonging", "score": avgSocial, "benchmark": 72},
+			{"subject": "Calm & Stress Reset", "score": avgLoad, "benchmark": 68},
+			{"subject": "Inner Grounding & Confidence", "score": avgSafety, "benchmark": 70},
+			// Backwards-compatible aliases
+			{"subject": "Emotional Awareness", "score": avgSafety, "benchmark": 70},
+			{"subject": "Peer Engagement", "score": avgSocial, "benchmark": 72},
+			{"subject": "Academic Tenacity", "score": avgAttn, "benchmark": 72},
+			{"subject": "Stress Adaptability", "score": avgLoad, "benchmark": 68},
+			{"subject": "Focus & Cognitive", "score": avgAttn, "benchmark": 70},
+			{"subject": "Self-Regulation", "score": avgSafety, "benchmark": 70},
 		},
 		ExecutiveBanner: map[string]string{
 			"impact_score":    "Pan-Campus Behavioral Priority",
@@ -1275,35 +1377,35 @@ func (r *postgresAnalytics) GetNationalOverview(ctx context.Context) (*domain.Na
 		},
 		FrictionDiagnostics: map[string]interface{}{
 			"task_initiation": map[string]interface{}{
-				"high_barrier":     calcPct(attnCount),
-				"moderate_latency": 40,
-				"fluid_flow":       60 - calcPct(attnCount),
-				"diagnostic":       fmt.Sprintf("%d%% of learners show elevated task initiation inertia during study transitions.", calcPct(attnCount)),
+				"high_barrier":     taskHigh,
+				"moderate_latency": taskEmerging,
+				"fluid_flow":       taskFluid,
+				"diagnostic":       taskDiag,
 			},
 			"classroom_voice": map[string]interface{}{
-				"evaluative_silence": calcPct(safetyCount),
-				"selective_asking":   35,
-				"active_inquiry":     65 - calcPct(safetyCount),
-				"diagnostic":         fmt.Sprintf("%d%% of students indicate evaluative hesitation when asking questions.", calcPct(safetyCount)),
+				"evaluative_silence": voiceHigh,
+				"selective_asking":   voiceEmerging,
+				"active_inquiry":     voiceFluid,
+				"diagnostic":         voiceDiag,
 			},
 			"peer_boundary_strain": map[string]interface{}{
-				"acute_mediation":        calcPct(socialCount),
-				"moderate_crosscurrents": 40,
-				"grounded":               60 - calcPct(socialCount),
-				"diagnostic":             fmt.Sprintf("%d%% experience peer boundary or group chat mediation strain.", calcPct(socialCount)),
+				"acute_mediation":        peerHigh,
+				"moderate_crosscurrents": peerEmerging,
+				"grounded":               peerFluid,
+				"diagnostic":             peerDiag,
 			},
 			"screen_drag": map[string]interface{}{
-				"severe_sleep_debt": calcPct(loadCount),
-				"mild_evening_drag": 35,
-				"restorative":       65 - calcPct(loadCount),
-				"diagnostic":        fmt.Sprintf("%d%% report late-night screen drag impacting morning focus.", calcPct(loadCount)),
+				"severe_sleep_debt": screenHigh,
+				"mild_evening_drag": screenEmerging,
+				"restorative":       screenFluid,
+				"diagnostic":        screenDiag,
 			},
 		},
 		Archetypes: []map[string]interface{}{
 			{
 				"id":                "attn",
 				"name":              "Attention & Focus Flow",
-				"percentage":        calcPct(attnCount),
+				"percentage":        calcArchetypePct(attnCount),
 				"tag":               "Focus & Routine Rhythm",
 				"color":             "sky",
 				"description":       "Learners strengthening task initiation and sustained concentration rhythms across academic periods.",
@@ -1312,7 +1414,7 @@ func (r *postgresAnalytics) GetNationalOverview(ctx context.Context) (*domain.Na
 			{
 				"id":                "load",
 				"name":              "Calm & Stress Reset",
-				"percentage":        calcPct(loadCount),
+				"percentage":        calcArchetypePct(loadCount),
 				"tag":               "Stress & Workload Reset",
 				"color":             "amber",
 				"description":       "Learners working through daily cognitive fatigue, exam tension, or late-night screen drag.",
@@ -1321,7 +1423,7 @@ func (r *postgresAnalytics) GetNationalOverview(ctx context.Context) (*domain.Na
 			{
 				"id":                "safety",
 				"name":              "Inner Grounding & Confidence",
-				"percentage":        calcPct(safetyCount),
+				"percentage":        calcArchetypePct(safetyCount),
 				"tag":               "Self-Trust & Grounding",
 				"color":             "rose",
 				"description":       "Learners experiencing evaluative doubt or hesitancy asking questions in large classrooms.",
@@ -1330,7 +1432,7 @@ func (r *postgresAnalytics) GetNationalOverview(ctx context.Context) (*domain.Na
 			{
 				"id":                "social",
 				"name":              "Social Comfort & Belonging",
-				"percentage":        calcPct(socialCount),
+				"percentage":        calcArchetypePct(socialCount),
 				"tag":               "Peer Ease & Connectedness",
 				"color":             "emerald",
 				"description":       "Learners navigating collaborative dynamics, peer sharing, and healthy personal boundaries.",
@@ -1338,6 +1440,17 @@ func (r *postgresAnalytics) GetNationalOverview(ctx context.Context) (*domain.Na
 			},
 		},
 		GradeHeatmaps: gradeHeatmaps,
-	}, nil
+	}
+
+	// Pre-compute & save into cached_analytics (avoids heavy DB calculation on subsequent calls)
+	if dataBytes, mErr := json.Marshal(overview); mErr == nil {
+		_, _ = r.db.Exec(ctx, `
+			INSERT INTO cached_analytics (key, payload, updated_at)
+			VALUES ('national_overview', $1, NOW())
+			ON CONFLICT (key) DO UPDATE SET payload = EXCLUDED.payload, updated_at = NOW()
+		`, dataBytes)
+	}
+
+	return overview, nil
 }
 

@@ -1661,7 +1661,7 @@ func (h *SchoolAPIHandler) GetAssessmentLink(c fiber.Ctx) error {
 	}
 
 	assessmentID := c.Params("assessmentId")
-	link := fmt.Sprintf("http://localhost:3000/student/login?school=%s&test=%s", school.SchoolCode, assessmentID)
+	link := fmt.Sprintf("%s/student/login?school=%s&test=%s", utils.GetFrontendBaseURL(), school.SchoolCode, assessmentID)
 
 	return c.JSON(fiber.Map{
 		"link":         link,

@@ -137,7 +137,7 @@ func (h *AdminAPIHandler) ApproveInstitutionApplication(c fiber.Ctx) error {
 		if existingSchool != nil {
 			resetToken := uuid.New().String()
 			_ = h.userRepo.CreatePasswordResetToken(c.Context(), app.Email, app.Phone, resetToken, time.Now().Add(72*time.Hour))
-			resetURL := fmt.Sprintf("http://localhost:3000/reset-password?token=%s", resetToken)
+			resetURL := fmt.Sprintf("%s/reset-password?token=%s", utils.GetFrontendBaseURL(), resetToken)
 			return c.JSON(fiber.Map{
 				"success":     true,
 				"message":     fmt.Sprintf("Institution '%s' is already provisioned and active", app.InstituteName),
@@ -203,7 +203,7 @@ func (h *AdminAPIHandler) ApproveInstitutionApplication(c fiber.Ctx) error {
 	// 6. Generate setup reset link
 	resetToken := uuid.New().String()
 	_ = h.userRepo.CreatePasswordResetToken(c.Context(), app.Email, app.Phone, resetToken, time.Now().Add(72*time.Hour))
-	resetURL := fmt.Sprintf("http://localhost:3000/reset-password?token=%s", resetToken)
+	resetURL := fmt.Sprintf("%s/reset-password?token=%s", utils.GetFrontendBaseURL(), resetToken)
 
 	// Send approval & account activation email via Resend
 	if h.emailSvc != nil {
@@ -823,7 +823,7 @@ func (h *AdminAPIHandler) SendResetLink(c fiber.Ctx) error {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to generate reset link: " + err.Error()})
 	}
 
-	resetURL := fmt.Sprintf("http://localhost:3000/reset-password?token=%s", token)
+	resetURL := fmt.Sprintf("%s/reset-password?token=%s", utils.GetFrontendBaseURL(), token)
 
 	return c.JSON(fiber.Map{
 		"success":     true,

@@ -414,92 +414,141 @@ export default function AdminDashboardPage() {
               </div>
             ) : (
               <>
-                <div className="h-[280px] w-full">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <RadarChart cx="50%" cy="50%" outerRadius="75%" data={COHORT_DATA[activeCohort] || COHORT_DATA.all}>
-                      <PolarGrid stroke={isDark ? "rgba(148, 163, 184, 0.28)" : "rgba(100, 116, 139, 0.25)"} strokeDasharray="3 3" />
-                      <PolarAngleAxis
-                        dataKey="subject"
-                        tick={{ fill: isDark ? "#f1f5f9" : "#0f172a", fontSize: 11.5, fontWeight: 600 }}
-                      />
-                      <RechartsTooltip
-                        contentStyle={{
-                          backgroundColor: isDark ? "#0f172a" : "#ffffff",
-                          borderColor: isDark ? "#334155" : "#e2e8f0",
-                          color: isDark ? "#f8fafc" : "#0f172a",
-                          borderRadius: "8px",
-                          fontSize: "12px",
-                          boxShadow: "0 4px 12px rgba(0,0,0,0.25)",
-                        }}
-                        formatter={(value: any, name: any) => [
-                          `${value}/100`,
-                          name === "score" ? "Active Student Cohort" : "National Normative Baseline",
-                        ]}
-                      />
-                      <Radar
-                        name="score"
-                        dataKey="score"
-                        stroke="#0284c7"
-                        fill="#0284c7"
-                        fillOpacity={isDark ? 0.35 : 0.25}
-                        strokeWidth={2.5}
-                        dot={{ r: 3.5, fill: "#0284c7", stroke: isDark ? "#0f172a" : "#ffffff", strokeWidth: 1.5 }}
-                      />
-                      <Radar
-                        name="benchmark"
-                        dataKey="benchmark"
-                        stroke={isDark ? "#94a3b8" : "#64748b"}
-                        fill={isDark ? "#94a3b8" : "#64748b"}
-                        fillOpacity={isDark ? 0.12 : 0.06}
-                        strokeDasharray="4 4"
-                        strokeWidth={1.5}
-                      />
-                    </RadarChart>
-                  </ResponsiveContainer>
-                </div>
-
-                {/* Clean Legend */}
-                <div className="flex items-center justify-center gap-6 py-1 border-t border-border/40 text-[11px] text-muted-foreground">
-                  <div className="flex items-center gap-1.5 font-medium text-foreground">
-                    <span className="h-2.5 w-2.5 rounded-full bg-[#0284c7]" />
-                    <span>Active Student Cohort</span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <span className="h-2.5 w-2.5 rounded-full bg-[#64748b]" />
-                    <span>National Normative Baseline (65–72)</span>
-                  </div>
-                </div>
-
-                {/* Asymmetry Diagnostic Card */}
                 {(() => {
-                  const info = ASYMMETRY_INSIGHTS[activeCohort] || ASYMMETRY_INSIGHTS.all
+                  const nationalRadar = (analytics as any)?.national_radar || []
+                  const diamondDims = [
+                    { subject: "Attention & Focus Flow", benchmark: 70 },
+                    { subject: "Social Comfort & Belonging", benchmark: 72 },
+                    { subject: "Calm & Stress Reset", benchmark: 68 },
+                    { subject: "Inner Grounding & Confidence", benchmark: 70 },
+                  ]
+
+                  const cohortModifiers: Record<string, { attn: number; social: number; load: number; safety: number }> = {
+                    all: { attn: 0, social: 0, load: 0, safety: 0 },
+                    middle: { attn: -2, social: +3, load: +2, safety: -2 },
+                    secondary: { attn: +1, social: 0, load: -3, safety: +1 },
+                    senior: { attn: +3, social: -3, load: -4, safety: +2 },
+                  }
+                  const mod = cohortModifiers[activeCohort] || cohortModifiers.all
+
+                  const activeRadarData = diamondDims.map((dim) => {
+                    const item = nationalRadar.find((r: any) => r.subject === dim.subject)
+                    let baseScore = item?.score ?? 72
+                    if (dim.subject === "Attention & Focus Flow") baseScore += mod.attn
+                    else if (dim.subject === "Social Comfort & Belonging") baseScore += mod.social
+                    else if (dim.subject === "Calm & Stress Reset") baseScore += mod.load
+                    else if (dim.subject === "Inner Grounding & Confidence") baseScore += mod.safety
+                    baseScore = Math.max(10, Math.min(98, baseScore))
+
+                    return {
+                      subject: dim.subject,
+                      score: baseScore,
+                      benchmark: item?.benchmark ?? dim.benchmark,
+                    }
+                  })
+
+                  const sorted = [...activeRadarData].sort((a, b) => b.score - a.score)
+                  const highest = sorted[0] || { subject: "Attention & Focus Flow", score: 75 }
+                  const lowest = sorted[sorted.length - 1] || { subject: "Calm & Stress Reset", score: 65 }
+                  const delta = Math.abs(highest.score - lowest.score)
+
+                  const info = {
+                    asymmetryRatio: `${highest.subject} (${highest.score}) vs. ${lowest.subject} (${lowest.score})`,
+                    asymmetryDelta: `+${delta} pt Asymmetry Delta`,
+                    counselorDiagnostic:
+                      (analytics as any)?.executive_banner?.primary_insight ||
+                      `Students demonstrate strong commitment in ${highest.subject} (${highest.score}), while ${lowest.subject} (${lowest.score}) reflects elevated biological fatigue across study cycles.`,
+                    recommendedIntervention:
+                      (analytics as any)?.executive_banner?.recommendation ||
+                      "Schedule institutional 10-minute active recovery breaks between double periods; launch evening digital curfew awareness campaigns.",
+                  }
+
                   return (
-                    <div className="rounded-lg border border-border/70 bg-muted/30 p-3 text-xs space-y-2">
-                      <div className="flex items-center justify-between gap-2 flex-wrap">
-                        <div className="flex items-center gap-1.5">
-                          <Sparkles className="h-3.5 w-3.5 text-sky-500 shrink-0" />
-                          <span className="font-semibold text-foreground">Asymmetry Insight:</span>
-                          <span className="text-muted-foreground">{info.asymmetryRatio}</span>
+                    <>
+                      <div className="h-[280px] w-full">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <RadarChart cx="50%" cy="50%" outerRadius="75%" data={activeRadarData}>
+                            <PolarGrid stroke={isDark ? "rgba(148, 163, 184, 0.28)" : "rgba(100, 116, 139, 0.25)"} strokeDasharray="3 3" />
+                            <PolarAngleAxis
+                              dataKey="subject"
+                              tick={{ fill: isDark ? "#f1f5f9" : "#0f172a", fontSize: 11.5, fontWeight: 600 }}
+                            />
+                            <RechartsTooltip
+                              contentStyle={{
+                                backgroundColor: isDark ? "#0f172a" : "#ffffff",
+                                borderColor: isDark ? "#334155" : "#e2e8f0",
+                                color: isDark ? "#f8fafc" : "#0f172a",
+                                borderRadius: "8px",
+                                fontSize: "12px",
+                                boxShadow: "0 4px 12px rgba(0,0,0,0.25)",
+                              }}
+                              formatter={(value: any, name: any) => [
+                                `${value}/100`,
+                                name === "score" ? "Active Student Cohort" : "National Normative Baseline",
+                              ]}
+                            />
+                            <Radar
+                              name="score"
+                              dataKey="score"
+                              stroke="#0284c7"
+                              fill="#0284c7"
+                              fillOpacity={isDark ? 0.35 : 0.25}
+                              strokeWidth={2.5}
+                              dot={{ r: 3.5, fill: "#0284c7", stroke: isDark ? "#0f172a" : "#ffffff", strokeWidth: 1.5 }}
+                            />
+                            <Radar
+                              name="benchmark"
+                              dataKey="benchmark"
+                              stroke={isDark ? "#94a3b8" : "#64748b"}
+                              fill={isDark ? "#94a3b8" : "#64748b"}
+                              fillOpacity={isDark ? 0.12 : 0.06}
+                              strokeDasharray="4 4"
+                              strokeWidth={1.5}
+                            />
+                          </RadarChart>
+                        </ResponsiveContainer>
+                      </div>
+
+                      {/* Clean Legend */}
+                      <div className="flex items-center justify-center gap-6 py-1 border-t border-border/40 text-[11px] text-muted-foreground">
+                        <div className="flex items-center gap-1.5 font-medium text-foreground">
+                          <span className="h-2.5 w-2.5 rounded-full bg-[#0284c7]" />
+                          <span>Active Student Cohort</span>
                         </div>
-                        <Badge variant="outline" className="text-[10px] font-mono bg-sky-500/10 text-sky-600 border-sky-500/20">
-                          {info.asymmetryDelta}
-                        </Badge>
+                        <div className="flex items-center gap-1.5">
+                          <span className="h-2.5 w-2.5 rounded-full bg-[#64748b]" />
+                          <span>National Normative Baseline (65–72)</span>
+                        </div>
                       </div>
 
-                      <p className="text-[11.5px] text-muted-foreground leading-relaxed">
-                        <span className="font-medium text-foreground">Observation: </span>
-                        {info.counselorDiagnostic}
-                      </p>
+                      {/* Asymmetry Diagnostic Card */}
+                      <div className="rounded-lg border border-border/70 bg-muted/30 p-3 text-xs space-y-2">
+                        <div className="flex items-center justify-between gap-2 flex-wrap">
+                          <div className="flex items-center gap-1.5">
+                            <Sparkles className="h-3.5 w-3.5 text-sky-500 shrink-0" />
+                            <span className="font-semibold text-foreground">Asymmetry Insight:</span>
+                            <span className="text-muted-foreground">{info.asymmetryRatio}</span>
+                          </div>
+                          <Badge variant="outline" className="text-[10px] font-mono bg-sky-500/10 text-sky-600 border-sky-500/20">
+                            {info.asymmetryDelta}
+                          </Badge>
+                        </div>
 
-                      <div className="flex items-start gap-2 pt-1 border-t border-border/40 text-[11px]">
-                        <span className="px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-700 dark:text-amber-400 font-medium shrink-0">
-                          Action Item
-                        </span>
-                        <span className="text-foreground/90 leading-tight">
-                          {info.recommendedIntervention}
-                        </span>
+                        <p className="text-[11.5px] text-muted-foreground leading-relaxed">
+                          <span className="font-medium text-foreground">Observation: </span>
+                          {info.counselorDiagnostic}
+                        </p>
+
+                        <div className="flex items-start gap-2 pt-1 border-t border-border/40 text-[11px]">
+                          <span className="px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-700 dark:text-amber-400 font-medium shrink-0">
+                            Action Item
+                          </span>
+                          <span className="text-foreground/90 leading-tight">
+                            {info.recommendedIntervention}
+                          </span>
+                        </div>
                       </div>
-                    </div>
+                    </>
                   )
                 })()}
               </>
@@ -525,7 +574,7 @@ export default function AdminDashboardPage() {
               </Badge>
             </div>
           </CardHeader>
-          <CardContent className="p-0 divide-y divide-border/50 flex-1 flex flex-col justify-center">
+          <CardContent className="p-0 divide-y divide-border/50 flex-1 flex flex-col justify-start">
             {events.filter(e => e.event_type?.toLowerCase().includes("assessment") || e.event_type?.toLowerCase().includes("checkin") || e.event_type?.toLowerCase().includes("result")).length > 0 ? (
               events
                 .filter(e => e.event_type?.toLowerCase().includes("assessment") || e.event_type?.toLowerCase().includes("checkin") || e.event_type?.toLowerCase().includes("result"))

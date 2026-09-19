@@ -132,7 +132,11 @@ export function IndiaDistributionMap({ distribution, totalSchools }: IndiaMapPro
                   <path
                     key={state.name}
                     d={state.path}
-                    className={`${fillClass} stroke-border/70 dark:stroke-zinc-800/90 stroke-[0.75] transition-colors duration-150 cursor-pointer`}
+                    className={`${fillClass} ${
+                      isHovered
+                        ? "stroke-foreground/45 dark:stroke-zinc-300 stroke-[1.6]"
+                        : "stroke-foreground/20 dark:stroke-zinc-600/80 stroke-[1.25]"
+                    } transition-all duration-150 cursor-pointer`}
                     onMouseEnter={() => setHoveredState(state.name)}
                     onMouseLeave={() => setHoveredState(null)}
                   >

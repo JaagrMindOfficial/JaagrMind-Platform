@@ -235,18 +235,24 @@ export default function AdminAnalyticsPage() {
   const schoolsList = data.schools_list || []
   const schoolsComparison = data.schools_comparison || []
 
-  // National Radar Data from API (zero fallback if unassessed)
+  // National Radar Data from API aligned with 4-Pole Diamond Radar standard
+  const diamondOrder = [
+    "Attention & Focus Flow",
+    "Social Comfort & Belonging",
+    "Calm & Stress Reset",
+    "Inner Grounding & Confidence",
+  ]
   const nationalRadarData: Array<{ subject: string; score: number; benchmark: number }> =
     data.national_radar && data.national_radar.length > 0
-      ? data.national_radar
-      : [
-          { subject: "Emotional Awareness", score: 0, benchmark: 0 },
-          { subject: "Peer Engagement", score: 0, benchmark: 0 },
-          { subject: "Academic Tenacity", score: 0, benchmark: 0 },
-          { subject: "Stress Adaptability", score: 0, benchmark: 0 },
-          { subject: "Focus & Cognitive", score: 0, benchmark: 0 },
-          { subject: "Self-Regulation", score: 0, benchmark: 0 },
-        ]
+      ? diamondOrder.map((dim) => {
+          const match = data.national_radar?.find((r: any) => r.subject === dim)
+          return {
+            subject: dim,
+            score: match?.score ?? 0,
+            benchmark: match?.benchmark ?? (dim === "Social Comfort & Belonging" ? 72 : dim === "Calm & Stress Reset" ? 68 : 70),
+          }
+        })
+      : diamondOrder.map((dim) => ({ subject: dim, score: 0, benchmark: 70 }))
 
   const totalEvaluationsCount =
     schoolsComparison.reduce((acc: number, s: any) => acc + (s.completed_checkins || 0), 0) ||
@@ -565,9 +571,20 @@ export default function AdminAnalyticsPage() {
                       <Clock className="h-3.5 w-3.5 text-sky-500" />
                       Task Initiation Barrier
                     </span>
-                    <Badge variant="outline" className="text-[10px] text-amber-600 bg-amber-500/10 border-amber-500/20">
-                      {data.friction_diagnostics?.task_initiation?.high_barrier ?? 0}% {data.friction_diagnostics?.task_initiation?.high_barrier ? "High Barrier" : "Pending Data"}
-                    </Badge>
+                    {(() => {
+                      const high = data.friction_diagnostics?.task_initiation?.high_barrier ?? 0
+                      const mod = data.friction_diagnostics?.task_initiation?.moderate_latency ?? 0
+                      if (totalEvaluationsCount === 0) {
+                        return <Badge variant="outline" className="text-[10px] text-muted-foreground border-border/60">0% Pending Data</Badge>
+                      }
+                      if (high > 0) {
+                        return <Badge variant="outline" className="text-[10px] text-amber-600 bg-amber-500/10 border-amber-500/20">{high}% Elevated Inertia</Badge>
+                      }
+                      if (mod > 0) {
+                        return <Badge variant="outline" className="text-[10px] text-sky-600 bg-sky-500/10 border-sky-500/20">{mod}% Moderate Latency</Badge>
+                      }
+                      return <Badge variant="outline" className="text-[10px] text-emerald-600 bg-emerald-500/10 border-emerald-500/20">0% Fluid Flow</Badge>
+                    })()}
                   </div>
                   <p className="text-xs text-muted-foreground leading-relaxed">
                     {data.friction_diagnostics?.task_initiation?.diagnostic || "Awaiting initial assessment telemetry to calculate task initiation friction."}
@@ -582,9 +599,20 @@ export default function AdminAnalyticsPage() {
                       <Eye className="h-3.5 w-3.5 text-indigo-500" />
                       Classroom Voice Hesitancy
                     </span>
-                    <Badge variant="outline" className="text-[10px] text-rose-600 bg-rose-500/10 border-rose-500/20">
-                      {data.friction_diagnostics?.classroom_voice?.evaluative_silence ?? 0}% {data.friction_diagnostics?.classroom_voice?.evaluative_silence ? "Evaluative Silence" : "Pending Data"}
-                    </Badge>
+                    {(() => {
+                      const high = data.friction_diagnostics?.classroom_voice?.evaluative_silence ?? 0
+                      const mod = data.friction_diagnostics?.classroom_voice?.selective_asking ?? 0
+                      if (totalEvaluationsCount === 0) {
+                        return <Badge variant="outline" className="text-[10px] text-muted-foreground border-border/60">0% Pending Data</Badge>
+                      }
+                      if (high > 0) {
+                        return <Badge variant="outline" className="text-[10px] text-rose-600 bg-rose-500/10 border-rose-500/20">{high}% Evaluative Silence</Badge>
+                      }
+                      if (mod > 0) {
+                        return <Badge variant="outline" className="text-[10px] text-amber-600 bg-amber-500/10 border-amber-500/20">{mod}% Selective Asking</Badge>
+                      }
+                      return <Badge variant="outline" className="text-[10px] text-emerald-600 bg-emerald-500/10 border-emerald-500/20">0% Active Inquiry</Badge>
+                    })()}
                   </div>
                   <p className="text-xs text-muted-foreground leading-relaxed">
                     {data.friction_diagnostics?.classroom_voice?.diagnostic || "Awaiting assessment telemetry to calibrate classroom query hesitations."}
@@ -599,9 +627,20 @@ export default function AdminAnalyticsPage() {
                       <HeartHandshake className="h-3.5 w-3.5 text-rose-500" />
                       Peer Boundary Strain
                     </span>
-                    <Badge variant="outline" className="text-[10px] text-amber-600 bg-amber-500/10 border-amber-500/20">
-                      {data.friction_diagnostics?.peer_boundary_strain?.acute_mediation ?? 0}% {data.friction_diagnostics?.peer_boundary_strain?.acute_mediation ? "Mediation Fatigue" : "Pending Data"}
-                    </Badge>
+                    {(() => {
+                      const high = data.friction_diagnostics?.peer_boundary_strain?.acute_mediation ?? 0
+                      const mod = data.friction_diagnostics?.peer_boundary_strain?.moderate_crosscurrents ?? 0
+                      if (totalEvaluationsCount === 0) {
+                        return <Badge variant="outline" className="text-[10px] text-muted-foreground border-border/60">0% Pending Data</Badge>
+                      }
+                      if (high > 0) {
+                        return <Badge variant="outline" className="text-[10px] text-amber-600 bg-amber-500/10 border-amber-500/20">{high}% Mediation Fatigue</Badge>
+                      }
+                      if (mod > 0) {
+                        return <Badge variant="outline" className="text-[10px] text-sky-600 bg-sky-500/10 border-sky-500/20">{mod}% Moderate Strain</Badge>
+                      }
+                      return <Badge variant="outline" className="text-[10px] text-emerald-600 bg-emerald-500/10 border-emerald-500/20">0% Grounded Peer Bonds</Badge>
+                    })()}
                   </div>
                   <p className="text-xs text-muted-foreground leading-relaxed">
                     {data.friction_diagnostics?.peer_boundary_strain?.diagnostic || "Awaiting peer dynamic responses to evaluate social boundary strain."}
@@ -616,9 +655,20 @@ export default function AdminAnalyticsPage() {
                       <Clock className="h-3.5 w-3.5 text-violet-500" />
                       Evening Screen Drag
                     </span>
-                    <Badge variant="outline" className="text-[10px] text-rose-600 bg-rose-500/10 border-rose-500/20">
-                      {data.friction_diagnostics?.screen_drag?.severe_sleep_debt ?? 0}% {data.friction_diagnostics?.screen_drag?.severe_sleep_debt ? "Sleep Debt" : "Pending Data"}
-                    </Badge>
+                    {(() => {
+                      const high = data.friction_diagnostics?.screen_drag?.severe_sleep_debt ?? 0
+                      const mod = data.friction_diagnostics?.screen_drag?.mild_evening_drag ?? 0
+                      if (totalEvaluationsCount === 0) {
+                        return <Badge variant="outline" className="text-[10px] text-muted-foreground border-border/60">0% Pending Data</Badge>
+                      }
+                      if (high > 0) {
+                        return <Badge variant="outline" className="text-[10px] text-rose-600 bg-rose-500/10 border-rose-500/20">{high}% Sleep Debt</Badge>
+                      }
+                      if (mod > 0) {
+                        return <Badge variant="outline" className="text-[10px] text-amber-600 bg-amber-500/10 border-amber-500/20">{mod}% Mild Evening Drag</Badge>
+                      }
+                      return <Badge variant="outline" className="text-[10px] text-emerald-600 bg-emerald-500/10 border-emerald-500/20">0% Restorative Hygiene</Badge>
+                    })()}
                   </div>
                   <p className="text-xs text-muted-foreground leading-relaxed">
                     {data.friction_diagnostics?.screen_drag?.diagnostic || "Awaiting evening recovery and sleep hygiene diagnostic data."}

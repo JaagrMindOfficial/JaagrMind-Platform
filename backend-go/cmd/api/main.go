@@ -240,6 +240,8 @@ func main() {
 	// ── Superadmin API ────────────────────────────────────────
 	adminAPI := app.Group("/api/admin", middleware.RoleGuard(jwtSecret, domain.RoleSuperAdmin))
 	adminAPI.Post("/invite-school", handlers.CreateInviteHandler(inviteRepo, emailService))
+	adminAPI.Get("/school-invites", handlers.GetSchoolInvitesHandler(inviteRepo))
+	adminAPI.Delete("/school-invites/:id", handlers.CancelSchoolInviteHandler(inviteRepo))
 	adminAPI.Get("/admins", func(c fiber.Ctx) error {
 		admins, err := userRepo.GetUsersByRole(c.Context(), domain.RoleSuperAdmin)
 		if err != nil {

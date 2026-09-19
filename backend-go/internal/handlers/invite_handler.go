@@ -164,7 +164,34 @@ func CreateInviteHandler(inviteRepo domain.InviteRepository, emailSvc utils.Emai
 
 		return c.Status(fiber.StatusCreated).JSON(fiber.Map{
 			"message":     "Invite created and email sent",
-			"token":       token, // For debug/dev purposes
+			"token":       token,
+			"invite_link": fmt.Sprintf("%s/invite/%s", utils.GetBaseFrontendURL(), token),
 		})
 	}
 }
+
+// GetSchoolInvitesHandler lists all generated school onboarding invitations
+func GetSchoolInvitesHandler(inviteRepo domain.InviteRepository) fiber.Handler {
+	return func(c fiber.Ctx) error {
+		invites, err := inviteRepo.GetAll(c.Context())
+		if err != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to retrieve school invitations: " + err.Error()})
+		}
+		return c.JSON(invites)
+	}
+}
+
+// CancelSchoolInviteHandler revokes / deletes a pending school invitation
+func CancelSchoolInviteHandler(inviteRepo domain.InviteRepository) fiber.Handler {
+	return func(c fiber.Ctx) error {
+		id := c.Params("id")
+		if id == "" {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invitation ID is required"})
+		}
+		if err := inviteRepo.Cancel(c.Context(), id); err != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to cancel invitation: " + err.Error()})
+		}
+		return c.JSON(fiber.Map{"message": "Invitation revoked successfully"})
+	}
+}
+

@@ -145,6 +145,8 @@ type InviteRepository interface {
 	Create(ctx context.Context, invite SchoolInvite) error
 	GetByToken(ctx context.Context, token string) (*SchoolInvite, error)
 	MarkAccepted(ctx context.Context, token string) error
+	GetAll(ctx context.Context) ([]SchoolInvite, error)
+	Cancel(ctx context.Context, id string) error
 }
 
 type AuthService interface {

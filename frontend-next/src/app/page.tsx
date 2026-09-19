@@ -345,19 +345,29 @@ export default function Home() {
             </div>
 
             {/* Quick Sign In / Onboarding Alternative */}
-            <div className="pt-2 flex items-center justify-between text-xs text-[#222222]/60 dark:text-[#FFF8F0]/60">
+            <div className="pt-2 flex flex-col sm:flex-row items-center justify-between gap-2.5 text-xs text-[#222222]/60 dark:text-[#FFF8F0]/60">
               <Link
                 href="/login"
                 className="font-medium hover:text-[#42B677] transition-colors"
               >
                 Have existing credentials? <span className="underline underline-offset-4 text-[#222222] dark:text-[#FFF8F0]">Sign In</span>
               </Link>
-              <Link
-                href="/signup?tab=institute"
-                className="font-medium hover:text-[#42B677] transition-colors"
-              >
-                New school? <span className="underline underline-offset-4 text-[#42B677]">Apply here</span>
-              </Link>
+              
+              <div className="flex items-center gap-2.5 flex-wrap justify-center sm:justify-end">
+                <Link
+                  href="/signup?tab=parent"
+                  className="font-medium hover:text-[#42B677] transition-colors"
+                >
+                  Parent / Guardian? <span className="underline underline-offset-4 text-[#42B677]">Sign up here</span>
+                </Link>
+                <span className="text-[#222222]/20 dark:text-white/20">·</span>
+                <Link
+                  href="/signup?tab=institute"
+                  className="font-medium hover:text-[#42B677] transition-colors"
+                >
+                  New school? <span className="underline underline-offset-4 text-[#42B677]">Apply here</span>
+                </Link>
+              </div>
             </div>
           </div>
         )}

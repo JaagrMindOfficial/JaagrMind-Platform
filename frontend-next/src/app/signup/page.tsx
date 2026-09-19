@@ -74,7 +74,15 @@ function SignupContent() {
 
   useEffect(() => {
     const tabParam = searchParams.get("tab");
-    if (tabParam === "independent" || tabParam === "individual" || tabParam === "parent") {
+    if (
+      tabParam === "independent" ||
+      tabParam === "individual" ||
+      tabParam === "parent" ||
+      tabParam === "parents" ||
+      tabParam === "guardian" ||
+      tabParam === "guardians" ||
+      tabParam === "family"
+    ) {
       setActiveTab("independent");
     } else if (tabParam === "institute" || tabParam === "school") {
       setActiveTab("institute");

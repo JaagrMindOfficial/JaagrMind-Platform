@@ -32,17 +32,13 @@ import {
   AlertCircle,
   MessageSquare,
   FileText,
-  Users,
   Building2,
   RefreshCw,
   Video,
   ExternalLink,
   Calendar,
   Send,
-  UserPlus,
   ShieldCheck,
-  Copy,
-  KeyRound,
   FolderOpen,
   Eye,
   Lock,
@@ -76,29 +72,14 @@ interface CentralInquiry {
   created_at: string;
 }
 
-interface CounselorStaff {
-  id: string;
-  school_id?: string;
-  school_name?: string;
-  branch_name?: string;
-  name: string;
-  email: string;
-  phone?: string;
-  role: string;
-  available_hours?: string;
-  is_active: boolean;
-  created_at: string;
-}
-
 export default function CareDeskPage() {
   const { user, isSuperAdmin } = useAuth();
 
   const [inquiries, setInquiries] = useState<CentralInquiry[]>([]);
-  const [counselors, setCounselors] = useState<CounselorStaff[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  const [activeTab, setActiveTab] = useState<"all" | "independent" | "school" | "meetings" | "counselors">("all");
+  const [activeTab, setActiveTab] = useState<"all" | "independent" | "school" | "meetings">("all");
 
   // Clinical Review Modal State
   const [selectedCase, setSelectedCase] = useState<CentralInquiry | null>(null);
@@ -120,28 +101,10 @@ export default function CareDeskPage() {
   const [dossierStudent, setDossierStudent] = useState<StudentProfileData | null>(null);
   const [claimingId, setClaimingId] = useState<string | null>(null);
 
-  // Counselor Onboarding Modal State
-  const [isOnboardModalOpen, setIsOnboardModalOpen] = useState(false);
-  const [onboardName, setOnboardName] = useState("");
-  const [onboardEmail, setOnboardEmail] = useState("");
-  const [onboardPhone, setOnboardPhone] = useState("");
-  const [onboardRole, setOnboardRole] = useState("JaagrMind Central Counselor");
-  const [onboardHours, setOnboardHours] = useState("Mon-Fri, 9:00 AM - 5:00 PM");
-  const [onboardAffiliation, setOnboardAffiliation] = useState("central"); // "central" | "school"
-  const [onboardSchoolId, setOnboardSchoolId] = useState("");
-  const [onboardingLoading, setOnboardingLoading] = useState(false);
-  const [onboardSuccessData, setOnboardSuccessData] = useState<any>(null);
-  const [onboardError, setOnboardError] = useState("");
-  const [copiedCreds, setCopiedCreds] = useState(false);
-
   const fetchData = async () => {
     try {
-      const [inqData, staffData] = await Promise.all([
-        api.get<CentralInquiry[]>("/api/care-desk/inquiries").catch(() => []),
-        api.get<CounselorStaff[]>("/api/care-desk/counselors").catch(() => []),
-      ]);
+      const inqData = await api.get<CentralInquiry[]>("/api/care-desk/inquiries").catch(() => []);
       setInquiries(Array.isArray(inqData) ? inqData : []);
-      setCounselors(Array.isArray(staffData) ? staffData : []);
     } catch (err) {
       console.error("Failed to load Care Desk data:", err);
     } finally {
@@ -313,49 +276,11 @@ export default function CareDeskPage() {
     }
   };
 
-  // Handle Counselor Onboarding Submit
-  const handleOnboardCounselor = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!onboardName.trim() || !onboardEmail.trim()) {
-      setOnboardError("Counselor name and work email are required.");
-      return;
-    }
-
-    setOnboardingLoading(true);
-    setOnboardError("");
-    try {
-      const payload = {
-        name: onboardName.trim(),
-        email: onboardEmail.trim().toLowerCase(),
-        phone: onboardPhone.trim(),
-        role: onboardRole.trim(),
-        available_hours: onboardHours.trim(),
-        school_id: onboardAffiliation === "school" ? onboardSchoolId.trim() : "",
-      };
-
-      const res = await api.post("/api/care-desk/counselors", payload);
-      setOnboardSuccessData(res);
-      fetchData();
-    } catch (err: any) {
-      setOnboardError(err.message || "Failed to onboard counselor.");
-    } finally {
-      setOnboardingLoading(false);
-    }
-  };
-
-  const handleCopyCredentials = () => {
-    if (!onboardSuccessData) return;
-    const text = `JaagrMind Counselor Portal Access\nEmail: ${onboardSuccessData.email}\nTemporary Password: ${onboardSuccessData.temp_password}\nPortal URL: ${onboardSuccessData.portal_url}`;
-    navigator.clipboard.writeText(text);
-    setCopiedCreds(true);
-    setTimeout(() => setCopiedCreds(false), 2000);
-  };
-
   // Telemetry Aggregates
   const totalInquiries = inquiries.length;
   const pendingCases = inquiries.filter((i) => i.status === "pending" || i.status === "in_progress").length;
   const scheduledMeetings = inquiries.filter((i) => Boolean(i.meeting_link || i.meeting_date)).length;
-  const totalCounselors = counselors.length;
+  const resolvedCases = inquiries.filter((i) => i.status === "resolved").length;
 
   // Filtered List
   const filteredInquiries = useMemo(() => {
@@ -410,26 +335,6 @@ export default function CareDeskPage() {
           >
             <RefreshCw className={`h-3.5 w-3.5 ${refreshing ? "animate-spin" : ""}`} />
             <span>Refresh</span>
-          </Button>
-
-          <Button
-            size="sm"
-            onClick={() => {
-              setOnboardSuccessData(null);
-              setOnboardName("");
-              setOnboardEmail("");
-              setOnboardPhone("");
-              setOnboardRole("JaagrMind Central Counselor");
-              setOnboardHours("Mon-Fri, 9:00 AM - 5:00 PM");
-              setOnboardAffiliation("central");
-              setOnboardSchoolId("");
-              setOnboardError("");
-              setIsOnboardModalOpen(true);
-            }}
-            className="text-xs gap-1.5 h-9 bg-primary hover:bg-primary/90 shadow-xs"
-          >
-            <UserPlus className="h-3.5 w-3.5" />
-            <span>Onboard Counselor</span>
           </Button>
         </div>
       </div>
@@ -489,13 +394,13 @@ export default function CareDeskPage() {
           <CardContent className="p-4 flex items-center justify-between">
             <div>
               <p className="text-[11px] font-mono text-muted-foreground uppercase tracking-wider">
-                Counselor Roster
+                Resolved Consultations
               </p>
-              <h3 className="text-2xl font-bold text-foreground mt-1">{totalCounselors}</h3>
-              <p className="text-[11px] text-muted-foreground mt-0.5">Central & campus practitioners</p>
+              <h3 className="text-2xl font-bold text-emerald-600 dark:text-emerald-400 mt-1">{resolvedCases}</h3>
+              <p className="text-[11px] text-muted-foreground mt-0.5">Completed clinical care cycles</p>
             </div>
-            <div className="p-2.5 rounded-xl bg-muted text-muted-foreground">
-              <Users className="h-5 w-5" />
+            <div className="p-2.5 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+              <CheckCircle2 className="h-5 w-5" />
             </div>
           </CardContent>
         </Card>
@@ -538,86 +443,22 @@ export default function CareDeskPage() {
               >
                 Virtual Consultations
               </Button>
-              <Button
-                size="sm"
-                variant={activeTab === "counselors" ? "default" : "ghost"}
-                onClick={() => setActiveTab("counselors")}
-                className="h-7 px-3 text-xs gap-1"
-              >
-                <Users className="w-3 h-3" />
-                Staff Directory ({counselors.length})
-              </Button>
             </div>
 
-            {activeTab !== "counselors" && (
-              <div className="relative w-full sm:w-64">
-                <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
-                <Input
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Filter by subject, student, parent..."
-                  className="pl-8 h-8 text-xs bg-background"
-                />
-              </div>
-            )}
+            <div className="relative w-full sm:w-64">
+              <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+              <Input
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Filter by subject, student, parent..."
+                className="pl-8 h-8 text-xs bg-background"
+              />
+            </div>
           </div>
         </CardHeader>
 
         <CardContent className="p-0">
-          {activeTab === "counselors" ? (
-            /* Counselor Directory Table */
-            counselors.length === 0 ? (
-              <div className="py-12 text-center text-sm text-muted-foreground">
-                No counselors registered yet. Click &quot;Onboard Counselor&quot; to add staff.
-              </div>
-            ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="text-xs">Counselor Name</TableHead>
-                    <TableHead className="text-xs">Email & Phone</TableHead>
-                    <TableHead className="text-xs">Clinical Role</TableHead>
-                    <TableHead className="text-xs">Affiliation</TableHead>
-                    <TableHead className="text-xs">Available Hours</TableHead>
-                    <TableHead className="text-xs">Status</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {counselors.map((c) => (
-                    <TableRow key={c.id}>
-                      <TableCell className="font-semibold text-xs text-foreground">
-                        {c.name}
-                      </TableCell>
-                      <TableCell className="text-xs text-muted-foreground">
-                        <div>{c.email}</div>
-                        {c.phone && <div className="text-[11px] text-muted-foreground/80">{c.phone}</div>}
-                      </TableCell>
-                      <TableCell className="text-xs">
-                        <Badge variant="outline" className="text-[10px] font-mono">
-                          {c.role}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-xs text-muted-foreground">
-                        {c.school_name || "JaagrMind Central Desk"}
-                      </TableCell>
-                      <TableCell className="text-xs text-muted-foreground font-mono">
-                        {c.available_hours || "Mon-Fri, 9:00 AM - 5:00 PM"}
-                      </TableCell>
-                      <TableCell>
-                        <Badge
-                          variant="outline"
-                          className="text-[10px] font-mono bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20"
-                        >
-                          Active
-                        </Badge>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            )
-          ) : /* Inquiries Table */
-          loading ? (
+          {loading ? (
             <div className="py-12 text-center text-xs text-muted-foreground flex items-center justify-center gap-2">
               <Loader2 className="h-4 w-4 animate-spin text-primary" />
               Loading inquiry queue...
@@ -1029,192 +870,6 @@ export default function CareDeskPage() {
               <span>Save Schedule & Disposition</span>
             </Button>
           </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Onboard Counselor Modal (Accessible by Superadmin & Care Desk) */}
-      <Dialog open={isOnboardModalOpen} onOpenChange={setIsOnboardModalOpen}>
-        <DialogContent className="sm:max-w-md rounded-2xl p-6 border-border">
-          <DialogHeader>
-            <div className="flex items-center gap-2 text-primary">
-              <UserPlus className="h-5 w-5" />
-              <DialogTitle className="text-base font-bold text-foreground">
-                Onboard Counselor Staff
-              </DialogTitle>
-            </div>
-            <DialogDescription className="text-xs">
-              Provision counselor credentials for central JaagrMind or school campus desks.
-            </DialogDescription>
-          </DialogHeader>
-
-          {onboardSuccessData ? (
-            <div className="space-y-4 py-2">
-              <div className="p-4 rounded-xl border border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 space-y-2 text-xs">
-                <div className="flex items-center gap-2 font-bold text-sm">
-                  <CheckCircle2 className="h-4 w-4" />
-                  <span>Counselor Provisioned Successfully</span>
-                </div>
-                <p>Login credentials have been created. Share these with the practitioner:</p>
-              </div>
-
-              <div className="p-3.5 rounded-xl border border-border/80 bg-muted/40 font-mono text-xs space-y-1.5">
-                <div>
-                  <span className="text-muted-foreground">Portal URL: </span>
-                  <span className="font-semibold text-foreground">{onboardSuccessData.portal_url}</span>
-                </div>
-                <div>
-                  <span className="text-muted-foreground">Email: </span>
-                  <span className="font-semibold text-foreground">{onboardSuccessData.email}</span>
-                </div>
-                <div>
-                  <span className="text-muted-foreground">Temporary Password: </span>
-                  <span className="font-semibold text-primary">{onboardSuccessData.temp_password}</span>
-                </div>
-              </div>
-
-              <div className="flex items-center justify-between pt-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={handleCopyCredentials}
-                  className="text-xs gap-1.5"
-                >
-                  <Copy className="h-3.5 w-3.5" />
-                  <span>{copiedCreds ? "Copied to Clipboard!" : "Copy Credentials"}</span>
-                </Button>
-
-                <Button
-                  type="button"
-                  size="sm"
-                  onClick={() => setIsOnboardModalOpen(false)}
-                  className="text-xs"
-                >
-                  Done
-                </Button>
-              </div>
-            </div>
-          ) : (
-            <form onSubmit={handleOnboardCounselor} className="space-y-3.5 pt-2">
-              <div className="space-y-1">
-                <label className="text-xs font-semibold text-foreground">Full Name *</label>
-                <Input
-                  value={onboardName}
-                  onChange={(e) => setOnboardName(e.target.value)}
-                  placeholder="e.g. Dr. Sarah Jenkins"
-                  required
-                  className="text-xs h-9"
-                />
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-xs font-semibold text-foreground">Work Email *</label>
-                <Input
-                  type="email"
-                  value={onboardEmail}
-                  onChange={(e) => setOnboardEmail(e.target.value)}
-                  placeholder="e.g. sarah.jenkins@jaagrmind.com"
-                  required
-                  className="text-xs h-9"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <label className="text-xs font-semibold text-foreground">Phone Number</label>
-                  <Input
-                    value={onboardPhone}
-                    onChange={(e) => setOnboardPhone(e.target.value)}
-                    placeholder="+91 9876543210"
-                    className="text-xs h-9"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-xs font-semibold text-foreground">Clinical Role</label>
-                  <Input
-                    value={onboardRole}
-                    onChange={(e) => setOnboardRole(e.target.value)}
-                    placeholder="JaagrMind Central Counselor"
-                    className="text-xs h-9"
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-xs font-semibold text-foreground">Available Hours</label>
-                <Input
-                  value={onboardHours}
-                  onChange={(e) => setOnboardHours(e.target.value)}
-                  placeholder="Mon-Fri, 9:00 AM - 5:00 PM"
-                  className="text-xs h-9"
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-foreground">Affiliation</label>
-                <div className="grid grid-cols-2 gap-2">
-                  <Button
-                    type="button"
-                    variant={onboardAffiliation === "central" ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => setOnboardAffiliation("central")}
-                    className="h-8 text-xs font-medium"
-                  >
-                    JaagrMind Central
-                  </Button>
-                  <Button
-                    type="button"
-                    variant={onboardAffiliation === "school" ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => setOnboardAffiliation("school")}
-                    className="h-8 text-xs font-medium"
-                  >
-                    School Campus
-                  </Button>
-                </div>
-              </div>
-
-              {onboardAffiliation === "school" && (
-                <div className="space-y-1">
-                  <label className="text-xs font-semibold text-foreground">School UUID</label>
-                  <Input
-                    value={onboardSchoolId}
-                    onChange={(e) => setOnboardSchoolId(e.target.value)}
-                    placeholder="Enter school UUID"
-                    className="text-xs h-9 font-mono"
-                  />
-                </div>
-              )}
-
-              {onboardError && (
-                <div className="p-2.5 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-600 dark:text-rose-400 text-xs flex items-center gap-1.5">
-                  <AlertCircle className="h-3.5 w-3.5 shrink-0" />
-                  <span>{onboardError}</span>
-                </div>
-              )}
-
-              <DialogFooter className="pt-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setIsOnboardModalOpen(false)}
-                  className="text-xs"
-                >
-                  Cancel
-                </Button>
-                <Button
-                  type="submit"
-                  size="sm"
-                  disabled={onboardingLoading}
-                  className="text-xs bg-primary gap-1.5"
-                >
-                  {onboardingLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
-                  <span>Provision Account</span>
-                </Button>
-              </DialogFooter>
-            </form>
-          )}
         </DialogContent>
       </Dialog>
 

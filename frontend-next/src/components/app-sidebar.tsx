@@ -73,7 +73,7 @@ const counselorItems = [
 const careDeskItems = [
   { title: "Care Desk", url: "/internal-ops/care-desk", icon: HeartHandshake },
   { title: "Support", url: "/internal-ops/care-desk/support", icon: LifeBuoy },
-  { title: "Account Settings", url: "/internal-ops/admin/account", icon: Settings },
+  { title: "Account Settings", url: "/internal-ops/care-desk/account", icon: Settings },
 ]
 
 export function AppSidebar() {

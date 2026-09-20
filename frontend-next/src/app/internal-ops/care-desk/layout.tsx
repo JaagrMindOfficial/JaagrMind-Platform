@@ -1,13 +1,18 @@
+"use client"
+
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar"
 import { AppSidebar } from "@/components/app-sidebar"
 import { ProtectedRoute } from "@/components/protected-route"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { ThemeToggle } from "@/components/theme-toggle"
+import { useAuth } from "@/context/auth-context"
 
 import Link from "next/link"
 import { ArrowLeft } from "lucide-react"
 
 export default function CareDeskLayout({ children }: { children: React.ReactNode }) {
+  const { isSuperAdmin } = useAuth()
+
   return (
     <ProtectedRoute allowedRoles={["counselor", "superadmin"]}>
       <TooltipProvider>
@@ -23,12 +28,14 @@ export default function CareDeskLayout({ children }: { children: React.ReactNode
                     <span>&bull;</span>
                     <span>Central Clinical Operations</span>
                   </div>
-                  <Link
-                    href="/internal-ops/admin"
-                    className="ml-3 hidden md:inline-flex items-center gap-1 text-xs text-primary hover:underline font-medium"
-                  >
-                    <ArrowLeft className="h-3 w-3" /> Operations Admin
-                  </Link>
+                  {isSuperAdmin && (
+                    <Link
+                      href="/internal-ops/admin"
+                      className="ml-3 hidden md:inline-flex items-center gap-1 text-xs text-primary hover:underline font-medium"
+                    >
+                      <ArrowLeft className="h-3 w-3" /> Operations Admin
+                    </Link>
+                  )}
                 </div>
                 <ThemeToggle />
               </div>

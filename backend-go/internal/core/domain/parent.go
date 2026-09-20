@@ -114,6 +114,8 @@ type ChildSummary struct {
 	Nickname     string `json:"nickname,omitempty"`
 	Grade        string `json:"grade"`
 	Section      string `json:"section"`
+	RollNumber   string `json:"roll_number,omitempty"`
+	Stream       string `json:"stream,omitempty"`
 	AccessID     string `json:"access_id"`
 	SchoolID     string `json:"school_id"`
 	SchoolName   string `json:"school_name"`
@@ -152,6 +154,9 @@ type ParentAddChildRequest struct {
 	Name         string `json:"name"`
 	Nickname     string `json:"nickname,omitempty"`
 	Grade        string `json:"grade"`
+	Section      string `json:"section,omitempty"`
+	RollNumber   string `json:"roll_number,omitempty"`
+	Stream       string `json:"stream,omitempty"`
 	SchoolName   string `json:"school_name,omitempty"`
 	SchoolCode   string `json:"school_code,omitempty"`
 	AccessID     string `json:"access_id,omitempty"`
@@ -163,6 +168,9 @@ type ParentUpdateChildRequest struct {
 	Name       string `json:"name"`
 	Nickname   string `json:"nickname,omitempty"`
 	Grade      string `json:"grade"`
+	Section    string `json:"section,omitempty"`
+	RollNumber string `json:"roll_number,omitempty"`
+	Stream     string `json:"stream,omitempty"`
 	SchoolCode string `json:"school_code,omitempty"`
 	AccessID   string `json:"access_id,omitempty"`
 }
@@ -184,6 +192,10 @@ type ParentLinkStudentRequest struct {
 	SchoolCode   string `json:"school_code"`
 	AccessID     string `json:"access_id"`
 	Relationship string `json:"relationship"`
+	Grade        string `json:"grade,omitempty"`
+	Section      string `json:"section,omitempty"`
+	RollNumber   string `json:"roll_number,omitempty"`
+	Stream       string `json:"stream,omitempty"`
 }
 
 type ParentCounselorNoteRequest struct {
@@ -216,7 +228,7 @@ type ParentSubmitCheckinResponse struct {
 type ParentRepository interface {
 	GetParentOverview(ctx context.Context, parentID string, selectedStudentID string) (*ParentOverviewResponse, error)
 	GetChildren(ctx context.Context, parentID string) ([]ChildSummary, error)
-	LinkStudent(ctx context.Context, parentID, schoolCode, accessID, relationship string) (*ChildSummary, error)
+	LinkStudent(ctx context.Context, parentID string, req ParentLinkStudentRequest) (*ChildSummary, error)
 	AddChild(ctx context.Context, parentID string, req ParentAddChildRequest) (*ChildSummary, error)
 	UpdateChild(ctx context.Context, parentID string, req ParentUpdateChildRequest) (*ChildSummary, error)
 	CreateNoteToCounselor(ctx context.Context, parentID, studentID, subject, note string, isConfidential bool) error

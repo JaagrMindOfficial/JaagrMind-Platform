@@ -53,6 +53,8 @@ func AutoMigrate(ctx context.Context, db *pgxpool.Pool) error {
 			nickname TEXT,
 			grade TEXT NOT NULL,
 			section TEXT NOT NULL,
+			roll_number TEXT,
+			stream TEXT,
 			mobile_number TEXT,
 			email TEXT,
 			academic_year TEXT DEFAULT '2025-2026',
@@ -514,6 +516,11 @@ func AutoMigrate(ctx context.Context, db *pgxpool.Pool) error {
 
 		-- Ensure each counselor email is strictly unique across the platform
 		CREATE UNIQUE INDEX IF NOT EXISTS idx_school_counselors_unique_email ON school_counselors (LOWER(email));
+
+		-- Add roll_number and stream to students table, with index on (school_id, grade, section, roll_number)
+		ALTER TABLE students ADD COLUMN IF NOT EXISTS roll_number TEXT;
+		ALTER TABLE students ADD COLUMN IF NOT EXISTS stream TEXT;
+		CREATE INDEX IF NOT EXISTS idx_students_class_roll ON students(school_id, grade, section, roll_number);
 
 		-- Sync historical columns if present from earlier migrations
 		DO $$ 

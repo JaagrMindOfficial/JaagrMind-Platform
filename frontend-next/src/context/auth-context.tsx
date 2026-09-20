@@ -28,13 +28,29 @@ export interface User {
   avatar_url?: string;
 }
 
+export interface StudentLoginCredentials {
+  accessId?: string;
+  schoolId: string;
+  mobileNumber?: string;
+  email?: string;
+  class?: string;
+  section?: string;
+  rollNumber?: string;
+  stream?: string;
+}
+
 interface AuthContextType {
   user: User | null;
   loading: boolean;
   login: (email: string, password: string, redirectTo?: string) => Promise<void>;
   internalLogin: (email: string, password: string, redirectTo?: string) => Promise<void>;
   enableParentRole: () => Promise<void>;
-  studentLogin: (accessId: string, schoolId: string, mobileNumber?: string, email?: string) => Promise<void>;
+  studentLogin: (
+    credentialsOrAccessId: StudentLoginCredentials | string,
+    schoolId?: string,
+    mobileNumber?: string,
+    email?: string
+  ) => Promise<void>;
   setAuthSession: (token: string, user: User) => void;
   logout: (redirectTo?: unknown) => void;
   isSuperAdmin: boolean;
@@ -178,18 +194,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const studentLogin = async (accessId: string, schoolId: string, mobileNumber?: string, email?: string) => {
-    const data = await api.post("/api/auth/student/login", { accessId, schoolId, mobileNumber, email }, { skipAuth: true });
+  const studentLogin = async (
+    credentialsOrAccessId: StudentLoginCredentials | string,
+    schoolId?: string,
+    mobileNumber?: string,
+    email?: string
+  ) => {
+    let payload: any = {};
+    if (typeof credentialsOrAccessId === "string") {
+      payload = { accessId: credentialsOrAccessId, schoolId, mobileNumber, email };
+    } else {
+      payload = { ...credentialsOrAccessId };
+    }
+
+    const data = await api.post("/api/auth/student/login", payload, { skipAuth: true });
     localStorage.setItem("token", data.token);
     setAuthCookie(data.token);
     
     // Construct a user object that fits our AuthContext model
     const studentUser: User = {
       id: data._id,
-      email: email || "",
+      email: payload.email || "",
       name: data.name,
       role: "student",
-      roles: [{ user_id: data._id, role: "student", entity_id: schoolId }]
+      roles: [{ user_id: data._id, role: "student", entity_id: payload.schoolId }]
     };
     
     localStorage.setItem("user", JSON.stringify(studentUser));

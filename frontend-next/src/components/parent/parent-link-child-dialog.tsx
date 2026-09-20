@@ -24,7 +24,12 @@ export function ParentLinkChildDialog({
   onOpenChange,
   onSuccess,
 }: LinkChildDialogProps) {
+  const [linkMethod, setLinkMethod] = useState<"class_roll" | "access_id">("class_roll");
   const [schoolCode, setSchoolCode] = useState("");
+  const [grade, setGrade] = useState("10");
+  const [section, setSection] = useState("A");
+  const [rollNumber, setRollNumber] = useState("");
+  const [stream, setStream] = useState("");
   const [accessId, setAccessId] = useState("");
   const [relationship, setRelationship] = useState("parent");
   const [loading, setLoading] = useState(false);
@@ -32,7 +37,26 @@ export function ParentLinkChildDialog({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!schoolCode.trim() || !accessId.trim()) return;
+    if (!schoolCode.trim()) {
+      setError("Please enter your school code.");
+      return;
+    }
+
+    if (linkMethod === "access_id") {
+      if (!accessId.trim()) {
+        setError("Please enter your child's Access ID.");
+        return;
+      }
+    } else {
+      if (!rollNumber.trim()) {
+        setError("Please enter your child's Class Roll Number.");
+        return;
+      }
+      if (!grade.trim()) {
+        setError("Please select or enter the Class/Grade.");
+        return;
+      }
+    }
 
     setLoading(true);
     setError("");
@@ -48,7 +72,11 @@ export function ParentLinkChildDialog({
         },
         body: JSON.stringify({
           school_code: schoolCode.trim().toUpperCase(),
-          access_id: accessId.trim(),
+          access_id: linkMethod === "access_id" ? accessId.trim() : "",
+          grade: linkMethod === "class_roll" ? grade.trim() : "",
+          section: linkMethod === "class_roll" ? section.trim().toUpperCase() : "",
+          roll_number: linkMethod === "class_roll" ? rollNumber.trim() : "",
+          stream: linkMethod === "class_roll" ? stream.trim() : "",
           relationship: relationship,
         }),
       });
@@ -61,6 +89,8 @@ export function ParentLinkChildDialog({
       onSuccess(data.child);
       onOpenChange(false);
       setSchoolCode("");
+      setRollNumber("");
+      setStream("");
       setAccessId("");
     } catch (err: any) {
       setError(err.message || "Failed to link student.");
@@ -82,7 +112,7 @@ export function ParentLinkChildDialog({
             </Badge>
           </div>
           <DialogTitle className="text-base font-bold text-foreground">
-            Link School Student ID
+            Link School Student Profile
           </DialogTitle>
           <DialogDescription className="text-xs text-muted-foreground">
             Connect your child&apos;s school assessment profile to your guardian dashboard.
@@ -90,6 +120,32 @@ export function ParentLinkChildDialog({
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4 pt-2">
+          {/* Method selector pills */}
+          <div className="grid grid-cols-2 gap-1 p-1 bg-muted/60 rounded-lg border border-border/60 text-xs">
+            <button
+              type="button"
+              onClick={() => setLinkMethod("class_roll")}
+              className={`py-1.5 px-2 rounded-md font-medium transition-all ${
+                linkMethod === "class_roll"
+                  ? "bg-background text-foreground shadow-xs font-semibold"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              Class & Roll No.
+            </button>
+            <button
+              type="button"
+              onClick={() => setLinkMethod("access_id")}
+              className={`py-1.5 px-2 rounded-md font-medium transition-all ${
+                linkMethod === "access_id"
+                  ? "bg-background text-foreground shadow-xs font-semibold"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              Access ID
+            </button>
+          </div>
+
           <div className="space-y-1.5">
             <label className="text-xs font-medium text-foreground">
               School Code <span className="text-destructive">*</span>
@@ -97,7 +153,7 @@ export function ParentLinkChildDialog({
             <Input
               placeholder="e.g. OAKWOOD"
               value={schoolCode}
-              onChange={(e) => setSchoolCode(e.target.value)}
+              onChange={(e) => setSchoolCode(e.target.value.toUpperCase())}
               required
               className="text-xs font-mono uppercase"
             />
@@ -106,21 +162,74 @@ export function ParentLinkChildDialog({
             </p>
           </div>
 
-          <div className="space-y-1.5">
-            <label className="text-xs font-medium text-foreground">
-              Student Access ID <span className="text-destructive">*</span>
-            </label>
-            <Input
-              placeholder="e.g. 101"
-              value={accessId}
-              onChange={(e) => setAccessId(e.target.value)}
-              required
-              className="text-xs font-mono"
-            />
-            <p className="text-[10px] text-muted-foreground">
-              Your child&apos;s unique check-in ID from their teacher or school portal.
-            </p>
-          </div>
+          {linkMethod === "class_roll" ? (
+            <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-foreground">Class / Grade *</label>
+                  <select
+                    value={grade}
+                    onChange={(e) => setGrade(e.target.value)}
+                    className="w-full h-9 rounded-md border border-input bg-background px-3 py-1 text-xs shadow-xs focus:outline-none focus:ring-1 focus:ring-ring"
+                  >
+                    {["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"].map((c) => (
+                      <option key={c} value={c}>Class {c}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-foreground">Section *</label>
+                  <select
+                    value={section}
+                    onChange={(e) => setSection(e.target.value)}
+                    className="w-full h-9 rounded-md border border-input bg-background px-3 py-1 text-xs shadow-xs focus:outline-none focus:ring-1 focus:ring-ring"
+                  >
+                    {["A", "B", "C", "D", "E", "F"].map((s) => (
+                      <option key={s} value={s}>Section {s}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-foreground">Roll Number *</label>
+                  <Input
+                    placeholder="e.g. 15 or 01"
+                    value={rollNumber}
+                    onChange={(e) => setRollNumber(e.target.value)}
+                    required
+                    className="text-xs font-medium"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-foreground">Stream <span className="text-[10px] text-muted-foreground">(Optional)</span></label>
+                  <Input
+                    placeholder="e.g. Science"
+                    value={stream}
+                    onChange={(e) => setStream(e.target.value)}
+                    className="text-xs"
+                  />
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-foreground">
+                Student Access ID <span className="text-destructive">*</span>
+              </label>
+              <Input
+                placeholder="e.g. 10A-01 or R001"
+                value={accessId}
+                onChange={(e) => setAccessId(e.target.value)}
+                required
+                className="text-xs font-mono"
+              />
+              <p className="text-[10px] text-muted-foreground">
+                Your child&apos;s unique check-in ID from their teacher or report.
+              </p>
+            </div>
+          )}
 
           <div className="space-y-1.5">
             <label className="text-xs font-medium text-foreground">Your Relationship</label>

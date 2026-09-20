@@ -22,7 +22,7 @@ func NewPostgresStudent(db *pgxpool.Pool) domain.StudentRepository {
 func (r *postgresStudent) GetAll(ctx context.Context) ([]domain.StudentWithSchool, error) {
 	rows, err := r.db.Query(ctx, `
 		SELECT s.id, COALESCE(s.school_id::text, ''), COALESCE(sc.name, 'Independent / Direct'), COALESCE(sc.school_code, 'HOME'),
-		       s.access_id, s.name, s.grade, COALESCE(s.section, ''),
+		       s.access_id, COALESCE(s.roll_number, ''), COALESCE(s.stream, ''), s.name, s.grade, COALESCE(s.section, ''),
 		       COALESCE(s.mobile_number, ''), COALESCE(s.email, ''), COALESCE(s.academic_year, '2025-2026'), s.is_active, s.created_at
 		FROM students s
 		LEFT JOIN schools sc ON sc.id = s.school_id
@@ -38,7 +38,7 @@ func (r *postgresStudent) GetAll(ctx context.Context) ([]domain.StudentWithSchoo
 		var s domain.StudentWithSchool
 		if err := rows.Scan(
 			&s.ID, &s.SchoolID, &s.SchoolName, &s.SchoolCode,
-			&s.AccessID, &s.Name, &s.Grade, &s.Section,
+			&s.AccessID, &s.RollNumber, &s.Stream, &s.Name, &s.Grade, &s.Section,
 			&s.MobileNumber, &s.Email, &s.AcademicYear, &s.IsActive, &s.CreatedAt,
 		); err != nil {
 			return nil, err
@@ -50,7 +50,7 @@ func (r *postgresStudent) GetAll(ctx context.Context) ([]domain.StudentWithSchoo
 
 func (r *postgresStudent) GetBySchool(ctx context.Context, schoolID string) ([]domain.Student, error) {
 	rows, err := r.db.Query(ctx, `
-		SELECT id, COALESCE(school_id::text, ''), access_id, name, grade, COALESCE(section, ''), COALESCE(mobile_number, ''), COALESCE(email, ''), COALESCE(academic_year, '2025-2026'), is_active, created_at
+		SELECT id, COALESCE(school_id::text, ''), access_id, COALESCE(roll_number, ''), COALESCE(stream, ''), name, grade, COALESCE(section, ''), COALESCE(mobile_number, ''), COALESCE(email, ''), COALESCE(academic_year, '2025-2026'), is_active, created_at
 		FROM students WHERE school_id = $1 ORDER BY grade ASC, section ASC, name ASC
 	`, schoolID)
 	if err != nil {
@@ -61,7 +61,7 @@ func (r *postgresStudent) GetBySchool(ctx context.Context, schoolID string) ([]d
 	var students []domain.Student
 	for rows.Next() {
 		var s domain.Student
-		if err := rows.Scan(&s.ID, &s.SchoolID, &s.AccessID, &s.Name, &s.Grade, &s.Section, &s.MobileNumber, &s.Email, &s.AcademicYear, &s.IsActive, &s.CreatedAt); err != nil {
+		if err := rows.Scan(&s.ID, &s.SchoolID, &s.AccessID, &s.RollNumber, &s.Stream, &s.Name, &s.Grade, &s.Section, &s.MobileNumber, &s.Email, &s.AcademicYear, &s.IsActive, &s.CreatedAt); err != nil {
 			return nil, err
 		}
 		students = append(students, s)
@@ -72,10 +72,10 @@ func (r *postgresStudent) GetBySchool(ctx context.Context, schoolID string) ([]d
 func (r *postgresStudent) GetByID(ctx context.Context, id string) (*domain.Student, error) {
 	var s domain.Student
 	err := r.db.QueryRow(ctx, `
-		SELECT id, COALESCE(school_id::text, ''), access_id, name, grade, COALESCE(section, ''), COALESCE(mobile_number, ''), COALESCE(email, ''), COALESCE(academic_year, '2025-2026'), is_active, created_at
+		SELECT id, COALESCE(school_id::text, ''), access_id, COALESCE(roll_number, ''), COALESCE(stream, ''), name, grade, COALESCE(section, ''), COALESCE(mobile_number, ''), COALESCE(email, ''), COALESCE(academic_year, '2025-2026'), is_active, created_at
 		FROM students WHERE id = $1
 	`, id).Scan(
-		&s.ID, &s.SchoolID, &s.AccessID, &s.Name, &s.Grade, &s.Section, &s.MobileNumber, &s.Email, &s.AcademicYear, &s.IsActive, &s.CreatedAt,
+		&s.ID, &s.SchoolID, &s.AccessID, &s.RollNumber, &s.Stream, &s.Name, &s.Grade, &s.Section, &s.MobileNumber, &s.Email, &s.AcademicYear, &s.IsActive, &s.CreatedAt,
 	)
 	if err != nil {
 		return nil, err
@@ -86,10 +86,35 @@ func (r *postgresStudent) GetByID(ctx context.Context, id string) (*domain.Stude
 func (r *postgresStudent) GetByAccessID(ctx context.Context, schoolID, accessID string) (*domain.Student, error) {
 	var s domain.Student
 	err := r.db.QueryRow(ctx, `
-		SELECT id, COALESCE(school_id::text, ''), access_id, name, grade, COALESCE(section, ''), COALESCE(mobile_number, ''), COALESCE(email, ''), COALESCE(academic_year, '2025-2026'), is_active, created_at
-		FROM students WHERE school_id = $1 AND access_id = $2
+		SELECT id, COALESCE(school_id::text, ''), access_id, COALESCE(roll_number, ''), COALESCE(stream, ''), name, grade, COALESCE(section, ''), COALESCE(mobile_number, ''), COALESCE(email, ''), COALESCE(academic_year, '2025-2026'), is_active, created_at
+		FROM students WHERE school_id = $1 AND (access_id = $2 OR access_id ILIKE $2)
 	`, schoolID, accessID).Scan(
-		&s.ID, &s.SchoolID, &s.AccessID, &s.Name, &s.Grade, &s.Section, &s.MobileNumber, &s.Email, &s.AcademicYear, &s.IsActive, &s.CreatedAt,
+		&s.ID, &s.SchoolID, &s.AccessID, &s.RollNumber, &s.Stream, &s.Name, &s.Grade, &s.Section, &s.MobileNumber, &s.Email, &s.AcademicYear, &s.IsActive, &s.CreatedAt,
+	)
+	if err != nil {
+		return nil, err
+	}
+	return &s, nil
+}
+
+func (r *postgresStudent) GetByClassAndRoll(ctx context.Context, schoolID, grade, section, rollNumber, stream string) (*domain.Student, error) {
+	cleanGrade := strings.TrimSpace(grade)
+	cleanSection := strings.ToUpper(strings.TrimSpace(section))
+	cleanRoll := strings.TrimSpace(rollNumber)
+	cleanStream := strings.TrimSpace(stream)
+
+	var s domain.Student
+	err := r.db.QueryRow(ctx, `
+		SELECT id, COALESCE(school_id::text, ''), access_id, COALESCE(roll_number, ''), COALESCE(stream, ''), name, grade, COALESCE(section, ''), COALESCE(mobile_number, ''), COALESCE(email, ''), COALESCE(academic_year, '2025-2026'), is_active, created_at
+		FROM students
+		WHERE school_id = $1::uuid
+		  AND (grade = $2 OR grade ILIKE $2 || '%' OR grade = REPLACE($2, 'th', ''))
+		  AND ($3 = '' OR section = '' OR section ILIKE $3)
+		  AND (roll_number = $4 OR access_id = $4 OR access_id ILIKE '%' || $4)
+		  AND ($5 = '' OR stream ILIKE $5)
+		LIMIT 1
+	`, schoolID, cleanGrade, cleanSection, cleanRoll, cleanStream).Scan(
+		&s.ID, &s.SchoolID, &s.AccessID, &s.RollNumber, &s.Stream, &s.Name, &s.Grade, &s.Section, &s.MobileNumber, &s.Email, &s.AcademicYear, &s.IsActive, &s.CreatedAt,
 	)
 	if err != nil {
 		return nil, err
@@ -98,23 +123,71 @@ func (r *postgresStudent) GetByAccessID(ctx context.Context, schoolID, accessID 
 }
 
 func (r *postgresStudent) Create(ctx context.Context, schoolID string, req domain.CreateStudentRequest) (*domain.Student, error) {
-	accessID := req.AccessID
-	if accessID == "" {
-		var count int
-		_ = r.db.QueryRow(ctx, `SELECT COUNT(*) FROM students WHERE school_id = $1`, schoolID).Scan(&count)
-		accessID = fmt.Sprintf("R%04d", count+1)
+	grade := strings.TrimSpace(req.Grade)
+	section := strings.ToUpper(strings.TrimSpace(req.Section))
+	rollNumber := strings.TrimSpace(req.RollNumber)
+	stream := strings.TrimSpace(req.Stream)
+	accessID := strings.TrimSpace(req.AccessID)
+
+	// If rollNumber is blank but accessID is provided, extract or use it
+	if rollNumber == "" && accessID != "" {
+		if strings.Contains(accessID, "-") {
+			parts := strings.Split(accessID, "-")
+			rollNumber = parts[len(parts)-1]
+		} else {
+			rollNumber = accessID
+		}
 	}
+
+	// Auto-generate composite accessID if empty or if equal to bare roll number
+	if accessID == "" || accessID == rollNumber {
+		if rollNumber != "" {
+			cleanGrade := strings.TrimSuffix(strings.ToLower(grade), "th")
+			cleanRoll := rollNumber
+			var rollInt int
+			if _, err := fmt.Sscanf(rollNumber, "%d", &rollInt); err == nil && rollInt > 0 && rollInt < 10 && len(rollNumber) == 1 {
+				cleanRoll = fmt.Sprintf("%02d", rollInt)
+			}
+			if stream != "" {
+				streamCode := strings.ToUpper(stream)
+				if len(streamCode) > 4 {
+					streamCode = streamCode[:4]
+				}
+				accessID = fmt.Sprintf("%s%s-%s-%s", cleanGrade, section, streamCode, cleanRoll)
+			} else {
+				accessID = fmt.Sprintf("%s%s-%s", cleanGrade, section, cleanRoll)
+			}
+		} else {
+			var count int
+			_ = r.db.QueryRow(ctx, `SELECT COUNT(*) FROM students WHERE school_id = $1`, schoolID).Scan(&count)
+			accessID = fmt.Sprintf("R%04d", count+1)
+		}
+	}
+
+	// Class duplicate roll number check
+	if rollNumber != "" && grade != "" && section != "" {
+		var existingID string
+		err := r.db.QueryRow(ctx, `
+			SELECT id::text FROM students
+			WHERE school_id = $1 AND grade = $2 AND section = $3 AND roll_number = $4 AND ($5 = '' OR stream = $5)
+			LIMIT 1
+		`, schoolID, grade, section, rollNumber, stream).Scan(&existingID)
+		if err == nil && existingID != "" {
+			return nil, fmt.Errorf("student with roll number '%s' already exists in Class %s %s", rollNumber, grade, section)
+		}
+	}
+
 	ay := req.AcademicYear
 	if ay == "" {
 		ay = "2025-2026"
 	}
 	var s domain.Student
 	err := r.db.QueryRow(ctx, `
-		INSERT INTO students (school_id, access_id, name, grade, section, mobile_number, email, academic_year)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-		RETURNING id, COALESCE(school_id::text, ''), access_id, name, grade, COALESCE(section, ''), COALESCE(mobile_number, ''), COALESCE(email, ''), COALESCE(academic_year, '2025-2026'), is_active, created_at
-	`, schoolID, accessID, req.Name, req.Grade, req.Section, req.MobileNumber, req.Email, ay).Scan(
-		&s.ID, &s.SchoolID, &s.AccessID, &s.Name, &s.Grade, &s.Section, &s.MobileNumber, &s.Email, &s.AcademicYear, &s.IsActive, &s.CreatedAt,
+		INSERT INTO students (school_id, access_id, roll_number, stream, name, grade, section, mobile_number, email, academic_year)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+		RETURNING id, COALESCE(school_id::text, ''), access_id, COALESCE(roll_number, ''), COALESCE(stream, ''), name, grade, COALESCE(section, ''), COALESCE(mobile_number, ''), COALESCE(email, ''), COALESCE(academic_year, '2025-2026'), is_active, created_at
+	`, schoolID, accessID, rollNumber, stream, req.Name, grade, section, req.MobileNumber, req.Email, ay).Scan(
+		&s.ID, &s.SchoolID, &s.AccessID, &s.RollNumber, &s.Stream, &s.Name, &s.Grade, &s.Section, &s.MobileNumber, &s.Email, &s.AcademicYear, &s.IsActive, &s.CreatedAt,
 	)
 	if err != nil {
 		return nil, err
@@ -127,14 +200,49 @@ func (r *postgresStudent) Update(ctx context.Context, id string, req domain.Crea
 	if ay == "" {
 		ay = "2025-2026"
 	}
+	grade := strings.TrimSpace(req.Grade)
+	section := strings.ToUpper(strings.TrimSpace(req.Section))
+	rollNumber := strings.TrimSpace(req.RollNumber)
+	stream := strings.TrimSpace(req.Stream)
+	accessID := strings.TrimSpace(req.AccessID)
+
+	if rollNumber == "" && accessID != "" {
+		if strings.Contains(accessID, "-") {
+			parts := strings.Split(accessID, "-")
+			rollNumber = parts[len(parts)-1]
+		} else {
+			rollNumber = accessID
+		}
+	}
+
+	if accessID == "" || accessID == rollNumber {
+		if rollNumber != "" {
+			cleanGrade := strings.TrimSuffix(strings.ToLower(grade), "th")
+			cleanRoll := rollNumber
+			var rollInt int
+			if _, err := fmt.Sscanf(rollNumber, "%d", &rollInt); err == nil && rollInt > 0 && rollInt < 10 && len(rollNumber) == 1 {
+				cleanRoll = fmt.Sprintf("%02d", rollInt)
+			}
+			if stream != "" {
+				streamCode := strings.ToUpper(stream)
+				if len(streamCode) > 4 {
+					streamCode = streamCode[:4]
+				}
+				accessID = fmt.Sprintf("%s%s-%s-%s", cleanGrade, section, streamCode, cleanRoll)
+			} else {
+				accessID = fmt.Sprintf("%s%s-%s", cleanGrade, section, cleanRoll)
+			}
+		}
+	}
+
 	var s domain.Student
 	err := r.db.QueryRow(ctx, `
 		UPDATE students
-		SET access_id = $1, name = $2, grade = $3, section = $4, mobile_number = $5, email = $6, academic_year = $7
-		WHERE id = $8
-		RETURNING id, COALESCE(school_id::text, ''), access_id, name, grade, COALESCE(section, ''), COALESCE(mobile_number, ''), COALESCE(email, ''), COALESCE(academic_year, '2025-2026'), is_active, created_at
-	`, req.AccessID, req.Name, req.Grade, req.Section, req.MobileNumber, req.Email, ay, id).Scan(
-		&s.ID, &s.SchoolID, &s.AccessID, &s.Name, &s.Grade, &s.Section, &s.MobileNumber, &s.Email, &s.AcademicYear, &s.IsActive, &s.CreatedAt,
+		SET access_id = $1, roll_number = $2, stream = $3, name = $4, grade = $5, section = $6, mobile_number = $7, email = $8, academic_year = $9
+		WHERE id = $10
+		RETURNING id, COALESCE(school_id::text, ''), access_id, COALESCE(roll_number, ''), COALESCE(stream, ''), name, grade, COALESCE(section, ''), COALESCE(mobile_number, ''), COALESCE(email, ''), COALESCE(academic_year, '2025-2026'), is_active, created_at
+	`, accessID, rollNumber, stream, req.Name, grade, section, req.MobileNumber, req.Email, ay, id).Scan(
+		&s.ID, &s.SchoolID, &s.AccessID, &s.RollNumber, &s.Stream, &s.Name, &s.Grade, &s.Section, &s.MobileNumber, &s.Email, &s.AcademicYear, &s.IsActive, &s.CreatedAt,
 	)
 	if err != nil {
 		return nil, err
@@ -159,13 +267,51 @@ func (r *postgresStudent) BulkCreate(ctx context.Context, schoolID string, stude
 	// Use pgx Batch for efficient bulk insert
 	batch := &pgx.Batch{}
 	for _, s := range students {
+		grade := strings.TrimSpace(s.Grade)
+		section := strings.ToUpper(strings.TrimSpace(s.Section))
+		rollNumber := strings.TrimSpace(s.RollNumber)
+		stream := strings.TrimSpace(s.Stream)
+		accessID := strings.TrimSpace(s.AccessID)
+
+		if rollNumber == "" && accessID != "" {
+			if strings.Contains(accessID, "-") {
+				parts := strings.Split(accessID, "-")
+				rollNumber = parts[len(parts)-1]
+			} else {
+				rollNumber = accessID
+			}
+		}
+
+		if accessID == "" || accessID == rollNumber {
+			if rollNumber != "" {
+				cleanGrade := strings.TrimSuffix(strings.ToLower(grade), "th")
+				cleanRoll := rollNumber
+				var rollInt int
+				if _, err := fmt.Sscanf(rollNumber, "%d", &rollInt); err == nil && rollInt > 0 && rollInt < 10 && len(rollNumber) == 1 {
+					cleanRoll = fmt.Sprintf("%02d", rollInt)
+				}
+				if stream != "" {
+					streamCode := strings.ToUpper(stream)
+					if len(streamCode) > 4 {
+						streamCode = streamCode[:4]
+					}
+					accessID = fmt.Sprintf("%s%s-%s-%s", cleanGrade, section, streamCode, cleanRoll)
+				} else {
+					accessID = fmt.Sprintf("%s%s-%s", cleanGrade, section, cleanRoll)
+				}
+			} else {
+				accessID = fmt.Sprintf("%s%s-%s", grade, section, s.Name)
+			}
+		}
+
 		batch.Queue(`
-			INSERT INTO students (school_id, access_id, name, grade, section, mobile_number, email)
-			VALUES ($1, $2, $3, $4, $5, $6, $7)
+			INSERT INTO students (school_id, access_id, roll_number, stream, name, grade, section, mobile_number, email)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 			ON CONFLICT (school_id, access_id) DO UPDATE 
-			SET name = EXCLUDED.name, grade = EXCLUDED.grade, section = EXCLUDED.section, 
+			SET name = EXCLUDED.name, roll_number = EXCLUDED.roll_number, stream = EXCLUDED.stream,
+			    grade = EXCLUDED.grade, section = EXCLUDED.section, 
 			    mobile_number = EXCLUDED.mobile_number, email = EXCLUDED.email
-		`, schoolID, s.AccessID, s.Name, s.Grade, s.Section, s.MobileNumber, s.Email)
+		`, schoolID, accessID, rollNumber, stream, s.Name, grade, section, s.MobileNumber, s.Email)
 	}
 
 	br := tx.SendBatch(ctx, batch)

@@ -19,6 +19,11 @@ export default function StudentLoginPage() {
 
   const [schoolInfo, setSchoolInfo] = useState<{ name: string | null; logo: string | null }>({ name: null, logo: null });
   const [accessId, setAccessId] = useState("");
+  const [loginMethod, setLoginMethod] = useState<"roll_class" | "access_id">("roll_class");
+  const [studentClass, setStudentClass] = useState("10");
+  const [section, setSection] = useState("A");
+  const [rollNumber, setRollNumber] = useState("");
+  const [stream, setStream] = useState("");
   const [mobileNumber, setMobileNumber] = useState("");
   const [email, setEmail] = useState("");
   const [schoolCode, setSchoolCode] = useState("");
@@ -38,6 +43,7 @@ export default function StudentLoginPage() {
 
     if (paramAccessId) {
       setAccessId(paramAccessId);
+      setLoginMethod("access_id");
     }
 
     if (schoolId) {
@@ -84,6 +90,22 @@ export default function StudentLoginPage() {
       return;
     }
 
+    if (loginMethod === "access_id") {
+      if (!accessId.trim()) {
+        setError("Please enter your Access ID");
+        return;
+      }
+    } else {
+      if (!rollNumber.trim()) {
+        setError("Please enter your Class Roll Number");
+        return;
+      }
+      if (!studentClass.trim()) {
+        setError("Please enter or select your Class / Grade");
+        return;
+      }
+    }
+
     if (mobileNumber && !/^[0-9]{10}$/.test(mobileNumber)) {
       setError("Please enter a valid 10-digit mobile number");
       return;
@@ -97,10 +119,22 @@ export default function StudentLoginPage() {
     setLoading(true);
 
     try {
-      await studentLogin(accessId, schoolId, mobileNumber, email);
+      if (loginMethod === "access_id") {
+        await studentLogin({ accessId: accessId.trim(), schoolId, mobileNumber, email });
+      } else {
+        await studentLogin({
+          schoolId,
+          class: studentClass.trim(),
+          section: section.trim().toUpperCase(),
+          rollNumber: rollNumber.trim(),
+          stream: stream.trim(),
+          mobileNumber,
+          email,
+        });
+      }
       // router.push is handled inside studentLogin on success
     } catch (err: any) {
-      setError(err.message || "Failed to log in. Check your Access ID.");
+      setError(err.message || "Failed to log in. Please check your Roll Number and Class.");
       setLoading(false);
     }
   };
@@ -201,15 +235,98 @@ export default function StudentLoginPage() {
               </form>
             ) : (
               <form onSubmit={handleLoginSubmit} className="space-y-4">
-                <div className="space-y-2 text-left">
-                  <label className="text-sm font-medium">Access ID (Roll Number)</label>
-                  <Input
-                    value={accessId}
-                    onChange={(e) => setAccessId(e.target.value)}
-                    placeholder="Enter your Access ID"
-                    required
-                  />
+                {/* Method selector pills */}
+                <div className="grid grid-cols-2 gap-1 p-1 bg-muted/60 rounded-lg border border-border/60 text-xs">
+                  <button
+                    type="button"
+                    onClick={() => setLoginMethod("roll_class")}
+                    className={`py-1.5 px-2 rounded-md font-medium transition-all ${
+                      loginMethod === "roll_class"
+                        ? "bg-background text-foreground shadow-xs font-semibold"
+                        : "text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    Class & Roll No.
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setLoginMethod("access_id")}
+                    className={`py-1.5 px-2 rounded-md font-medium transition-all ${
+                      loginMethod === "access_id"
+                        ? "bg-background text-foreground shadow-xs font-semibold"
+                        : "text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    Direct Access ID
+                  </button>
                 </div>
+
+                {loginMethod === "roll_class" ? (
+                  <div className="space-y-3 pt-1">
+                    <div className="grid grid-cols-2 gap-3 text-left">
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-medium">Class / Grade *</label>
+                        <select
+                          value={studentClass}
+                          onChange={(e) => setStudentClass(e.target.value)}
+                          className="w-full h-9 rounded-md border border-input bg-background px-3 py-1 text-xs shadow-xs focus:outline-none focus:ring-1 focus:ring-ring"
+                        >
+                          {["6", "7", "8", "9", "10", "11", "12"].map((c) => (
+                            <option key={c} value={c}>Class {c}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-medium">Section *</label>
+                        <select
+                          value={section}
+                          onChange={(e) => setSection(e.target.value)}
+                          className="w-full h-9 rounded-md border border-input bg-background px-3 py-1 text-xs shadow-xs focus:outline-none focus:ring-1 focus:ring-ring"
+                        >
+                          {["A", "B", "C", "D", "E", "F"].map((s) => (
+                            <option key={s} value={s}>Section {s}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3 text-left">
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-medium">Roll Number *</label>
+                        <Input
+                          value={rollNumber}
+                          onChange={(e) => setRollNumber(e.target.value)}
+                          placeholder="e.g. 15 or 01"
+                          required
+                          className="h-9 text-xs font-medium"
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-medium">Stream <span className="text-[10px] text-muted-foreground">(If 11/12)</span></label>
+                        <Input
+                          value={stream}
+                          onChange={(e) => setStream(e.target.value)}
+                          placeholder="e.g. Science"
+                          className="h-9 text-xs"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-2 text-left pt-1">
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs font-medium">Direct Access ID *</label>
+                      <span className="text-[10px] text-muted-foreground">From card / teacher</span>
+                    </div>
+                    <Input
+                      value={accessId}
+                      onChange={(e) => setAccessId(e.target.value)}
+                      placeholder="e.g. 10A-01 or R001"
+                      required
+                      className="font-mono text-xs"
+                    />
+                  </div>
+                )}
                 
                 <div className="space-y-2 text-left">
                   <label className="text-sm font-medium">Mobile Number <span className="text-muted-foreground font-normal">(Optional)</span></label>

@@ -24,7 +24,8 @@ func NewPostgresParent(db *pgxpool.Pool) domain.ParentRepository {
 
 func (r *postgresParent) GetChildren(ctx context.Context, parentID string) ([]domain.ChildSummary, error) {
 	rows, err := r.db.Query(ctx, `
-		SELECT s.id, s.name, COALESCE(s.nickname, ''), s.grade, s.section, s.access_id,
+		SELECT s.id, s.name, COALESCE(s.nickname, ''), s.grade, s.section,
+		       COALESCE(s.roll_number, ''), COALESCE(s.stream, ''), s.access_id,
 		       COALESCE(s.school_id::text, ''), COALESCE(sc.name, 'Independent / Home Study'), COALESCE(sc.school_code, 'HOME'),
 		       COALESCE(ps.relationship, 'parent')
 		FROM parent_students ps
@@ -42,7 +43,8 @@ func (r *postgresParent) GetChildren(ctx context.Context, parentID string) ([]do
 	for rows.Next() {
 		var c domain.ChildSummary
 		if err := rows.Scan(
-			&c.ID, &c.Name, &c.Nickname, &c.Grade, &c.Section, &c.AccessID,
+			&c.ID, &c.Name, &c.Nickname, &c.Grade, &c.Section,
+			&c.RollNumber, &c.Stream, &c.AccessID,
 			&c.SchoolID, &c.SchoolName, &c.SchoolCode, &c.Relationship,
 		); err != nil {
 			return nil, err
@@ -694,11 +696,20 @@ func (r *postgresParent) AddChild(ctx context.Context, parentID string, req doma
 		relationship = "parent"
 	}
 
-	// 1. If SchoolCode and AccessID are provided, link to existing institutional student
+	// 1. If SchoolCode and (AccessID or RollNumber) are provided, link to existing institutional student
 	schoolCode := strings.ToUpper(strings.TrimSpace(req.SchoolCode))
 	accessID := strings.TrimSpace(req.AccessID)
-	if schoolCode != "" && accessID != "" {
-		child, err := r.LinkStudent(ctx, parentID, schoolCode, accessID, relationship)
+	rollNumber := strings.TrimSpace(req.RollNumber)
+	if schoolCode != "" && (accessID != "" || rollNumber != "") {
+		child, err := r.LinkStudent(ctx, parentID, domain.ParentLinkStudentRequest{
+			SchoolCode:   schoolCode,
+			AccessID:     accessID,
+			Relationship: relationship,
+			Grade:        grade,
+			Section:      req.Section,
+			RollNumber:   rollNumber,
+			Stream:       req.Stream,
+		})
 		if err == nil && nickname != "" {
 			_, _ = r.db.Exec(ctx, `UPDATE students SET nickname = $1 WHERE id = $2::uuid`, nickname, child.ID)
 			_, _ = r.db.Exec(ctx, `UPDATE parent_students SET nickname = $1 WHERE parent_id = $2::uuid AND student_id = $3::uuid`, nickname, parentID, child.ID)
@@ -883,10 +894,14 @@ func (r *postgresParent) UpdateChild(ctx context.Context, parentID string, req d
 	return &updated, nil
 }
 
-func (r *postgresParent) LinkStudent(ctx context.Context, parentID, schoolCode, accessID, relationship string) (*domain.ChildSummary, error) {
-	cleanCode := strings.ToUpper(strings.TrimSpace(schoolCode))
-	cleanAccessID := strings.TrimSpace(accessID)
-	cleanRel := strings.ToLower(strings.TrimSpace(relationship))
+func (r *postgresParent) LinkStudent(ctx context.Context, parentID string, req domain.ParentLinkStudentRequest) (*domain.ChildSummary, error) {
+	cleanCode := strings.ToUpper(strings.TrimSpace(req.SchoolCode))
+	cleanAccessID := strings.TrimSpace(req.AccessID)
+	cleanGrade := strings.TrimSpace(req.Grade)
+	cleanSection := strings.ToUpper(strings.TrimSpace(req.Section))
+	cleanRoll := strings.TrimSpace(req.RollNumber)
+	cleanStream := strings.TrimSpace(req.Stream)
+	cleanRel := strings.ToLower(strings.TrimSpace(req.Relationship))
 	if cleanRel == "" {
 		cleanRel = "parent"
 	}
@@ -898,19 +913,50 @@ func (r *postgresParent) LinkStudent(ctx context.Context, parentID, schoolCode, 
 		return nil, fmt.Errorf("school with code '%s' not found", cleanCode)
 	}
 
-	// 2. Find student
+	// 2. Find student (support both access_id match and grade + section + roll_number match)
 	var student domain.Student
-	err = r.db.QueryRow(ctx, `
-		SELECT id, school_id, access_id, name, grade, section, COALESCE(mobile_number, ''), COALESCE(email, ''), is_active, created_at
-		FROM students
-		WHERE school_id = $1 AND access_id = $2
-	`, schoolID, cleanAccessID).Scan(
-		&student.ID, &student.SchoolID, &student.AccessID, &student.Name,
-		&student.Grade, &student.Section, &student.MobileNumber, &student.Email,
-		&student.IsActive, &student.CreatedAt,
-	)
-	if err != nil {
-		return nil, fmt.Errorf("no student found with access ID '%s' in this school", cleanAccessID)
+	var findErr error
+
+	// Try Access ID first if provided
+	if cleanAccessID != "" {
+		findErr = r.db.QueryRow(ctx, `
+			SELECT id, school_id, access_id, COALESCE(roll_number, ''), COALESCE(stream, ''), name, grade, section, COALESCE(mobile_number, ''), COALESCE(email, ''), is_active, created_at
+			FROM students
+			WHERE school_id = $1 AND (access_id = $2 OR access_id ILIKE $2)
+		`, schoolID, cleanAccessID).Scan(
+			&student.ID, &student.SchoolID, &student.AccessID, &student.RollNumber, &student.Stream, &student.Name,
+			&student.Grade, &student.Section, &student.MobileNumber, &student.Email,
+			&student.IsActive, &student.CreatedAt,
+		)
+	}
+
+	// If not found yet and class / roll number provided (or access_id was used as roll number)
+	if (findErr != nil || cleanAccessID == "") && (cleanRoll != "" || cleanAccessID != "") {
+		rollToSearch := cleanRoll
+		if rollToSearch == "" {
+			rollToSearch = cleanAccessID
+		}
+		findErr = r.db.QueryRow(ctx, `
+			SELECT id, school_id, access_id, COALESCE(roll_number, ''), COALESCE(stream, ''), name, grade, section, COALESCE(mobile_number, ''), COALESCE(email, ''), is_active, created_at
+			FROM students
+			WHERE school_id = $1
+			  AND (grade = $2 OR grade ILIKE $2 || '%' OR grade = REPLACE($2, 'th', ''))
+			  AND ($3 = '' OR section = '' OR section ILIKE $3)
+			  AND (roll_number = $4 OR access_id = $4 OR access_id ILIKE '%' || $4)
+			  AND ($5 = '' OR stream ILIKE $5)
+			LIMIT 1
+		`, schoolID, cleanGrade, cleanSection, rollToSearch, cleanStream).Scan(
+			&student.ID, &student.SchoolID, &student.AccessID, &student.RollNumber, &student.Stream, &student.Name,
+			&student.Grade, &student.Section, &student.MobileNumber, &student.Email,
+			&student.IsActive, &student.CreatedAt,
+		)
+	}
+
+	if findErr != nil {
+		if cleanAccessID != "" {
+			return nil, fmt.Errorf("no student found with identifier '%s' in this school", cleanAccessID)
+		}
+		return nil, fmt.Errorf("no student found in Class %s %s with Roll No '%s'", cleanGrade, cleanSection, cleanRoll)
 	}
 
 	// 3. Insert or update link in parent_students
@@ -929,6 +975,8 @@ func (r *postgresParent) LinkStudent(ctx context.Context, parentID, schoolCode, 
 		Name:         student.Name,
 		Grade:        student.Grade,
 		Section:      student.Section,
+		RollNumber:   student.RollNumber,
+		Stream:       student.Stream,
 		AccessID:     student.AccessID,
 		SchoolID:     schoolID,
 		SchoolName:   schoolName,

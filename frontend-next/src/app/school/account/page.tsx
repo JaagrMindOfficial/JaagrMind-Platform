@@ -77,12 +77,22 @@ export default function SchoolAccountPage() {
     try {
       const data = await api.get("/api/school/account")
       if (data) {
-        setAccount(data)
+        const s = data.school || data
+        setAccount({
+          id: s.id,
+          name: s.name || "",
+          code: s.school_code || s.code || "",
+          city: s.city || "",
+          contact_phone: s.phone_number || s.contact_phone || "",
+          contact_email: s.contact || s.contact_email || "",
+          status: s.is_active !== false ? "active" : "inactive",
+          branches: data.branches || s.branches || [],
+        })
         setProfileData({
-          name: data.name || "",
-          contact_phone: data.contact_phone || "",
-          contact_email: data.contact_email || "",
-          city: data.city || "",
+          name: s.name || "",
+          contact_phone: s.phone_number || s.contact_phone || "",
+          contact_email: s.contact || s.contact_email || "",
+          city: s.city || "",
         })
       }
     } catch (err) {

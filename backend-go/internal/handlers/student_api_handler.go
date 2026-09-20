@@ -72,8 +72,15 @@ func (h *StudentAPIHandler) StudentLogin(c fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"message": "Invalid request"})
 	}
 
-	if req.AccessID == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"message": "Access ID is required"})
+	classGrade := strings.TrimSpace(req.Class)
+	if classGrade == "" {
+		classGrade = strings.TrimSpace(req.Grade)
+	}
+	rollNo := strings.TrimSpace(req.RollNumber)
+	accessID := strings.TrimSpace(req.AccessID)
+
+	if accessID == "" && (rollNo == "" || classGrade == "") {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"message": "Access ID or Class and Roll Number is required"})
 	}
 	if req.SchoolID == "" {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"message": "School ID is required"})
@@ -91,10 +98,23 @@ func (h *StudentAPIHandler) StudentLogin(c fiber.Ctx) error {
 		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"message": "This school has been blocked."})
 	}
 
-	// 2. Get Student by School ID and Access ID
-	student, err := h.studentRepo.GetByAccessID(c.Context(), school.ID, req.AccessID)
-	if err != nil {
-		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"message": "Invalid Access ID"})
+	// 2. Get Student by School ID and Access ID or Class/Roll
+	var student *domain.Student
+	if accessID != "" {
+		student, err = h.studentRepo.GetByAccessID(c.Context(), school.ID, accessID)
+	}
+
+	// Fallback to Class + Section + Roll Number lookup
+	if (student == nil || err != nil) && (rollNo != "" || accessID != "") && classGrade != "" {
+		targetRoll := rollNo
+		if targetRoll == "" {
+			targetRoll = accessID
+		}
+		student, err = h.studentRepo.GetByClassAndRoll(c.Context(), school.ID, classGrade, req.Section, targetRoll, req.Stream)
+	}
+
+	if err != nil || student == nil {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"message": "Invalid credentials. Please verify your Access ID or Class & Roll Number."})
 	}
 	if !student.IsActive {
 		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"message": "Account inactive"})
@@ -114,15 +134,17 @@ func (h *StudentAPIHandler) StudentLogin(c fiber.Ctx) error {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"message": "Failed to generate token"})
 	}
 
-	// 5. Return old-frontend compatible response
+	// 5. Return old-frontend compatible response with roll_number and stream
 	res := domain.StudentLoginResponse{
-		ID:       student.ID,
-		AccessID: student.AccessID,
-		Name:     student.Name,
-		Class:    student.Grade,
-		Section:  student.Section,
-		Role:     "student",
-		Token:    token,
+		ID:         student.ID,
+		AccessID:   student.AccessID,
+		RollNumber: student.RollNumber,
+		Stream:     student.Stream,
+		Name:       student.Name,
+		Class:      student.Grade,
+		Section:    student.Section,
+		Role:       "student",
+		Token:      token,
 	}
 	res.School.Name = school.Name
 	res.School.Logo = school.Logo

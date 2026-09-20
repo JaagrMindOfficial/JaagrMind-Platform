@@ -55,6 +55,8 @@ import { StudentDossierDialog, StudentProfileData } from "@/components/student-d
 interface Student {
   id: string
   access_id: string
+  roll_number?: string
+  stream?: string
   name: string
   grade: string
   section: string
@@ -77,6 +79,8 @@ interface ScheduledPromotion {
 export interface ValidatedUploadRow {
   rowNumber: number
   access_id: string
+  roll_number?: string
+  stream?: string
   name: string
   grade: string
   section: string
@@ -122,6 +126,8 @@ export default function SchoolStudentsPage() {
   // Form states
   const [formData, setFormData] = useState({
     access_id: "",
+    roll_number: "",
+    stream: "",
     name: "",
     grade: "",
     section: "",
@@ -130,6 +136,8 @@ export default function SchoolStudentsPage() {
   })
   const [editFormData, setEditFormData] = useState({
     access_id: "",
+    roll_number: "",
+    stream: "",
     name: "",
     grade: "",
     section: "",
@@ -344,11 +352,11 @@ export default function SchoolStudentsPage() {
     try {
       await api.post("/api/school/students", formData)
       setIsAddOpen(false)
-      setFormData({ access_id: "", name: "", grade: "", section: "", mobile_number: "", email: "" })
+      setFormData({ access_id: "", roll_number: "", stream: "", name: "", grade: "", section: "", mobile_number: "", email: "" })
       await fetchStudents()
-    } catch (err) {
+    } catch (err: any) {
       console.error(err)
-      alert("Failed to add student. Please ensure Access ID is unique.")
+      alert(err?.message || err?.error || "Failed to add student. Please ensure roll number is unique in this class section.")
     } finally {
       setActionLoading(false)
     }
@@ -359,6 +367,8 @@ export default function SchoolStudentsPage() {
     setEditingStudent(student)
     setEditFormData({
       access_id: student.access_id,
+      roll_number: student.roll_number || "",
+      stream: student.stream || "",
       name: student.name,
       grade: student.grade,
       section: student.section,
@@ -474,35 +484,44 @@ export default function SchoolStudentsPage() {
 
         // Parse header row
         const headers = lines[0].split(",").map((h) => h.trim().toLowerCase().replace(/^["']|["']$/g, ""))
-        const accessIdIdx = headers.findIndex((h) => h.includes("access") || h.includes("roll") || h.includes("id"))
+        const accessIdIdx = headers.findIndex((h) => h.includes("access") || (h.includes("id") && !h.includes("school")))
+        const rollIdx = headers.findIndex((h) => h.includes("roll"))
         const nameIdx = headers.findIndex((h) => h.includes("name") || h.includes("student"))
         const gradeIdx = headers.findIndex((h) => h.includes("grade") || h.includes("class"))
         const sectionIdx = headers.findIndex((h) => h.includes("section") || h.includes("sec"))
+        const streamIdx = headers.findIndex((h) => h.includes("stream") || h.includes("branch"))
         const phoneIdx = headers.findIndex((h) => h.includes("phone") || h.includes("mobile") || h.includes("contact"))
         const emailIdx = headers.findIndex((h) => h.includes("email") || h.includes("mail"))
 
         const parsedRows: ValidatedUploadRow[] = []
-        const seenAccessIds = new Set<string>()
+        const seenInClass = new Set<string>()
 
         for (let i = 1; i < lines.length; i++) {
           const line = lines[i]
           if (!line) continue
           const parts = line.split(",").map((p) => p.trim().replace(/^["']|["']$/g, ""))
           
-          const rawAccessId = (accessIdIdx !== -1 ? parts[accessIdIdx] : parts[0]) || ""
+          const rawRoll = (rollIdx !== -1 ? parts[rollIdx] : (accessIdIdx !== -1 ? parts[accessIdIdx] : parts[0])) || ""
+          const rawAccessId = (accessIdIdx !== -1 ? parts[accessIdIdx] : (rollIdx !== -1 ? parts[rollIdx] : parts[0])) || ""
           const rawName = (nameIdx !== -1 ? parts[nameIdx] : parts[1]) || ""
           const rawGrade = (gradeIdx !== -1 ? parts[gradeIdx] : parts[2]) || "10"
           const rawSection = (sectionIdx !== -1 ? parts[sectionIdx] : parts[3]) || "A"
+          const rawStream = (streamIdx !== -1 ? parts[streamIdx] : "") || ""
           const rawPhone = (phoneIdx !== -1 ? parts[phoneIdx] : parts[4]) || ""
           const rawEmail = (emailIdx !== -1 ? parts[emailIdx] : parts[5]) || ""
 
           const errors: string[] = []
-          if (!rawAccessId.trim()) {
+          const identifier = rawRoll.trim() || rawAccessId.trim()
+          if (!identifier) {
             errors.push("Missing Roll Number")
-          } else if (seenAccessIds.has(rawAccessId.trim().toUpperCase())) {
-            errors.push("Duplicate Roll Number in file")
           } else {
-            seenAccessIds.add(rawAccessId.trim().toUpperCase())
+            // Uniqueness is scoped per Class & Section & Stream (so Roll 1 in 9A and 9B are both allowed!)
+            const classKey = `${rawGrade.trim().toLowerCase()}-${rawSection.trim().toUpperCase()}-${rawStream.trim().toLowerCase()}-${identifier.toUpperCase()}`
+            if (seenInClass.has(classKey)) {
+              errors.push(`Duplicate Roll No in Class ${rawGrade} ${rawSection}`)
+            } else {
+              seenInClass.add(classKey)
+            }
           }
 
           if (!rawName.trim()) {
@@ -520,6 +539,8 @@ export default function SchoolStudentsPage() {
           parsedRows.push({
             rowNumber: i + 1,
             access_id: rawAccessId.trim(),
+            roll_number: rawRoll.trim(),
+            stream: rawStream.trim(),
             name: rawName.trim(),
             grade: rawGrade.trim() || "10",
             section: (rawSection.trim() || "A").toUpperCase(),
@@ -542,6 +563,8 @@ export default function SchoolStudentsPage() {
             .filter((r) => r.isValid)
             .map((r) => ({
               access_id: r.access_id,
+              roll_number: r.roll_number || r.access_id,
+              stream: r.stream,
               name: r.name,
               grade: r.grade,
               section: r.section,
@@ -576,6 +599,8 @@ export default function SchoolStudentsPage() {
       await api.post("/api/school/students/bulk", { 
         students: toCommit.map((r) => ({
           access_id: r.access_id,
+          roll_number: r.roll_number || r.access_id,
+          stream: r.stream,
           name: r.name,
           grade: r.grade,
           section: r.section,
@@ -600,14 +625,14 @@ export default function SchoolStudentsPage() {
 
   // Template Downloader
   const downloadSampleTemplate = () => {
-    const header = "access_id,name,grade,section,mobile_number,email\n"
+    const header = "roll_number,name,grade,section,stream,mobile_number,email\n"
     const sampleRows =
-      "STU2026-001,Aarav Sharma,10,A,9876543210,aarav.sharma@example.com\n" +
-      "STU2026-002,Diya Patel,10,A,9876543211,diya.patel@example.com\n" +
-      "STU2026-003,Rohan Verma,9,B,9876543212,rohan.verma@example.com\n" +
-      "STU2026-004,Ananya Reddy,9,B,9876543213,ananya.reddy@example.com\n" +
-      "STU2026-005,Kabir Mehta,11,Science,9876543214,kabir.mehta@example.com\n" +
-      "STU2026-006,Zara Khan,12,Commerce,9876543215,zara.khan@example.com\n"
+      "1,Aarav Sharma,10,A,,9876543210,aarav.sharma@example.com\n" +
+      "2,Diya Patel,10,A,,9876543211,diya.patel@example.com\n" +
+      "1,Rohan Verma,9,B,,9876543212,rohan.verma@example.com\n" +
+      "2,Ananya Reddy,9,B,,9876543213,ananya.reddy@example.com\n" +
+      "1,Kabir Mehta,11,A,Science,9876543214,kabir.mehta@example.com\n" +
+      "1,Zara Khan,12,B,Commerce,9876543215,zara.khan@example.com\n"
     const blob = new Blob([header + sampleRows], { type: "text/csv;charset=utf-8;" })
     const url = URL.createObjectURL(blob)
     const link = document.createElement("a")
@@ -1000,7 +1025,16 @@ export default function SchoolStudentsPage() {
                         </TableCell>
                         <TableCell className="font-mono font-medium text-foreground">
                           <div className="flex flex-col space-y-0.5">
-                            <span className="font-semibold">{student.access_id}</span>
+                            <div className="flex items-center gap-1.5">
+                              <span className="font-bold text-foreground">
+                                Roll {student.roll_number || student.access_id}
+                              </span>
+                              {student.roll_number && student.access_id !== student.roll_number && (
+                                <Badge variant="outline" className="text-[10px] px-1.5 py-0 font-mono text-muted-foreground">
+                                  {student.access_id}
+                                </Badge>
+                              )}
+                            </div>
                             <MinimalUUID uuid={student.id} length={4} />
                           </div>
                         </TableCell>
@@ -1008,11 +1042,16 @@ export default function SchoolStudentsPage() {
                           {student.name}
                         </TableCell>
                         <TableCell className="min-w-[150px]">
-                          <div className="flex items-center">
-                            <span className="font-medium inline-block w-[72px]">Class {student.grade}</span>
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="font-medium inline-block">Class {student.grade}</span>
                             {student.section ? (
                               <Badge variant="secondary" className="text-[10px] px-1.5 py-0 font-normal">
                                 Sec {student.section}
+                              </Badge>
+                            ) : null}
+                            {student.stream ? (
+                              <Badge variant="outline" className="text-[10px] px-1.5 py-0 font-normal border-primary/30 text-primary bg-primary/5">
+                                {student.stream}
                               </Badge>
                             ) : null}
                           </div>
@@ -1109,12 +1148,12 @@ export default function SchoolStudentsPage() {
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between">
                   <label className="text-xs font-medium">Roll Number</label>
-                  <span className="text-[10px] text-muted-foreground">Auto if empty</span>
+                  <span className="text-[10px] text-muted-foreground">Class-scoped</span>
                 </div>
                 <Input
-                  value={formData.access_id}
-                  onChange={(e) => setFormData({ ...formData, access_id: e.target.value })}
-                  placeholder="e.g. 101 or leave blank"
+                  value={formData.roll_number || formData.access_id}
+                  onChange={(e) => setFormData({ ...formData, roll_number: e.target.value, access_id: e.target.value })}
+                  placeholder="e.g. 01, 15, or R01"
                   className="h-9 text-xs"
                 />
               </div>
@@ -1134,7 +1173,7 @@ export default function SchoolStudentsPage() {
                   required
                   value={formData.grade}
                   onChange={(e) => setFormData({ ...formData, grade: e.target.value })}
-                  placeholder="e.g. 10"
+                  placeholder="e.g. 10 or 11"
                   className="h-9 text-xs"
                 />
               </div>
@@ -1144,7 +1183,16 @@ export default function SchoolStudentsPage() {
                   required
                   value={formData.section}
                   onChange={(e) => setFormData({ ...formData, section: e.target.value })}
-                  placeholder="e.g. A"
+                  placeholder="e.g. A, B, C"
+                  className="h-9 text-xs"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium">Stream <span className="text-[10px] text-muted-foreground">(Optional)</span></label>
+                <Input
+                  value={formData.stream}
+                  onChange={(e) => setFormData({ ...formData, stream: e.target.value })}
+                  placeholder="e.g. Science, Commerce"
                   className="h-9 text-xs"
                 />
               </div>
@@ -1157,13 +1205,13 @@ export default function SchoolStudentsPage() {
                   className="h-9 text-xs"
                 />
               </div>
-              <div className="space-y-1.5">
+              <div className="space-y-1.5 col-span-2">
                 <label className="text-xs font-medium">Email</label>
                 <Input
                   type="email"
                   value={formData.email}
                   onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  placeholder="Optional"
+                  placeholder="Optional parent/student email"
                   className="h-9 text-xs"
                 />
               </div>
@@ -1192,7 +1240,7 @@ export default function SchoolStudentsPage() {
           <DialogHeader>
             <DialogTitle className="text-base font-semibold">Edit Student Profile</DialogTitle>
             <DialogDescription className="text-xs text-muted-foreground">
-              Update access identifier, class assignment, or contact details.
+              Update class roll number, section, stream, or contact details.
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleEditSubmit} className="space-y-4 pt-2">
@@ -1201,13 +1249,13 @@ export default function SchoolStudentsPage() {
                 <label className="text-xs font-medium">Roll Number *</label>
                 <Input
                   required
-                  value={editFormData.access_id}
-                  onChange={(e) => setEditFormData({ ...editFormData, access_id: e.target.value })}
+                  value={editFormData.roll_number || editFormData.access_id}
+                  onChange={(e) => setEditFormData({ ...editFormData, roll_number: e.target.value, access_id: e.target.value })}
                   className="h-9 text-xs"
                 />
                 {editingStudent && (
                   <p className="text-[10px] font-mono text-muted-foreground mt-0.5">
-                    UUID: <span className="select-all text-foreground">{editingStudent.id}</span>
+                    Access ID: <span className="select-all font-semibold text-foreground">{editingStudent.access_id}</span>
                   </p>
                 )}
               </div>
@@ -1239,6 +1287,15 @@ export default function SchoolStudentsPage() {
                 />
               </div>
               <div className="space-y-1.5">
+                <label className="text-xs font-medium">Stream <span className="text-[10px] text-muted-foreground">(Optional)</span></label>
+                <Input
+                  value={editFormData.stream}
+                  onChange={(e) => setEditFormData({ ...editFormData, stream: e.target.value })}
+                  placeholder="e.g. Science"
+                  className="h-9 text-xs"
+                />
+              </div>
+              <div className="space-y-1.5">
                 <label className="text-xs font-medium">Mobile Number</label>
                 <Input
                   value={editFormData.mobile_number}
@@ -1246,7 +1303,7 @@ export default function SchoolStudentsPage() {
                   className="h-9 text-xs"
                 />
               </div>
-              <div className="space-y-1.5">
+              <div className="space-y-1.5 col-span-2">
                 <label className="text-xs font-medium">Email</label>
                 <Input
                   type="email"

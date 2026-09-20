@@ -87,11 +87,15 @@ func (h *ParentAPIHandler) LinkChild(c fiber.Ctx) error {
 
 	cleanCode := strings.TrimSpace(req.SchoolCode)
 	cleanAccessID := strings.TrimSpace(req.AccessID)
-	if cleanCode == "" || cleanAccessID == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "School Code and Student Access ID are required"})
+	cleanRoll := strings.TrimSpace(req.RollNumber)
+	if cleanCode == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "School Code is required"})
+	}
+	if cleanAccessID == "" && cleanRoll == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Student Access ID or Class and Roll Number is required"})
 	}
 
-	child, err := h.parentRepo.LinkStudent(c.Context(), parentID, cleanCode, cleanAccessID, req.Relationship)
+	child, err := h.parentRepo.LinkStudent(c.Context(), parentID, req)
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
 	}

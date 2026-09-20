@@ -13,7 +13,7 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
-import { Plus, UserPlus, Copy, Check, Loader2, HeartHandshake, Building2, Mail, Phone, User, AlertCircle } from "lucide-react"
+import { Plus, UserPlus, Copy, Check, Loader2, HeartHandshake, Building2, Mail, Phone, User, AlertCircle, AlertTriangle } from "lucide-react"
 import { api } from "@/lib/api"
 import {
   Dialog,
@@ -105,6 +105,10 @@ export default function AdminsPage() {
     setOnboardError("")
     if (counselorType === "school" && !counselorSchoolId) {
       setOnboardError("Please select a partner school to assign this School Counselor to.")
+      return
+    }
+    if (counselorType === "internal" && !counselorEmail.trim().toLowerCase().endsWith("@jaagrmind.com")) {
+      setOnboardError("Internal counselors must use an @jaagrmind.com email address to be able to sign in via the Internal-Ops portal (/internal-ops/signin).")
       return
     }
     setOnboarding(true)
@@ -257,14 +261,42 @@ export default function AdminsPage() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-sm font-medium">Email *</label>
+                  <div className="flex items-center justify-between">
+                    <label className="text-sm font-medium">Email *</label>
+                    {counselorType === "internal" && (
+                      <span className="text-[11px] font-semibold text-amber-600 dark:text-amber-400 font-mono">
+                        @jaagrmind.com required
+                      </span>
+                    )}
+                  </div>
                   <Input 
                     type="email"
-                    placeholder="counselor@example.com" 
+                    placeholder={counselorType === "internal" ? "counselor@jaagrmind.com" : "counselor@school.edu"} 
                     value={counselorEmail}
                     onChange={(e) => setCounselorEmail(e.target.value)}
                     required
                   />
+                  {counselorType === "internal" && (
+                    <div className="p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-900 dark:text-amber-200 text-xs flex items-start gap-2">
+                      <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5 text-amber-600 dark:text-amber-400" />
+                      <div className="space-y-0.5">
+                        <p className="font-semibold text-[11px] tracking-tight text-amber-800 dark:text-amber-300">
+                          Internal-Ops Login Requirement
+                        </p>
+                        <p className="text-[11px] leading-relaxed">
+                          Please use only an official <strong className="font-mono text-foreground font-semibold">@jaagrmind.com</strong> email for internal counselors. Only @jaagrmind.com accounts are authorized to sign in through the <strong>Internal-Ops Gateway</strong> (<code className="font-mono text-[10px] bg-amber-500/20 px-1 py-0.5 rounded text-foreground">/internal-ops/signin</code>).
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                  {counselorType === "internal" && counselorEmail.trim() && !counselorEmail.trim().toLowerCase().endsWith("@jaagrmind.com") && (
+                    <div className="p-2 rounded-md bg-destructive/10 border border-destructive/20 text-destructive text-xs flex items-center gap-1.5">
+                      <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+                      <span className="text-[11px] font-medium">
+                        Warning: Email must end with <strong>@jaagrmind.com</strong> to log in via internal-ops!
+                      </span>
+                    </div>
+                  )}
                 </div>
                 <div className="space-y-2">
                   <label className="text-sm font-medium">Phone</label>
@@ -309,8 +341,19 @@ export default function AdminsPage() {
                     </Button>
                   </div>
                 </div>
-                <div className="text-xs text-muted-foreground">
-                  Portal: <code className="font-mono text-foreground">{onboardResult.portal_url}</code>
+                <div className="text-xs text-muted-foreground flex flex-col gap-1">
+                  <div>
+                    Access Portal: <code className="font-mono text-foreground font-semibold">{onboardResult.portal_url}</code>
+                  </div>
+                  {counselorType === "internal" ? (
+                    <p className="text-[11px] text-amber-700 dark:text-amber-400 bg-amber-500/10 border border-amber-500/20 p-2 rounded">
+                      This internal counselor must sign in via <strong>/internal-ops/signin</strong> using their <strong>@jaagrmind.com</strong> email.
+                    </p>
+                  ) : (
+                    <p className="text-[11px] text-muted-foreground">
+                      This school counselor will sign in via general school login using their institutional credentials.
+                    </p>
+                  )}
                 </div>
               </div>
             )}

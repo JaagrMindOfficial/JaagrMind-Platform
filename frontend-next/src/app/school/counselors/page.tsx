@@ -1257,6 +1257,11 @@ export default function SchoolCounselorsPage() {
                     required
                     className="text-xs"
                   />
+                  {email.trim() && email.trim().toLowerCase().endsWith("@jaagrmind.com") && (
+                    <p className="text-[10px] text-amber-600 dark:text-amber-400 mt-1">
+                      Note: @jaagrmind.com is reserved for Central Internal Counselors (who access /internal-ops/care-desk). School counselors must use their school/institutional email.
+                    </p>
+                  )}
                 </div>
                 <div className="space-y-1">
                   <label className="text-xs font-semibold text-foreground">Phone Number</label>
@@ -1408,6 +1413,11 @@ export default function SchoolCounselorsPage() {
                     required
                     className="text-xs"
                   />
+                  {editEmail.trim() && editEmail.trim().toLowerCase().endsWith("@jaagrmind.com") && (
+                    <p className="text-[10px] text-amber-600 dark:text-amber-400 mt-1">
+                      Note: @jaagrmind.com is reserved for Central Internal Counselors (who access /internal-ops/care-desk). School counselors must use their school/institutional email.
+                    </p>
+                  )}
                 </div>
                 <div className="space-y-1">
                   <label className="text-xs font-semibold text-foreground">Phone Number</label>

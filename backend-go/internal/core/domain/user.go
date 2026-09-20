@@ -49,18 +49,22 @@ type UserRole struct {
 
 // SchoolInvite represents a pending school onboarding invitation
 type SchoolInvite struct {
-	ID         string     `json:"id"`
-	SchoolName string     `json:"school_name"`
-	Email      string     `json:"email"`
-	Token      string     `json:"token"`
-	ExpiresAt  time.Time  `json:"expires_at"`
-	AcceptedAt *time.Time `json:"accepted_at,omitempty"`
-	CreatedAt  time.Time  `json:"created_at"`
+	ID           string     `json:"id"`
+	SchoolName   string     `json:"school_name"`
+	Email        string     `json:"email"`
+	PhoneNumber  string     `json:"phone_number,omitempty"`
+	TempPassword string     `json:"temp_password,omitempty"`
+	Token        string     `json:"token"`
+	ExpiresAt    time.Time  `json:"expires_at"`
+	AcceptedAt   *time.Time `json:"accepted_at,omitempty"`
+	CreatedAt    time.Time  `json:"created_at"`
 }
 
 type InviteSchoolRequest struct {
-	SchoolName string `json:"school_name"`
-	Email      string `json:"email"`
+	SchoolName   string `json:"school_name"`
+	Email        string `json:"email"`
+	PhoneNumber  string `json:"phone_number,omitempty"`
+	TempPassword string `json:"temp_password,omitempty"`
 }
 
 type AcceptInviteRequest struct {

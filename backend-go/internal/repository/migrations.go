@@ -532,6 +532,10 @@ func AutoMigrate(ctx context.Context, db *pgxpool.Pool) error {
 		CREATE INDEX IF NOT EXISTS idx_parent_counselor_inquiries_school ON parent_counselor_inquiries(school_id, status);
 		CREATE INDEX IF NOT EXISTS idx_inquiry_messages_inquiry_id ON inquiry_messages(inquiry_id);
 
+		-- School invites phone_number and temp_password support
+		ALTER TABLE school_invites ADD COLUMN IF NOT EXISTS phone_number TEXT;
+		ALTER TABLE school_invites ADD COLUMN IF NOT EXISTS temp_password TEXT;
+
 		-- Sync historical columns if present from earlier migrations
 		DO $$ 
 		BEGIN

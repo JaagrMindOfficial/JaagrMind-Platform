@@ -41,6 +41,8 @@ interface SchoolInvite {
   school_name: string
   email: string
   token: string
+  phone_number?: string
+  temp_password?: string
   expires_at: string
   accepted_at?: string | null
   created_at: string
@@ -69,6 +71,7 @@ export default function AdminSchoolsPage() {
     email: string
     token: string
     invite_link: string
+    temp_password?: string
   } | null>(null)
   const [inviteCopied, setInviteCopied] = useState(false)
 
@@ -77,8 +80,26 @@ export default function AdminSchoolsPage() {
 
   // Invite modal state
   const [isAddOpen, setIsAddOpen] = useState(false)
-  const [inviteData, setInviteData] = useState({ school_name: "", email: "", phone_number: "" })
+  const [inviteData, setInviteData] = useState({
+    school_name: "",
+    email: "",
+    phone_number: "",
+    temp_password: "",
+  })
   const [inviteSubmitting, setInviteSubmitting] = useState(false)
+
+  const generateRandomPassword = () => {
+    const upper = "ABCDEFGHJKLMNPQRSTUVWXYZ"
+    const lower = "abcdefghjkmnpqrstuvwxyz"
+    const digits = "23456789"
+    const special = "!@#$%"
+    const all = upper + lower + digits + special
+    let pwd = "JM-"
+    for (let i = 0; i < 8; i++) {
+      pwd += all.charAt(Math.floor(Math.random() * all.length))
+    }
+    setInviteData((prev) => ({ ...prev, temp_password: pwd }))
+  }
 
   // Edit modal state
   const [editingSchool, setEditingSchool] = useState<School | null>(null)
@@ -165,14 +186,15 @@ export default function AdminSchoolsPage() {
     try {
       const res = await api.post("/api/admin/invite-school", inviteData)
       setIsAddOpen(false)
-      const link = res.invite_link || `${window.location.origin}/invite/${res.token}`
+      const link = `${window.location.origin}/invite/${res.token}`
       setInviteSuccessModal({
         school_name: inviteData.school_name,
         email: inviteData.email,
         token: res.token,
         invite_link: link,
+        temp_password: inviteData.temp_password || res.temp_password || "",
       })
-      setInviteData({ school_name: "", email: "", phone_number: "" })
+      setInviteData({ school_name: "", email: "", phone_number: "", temp_password: "" })
       fetchSchools()
       fetchInvites()
     } catch (err: any) {
@@ -369,9 +391,28 @@ export default function AdminSchoolsPage() {
                 <Input required type="email" value={inviteData.email} onChange={e => setInviteData({...inviteData, email: e.target.value})} placeholder="admin@school.com" />
               </div>
               <div className="space-y-1.5">
-                <label className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Contact Phone Number *</label>
-                <Input required value={inviteData.phone_number} onChange={e => setInviteData({...inviteData, phone_number: e.target.value})} placeholder="+91 98765 43210" />
-                <p className="text-xs text-muted-foreground">Phone number is mandatory for institutional security.</p>
+                <label className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Contact Phone Number (Optional)</label>
+                <Input value={inviteData.phone_number} onChange={e => setInviteData({...inviteData, phone_number: e.target.value})} placeholder="+91 98765 43210" />
+                <p className="text-[11px] text-muted-foreground">Optional. If provided, will be pre-filled on the school onboarding page.</p>
+              </div>
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Temporary Password (Optional)</label>
+                  <button
+                    type="button"
+                    onClick={generateRandomPassword}
+                    className="text-[11px] text-primary hover:underline font-medium cursor-pointer"
+                  >
+                    Generate Random
+                  </button>
+                </div>
+                <Input
+                  value={inviteData.temp_password}
+                  onChange={e => setInviteData({...inviteData, temp_password: e.target.value})}
+                  placeholder="Leave blank to let school set password, or enter / generate"
+                  className="font-mono text-xs"
+                />
+                <p className="text-[11px] text-muted-foreground">If set, the administrator can also use this password to sign in immediately.</p>
               </div>
               <DialogFooter className="pt-2">
                 <Button type="button" variant="outline" onClick={() => setIsAddOpen(false)}>Cancel</Button>
@@ -1105,18 +1146,44 @@ export default function AdminSchoolsPage() {
             <div className="space-y-4 py-2 text-xs">
               <div className="rounded-lg bg-muted/50 p-3.5 border border-border/80 space-y-2">
                 <div className="flex justify-between items-center">
-                  <span className="text-muted-foreground">Institution Name:</span>
+                  <span className="text-muted-foreground font-mono">Institution Name:</span>
                   <span className="font-semibold text-foreground">{inviteSuccessModal.school_name}</span>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="text-muted-foreground">Admin Recipient:</span>
-                  <span className="font-medium text-foreground">{inviteSuccessModal.email}</span>
+                  <span className="text-muted-foreground font-mono">Admin Recipient:</span>
+                  <span className="font-mono text-foreground font-medium">{inviteSuccessModal.email}</span>
+                </div>
+                {inviteSuccessModal.temp_password && (
+                  <div className="flex justify-between items-center">
+                    <span className="text-muted-foreground font-mono">Temporary Password:</span>
+                    <span className="font-mono text-emerald-600 dark:text-emerald-400 font-bold bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
+                      {inviteSuccessModal.temp_password}
+                    </span>
+                  </div>
+                )}
+                <div className="flex justify-between items-center">
+                  <span className="text-muted-foreground font-mono">Full Login Route:</span>
+                  <span className="font-mono text-sky-600 dark:text-sky-400">
+                    {typeof window !== "undefined" ? `${window.location.origin}/login` : "/login"}
+                  </span>
                 </div>
                 <div className="flex justify-between items-center text-[11px] text-emerald-600 dark:text-emerald-400">
                   <span>Validity Window:</span>
                   <span className="font-semibold">7 Days Active</span>
                 </div>
               </div>
+
+              {inviteSuccessModal.temp_password && (
+                <div className="p-3 rounded-xl border border-amber-500/30 bg-amber-500/10 text-xs text-amber-800 dark:text-amber-300 space-y-1">
+                  <div className="flex items-center gap-1.5 font-semibold">
+                    <AlertCircle className="h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
+                    One-Time Password Display Warning
+                  </div>
+                  <p className="text-[11px] leading-relaxed">
+                    This temporary password will <strong>not</strong> be displayed again. Please copy and securely share it with the school administrator now.
+                  </p>
+                </div>
+              )}
 
               <div className="space-y-1.5">
                 <label className="font-medium text-foreground">Direct Onboarding Link:</label>
@@ -1130,19 +1197,20 @@ export default function AdminSchoolsPage() {
                     size="sm"
                     className="h-8 text-xs shrink-0 cursor-pointer"
                     onClick={() => {
-                      navigator.clipboard.writeText(inviteSuccessModal.invite_link)
+                      const text = `School Onboarding Invitation:\nInstitution: ${inviteSuccessModal.school_name}\nAdmin Email: ${inviteSuccessModal.email}${inviteSuccessModal.temp_password ? `\nTemporary Password: ${inviteSuccessModal.temp_password}` : ""}\nLogin URL: ${window.location.origin}/login\nOnboarding Link: ${inviteSuccessModal.invite_link}`
+                      navigator.clipboard.writeText(text)
                       setInviteCopied(true)
                       setTimeout(() => setInviteCopied(false), 2000)
                     }}
                   >
                     {inviteCopied ? <CheckCircle2 className="h-3.5 w-3.5 mr-1 text-emerald-400" /> : <Copy className="h-3.5 w-3.5 mr-1" />}
-                    {inviteCopied ? "Copied" : "Copy Link"}
+                    {inviteCopied ? "Copied All" : "Copy Credentials"}
                   </Button>
                 </div>
               </div>
 
               <div className="rounded-lg border border-sky-500/30 bg-sky-500/10 p-3 text-[11px] text-sky-700 dark:text-sky-300 leading-relaxed">
-                An invitation email has been queued to the recipient address. The administrator can follow this secure link to designate campus branches, register teachers, and set their admin password.
+                The school administrator can follow this secure link to set up their custom password, or log in directly if you provisioned a temporary password.
               </div>
             </div>
           )}

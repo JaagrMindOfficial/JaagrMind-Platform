@@ -42,16 +42,28 @@ func (h *InviteHandler) ValidateInvite(c fiber.Ctx) error {
 	}
 
 	if invite.AcceptedAt != nil {
-		return c.Status(fiber.StatusGone).JSON(fiber.Map{"error": "This invite has already been used"})
+		return c.Status(fiber.StatusGone).JSON(fiber.Map{
+			"error":       "This onboarding invitation has already been accepted and activated.",
+			"code":        "ALREADY_ACCEPTED",
+			"email":       invite.Email,
+			"school_name": invite.SchoolName,
+		})
 	}
 
 	if time.Now().After(invite.ExpiresAt) {
-		return c.Status(fiber.StatusGone).JSON(fiber.Map{"error": "This invite has expired"})
+		return c.Status(fiber.StatusGone).JSON(fiber.Map{
+			"error":       "This onboarding invitation link has expired.",
+			"code":        "EXPIRED",
+			"email":       invite.Email,
+			"school_name": invite.SchoolName,
+		})
 	}
 
 	return c.JSON(fiber.Map{
-		"school_name": invite.SchoolName,
-		"email":       invite.Email,
+		"school_name":   invite.SchoolName,
+		"email":         invite.Email,
+		"phone_number":  invite.PhoneNumber,
+		"temp_password": invite.TempPassword,
 	})
 }
 
@@ -65,7 +77,12 @@ func (h *InviteHandler) AcceptInvite(c fiber.Ctx) error {
 	}
 
 	if invite.AcceptedAt != nil {
-		return c.Status(fiber.StatusGone).JSON(fiber.Map{"error": "This invite has already been used"})
+		return c.Status(fiber.StatusGone).JSON(fiber.Map{
+			"error":       "This invite has already been accepted",
+			"code":        "ALREADY_ACCEPTED",
+			"email":       invite.Email,
+			"school_name": invite.SchoolName,
+		})
 	}
 
 	if time.Now().After(invite.ExpiresAt) {
@@ -88,41 +105,64 @@ func (h *InviteHandler) AcceptInvite(c fiber.Ctx) error {
 	}
 	schoolCode := fmt.Sprintf("%s%d", codePrefix, time.Now().Unix()%10000)
 
+	phone := strings.TrimSpace(req.Phone)
+	if phone == "" {
+		phone = invite.PhoneNumber
+	}
+
 	// 1. Create the school
 	school, err := h.schoolRepo.Create(c.Context(), domain.CreateSchoolRequest{
 		Name:        invite.SchoolName,
 		SchoolCode:  schoolCode,
 		City:        req.City,
 		Contact:     invite.Email,
-		PhoneNumber: req.Phone,
+		PhoneNumber: phone,
 	})
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to create school"})
 	}
 
-	// 2. Hash password and create user
+	// 2. Hash password and create/update user
 	hash, err := h.authSvc.HashPassword(req.Password)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to process password"})
 	}
 
-	user, err := h.userRepo.CreateUser(c.Context(), invite.Email, req.Name, hash)
-	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to create account"})
+	user, err := h.userRepo.GetUserByEmail(c.Context(), invite.Email)
+	if err == nil && user != nil {
+		_ = h.userRepo.UpdatePassword(c.Context(), user.ID, hash)
+		if req.Name != "" {
+			_ = h.userRepo.UpdateUser(c.Context(), user.ID, req.Name, invite.Email)
+		}
+	} else {
+		user, err = h.userRepo.CreateUser(c.Context(), invite.Email, req.Name, hash)
+		if err != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to create account"})
+		}
 	}
 
 	// 3. Assign school_admin role scoped to this school
-	if err := h.userRepo.AddRole(c.Context(), user.ID, domain.RoleSchoolAdmin, school.ID); err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to assign role"})
-	}
+	_ = h.userRepo.AddRole(c.Context(), user.ID, domain.RoleSchoolAdmin, school.ID)
 
 	// 4. Mark invite as accepted
 	_ = h.inviteRepo.MarkAccepted(c.Context(), token)
 
+	// 5. Generate JWT token for immediate seamless login
+	tokenStr, _ := h.authSvc.GenerateToken(domain.TokenPayload{
+		UserID: user.ID,
+		Roles:  []string{domain.RoleSchoolAdmin},
+	})
+
+	freshUser, _ := h.userRepo.GetUserByID(c.Context(), user.ID)
+	if freshUser == nil {
+		freshUser = user
+	}
+
 	return c.Status(fiber.StatusCreated).JSON(fiber.Map{
 		"message":   "School onboarded successfully",
+		"token":     tokenStr,
+		"user":      freshUser,
 		"school_id": school.ID,
-		"user_id":   user.ID,
 	})
 }
 
@@ -145,12 +185,26 @@ func CreateInviteHandler(inviteRepo domain.InviteRepository, emailSvc utils.Emai
 		}
 		token := hex.EncodeToString(tokenBytes)
 
+		// Determine base URL dynamically from request Origin/Referer if available
+		baseURL := utils.GetBaseFrontendURL()
+		if origin := c.Get("Origin"); origin != "" {
+			baseURL = strings.TrimRight(origin, "/")
+		} else if referer := c.Get("Referer"); referer != "" {
+			if idx := strings.Index(referer, "/internal-ops"); idx != -1 {
+				baseURL = referer[:idx]
+			} else if idx := strings.Index(referer, "/admin"); idx != -1 {
+				baseURL = referer[:idx]
+			}
+		}
+
 		invite := domain.SchoolInvite{
-			ID:         uuid.New().String(),
-			SchoolName: req.SchoolName,
-			Email:      req.Email,
-			Token:      token,
-			ExpiresAt:  time.Now().Add(7 * 24 * time.Hour), // 7 day expiry
+			ID:           uuid.New().String(),
+			SchoolName:   req.SchoolName,
+			Email:        req.Email,
+			PhoneNumber:  req.PhoneNumber,
+			TempPassword: req.TempPassword,
+			Token:        token,
+			ExpiresAt:    time.Now().Add(7 * 24 * time.Hour), // 7 day expiry
 		}
 
 		if err := inviteRepo.Create(c.Context(), invite); err != nil {
@@ -163,9 +217,10 @@ func CreateInviteHandler(inviteRepo domain.InviteRepository, emailSvc utils.Emai
 		}()
 
 		return c.Status(fiber.StatusCreated).JSON(fiber.Map{
-			"message":     "Invite created and email sent",
-			"token":       token,
-			"invite_link": fmt.Sprintf("%s/invite/%s", utils.GetBaseFrontendURL(), token),
+			"message":       "Invite created and email sent",
+			"token":         token,
+			"invite_link":   fmt.Sprintf("%s/invite/%s", baseURL, token),
+			"temp_password": req.TempPassword,
 		})
 	}
 }

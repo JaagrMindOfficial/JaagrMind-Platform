@@ -679,11 +679,6 @@ func parseGradeNumber(gradeStr string) int {
 }
 
 func (r *postgresParent) AddChild(ctx context.Context, parentID string, req domain.ParentAddChildRequest) (*domain.ChildSummary, error) {
-	name := strings.TrimSpace(req.Name)
-	if name == "" {
-		return nil, fmt.Errorf("child name is required")
-	}
-
 	nickname := strings.TrimSpace(req.Nickname)
 
 	grade := strings.TrimSpace(req.Grade)
@@ -716,6 +711,11 @@ func (r *postgresParent) AddChild(ctx context.Context, parentID string, req doma
 			child.Nickname = nickname
 		}
 		return child, err
+	}
+
+	name := strings.TrimSpace(req.Name)
+	if name == "" {
+		return nil, fmt.Errorf("child name is required")
 	}
 
 	// 2. Otherwise create an independent student record

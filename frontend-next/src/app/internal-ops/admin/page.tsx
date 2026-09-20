@@ -55,7 +55,8 @@ interface AnalyticsData {
 interface SchoolItem {
   id: string
   name: string
-  code: string
+  code?: string
+  school_code?: string
   city?: string
   contact_phone?: string
   is_active: boolean
@@ -669,9 +670,11 @@ export default function AdminDashboardPage() {
                 <div className="space-y-1">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="font-semibold text-sm text-foreground">{school.name}</span>
-                    <Badge variant="outline" className="font-mono text-[10px] px-1.5 py-0">
-                      {school.code}
-                    </Badge>
+                    {(school.school_code || school.code) && (
+                      <Badge variant="outline" className="font-mono text-[10px] px-1.5 py-0 uppercase bg-muted/50 border-border/80 text-foreground font-semibold">
+                        {school.school_code || school.code}
+                      </Badge>
+                    )}
                     <MinimalUUID id={school.id} label="School UUID" />
                   </div>
                   <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap">
@@ -710,7 +713,7 @@ export default function AdminDashboardPage() {
         events={events}
         loading={eventsLoading}
         onRefresh={() => loadEvents(selectedSchoolId)}
-        schools={schools.map((s) => ({ id: s.id, name: s.name, code: s.code }))}
+        schools={schools.map((s) => ({ id: s.id, name: s.name, code: s.school_code || s.code || "" }))}
         selectedSchoolId={selectedSchoolId}
         onSelectSchool={(schoolId) => {
           setSelectedSchoolId(schoolId)

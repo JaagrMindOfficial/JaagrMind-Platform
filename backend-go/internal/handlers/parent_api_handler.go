@@ -149,7 +149,12 @@ func (h *ParentAPIHandler) AddChild(c fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid request payload"})
 	}
 
-	if strings.TrimSpace(req.Name) == "" {
+	cleanCode := strings.TrimSpace(req.SchoolCode)
+	cleanAccessID := strings.TrimSpace(req.AccessID)
+	cleanRoll := strings.TrimSpace(req.RollNumber)
+	isSchoolLink := cleanCode != "" && (cleanAccessID != "" || cleanRoll != "")
+
+	if !isSchoolLink && strings.TrimSpace(req.Name) == "" {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Child's name is required"})
 	}
 

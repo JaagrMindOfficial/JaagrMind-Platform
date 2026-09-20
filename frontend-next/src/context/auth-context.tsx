@@ -67,6 +67,7 @@ const AuthContext = createContext<AuthContextType | null>(null);
 
 import {
   setAuthCookie,
+  setUserSessionCookies,
   clearAllAuthCookies,
   clearAllAuthSession,
   getValidStoredToken,
@@ -87,7 +88,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       try {
         const parsed = JSON.parse(storedUser);
         setUser(parsed);
-        setAuthCookie(token);
+        setUserSessionCookies(token, parsed);
 
         // Background session verification with /api/auth/me:
         // Ensures if the token is revoked, user is removed, or expired on the server,
@@ -97,6 +98,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             if (freshUser && freshUser.id) {
               setUser(freshUser);
               localStorage.setItem("user", JSON.stringify(freshUser));
+              setUserSessionCookies(token, freshUser);
             }
           })
           .catch((err: any) => {
@@ -122,7 +124,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const data = await api.post("/api/auth/login", { email, password }, { skipAuth: true });
     localStorage.setItem("token", data.token);
     localStorage.setItem("user", JSON.stringify(data.user));
-    setAuthCookie(data.token);
+    setUserSessionCookies(data.token, data.user);
     setUser(data.user);
 
     const roles = data.user.roles?.map((r: UserRole) => r.role) || [];
@@ -160,7 +162,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const data = await api.post("/api/auth/internal/login", { email, password }, { skipAuth: true });
     localStorage.setItem("token", data.token);
     localStorage.setItem("user", JSON.stringify(data.user));
-    setAuthCookie(data.token);
+    setUserSessionCookies(data.token, data.user);
     setUser(data.user);
 
     const roles = data.user.roles?.map((r: UserRole) => r.role) || [];
@@ -189,7 +191,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (data.token && data.user) {
       localStorage.setItem("token", data.token);
       localStorage.setItem("user", JSON.stringify(data.user));
-      setAuthCookie(data.token);
+      setUserSessionCookies(data.token, data.user);
       setUser(data.user);
     }
   };
@@ -208,8 +210,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     const data = await api.post("/api/auth/student/login", payload, { skipAuth: true });
-    localStorage.setItem("token", data.token);
-    setAuthCookie(data.token);
     
     // Construct a user object that fits our AuthContext model
     const studentUser: User = {
@@ -220,7 +220,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       roles: [{ user_id: data._id, role: "student", entity_id: payload.schoolId }]
     };
     
+    localStorage.setItem("token", data.token);
     localStorage.setItem("user", JSON.stringify(studentUser));
+    setUserSessionCookies(data.token, studentUser);
     setUser(studentUser);
     
     router.push("/student");
@@ -229,7 +231,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const setAuthSession = (token: string, userData: User) => {
     localStorage.setItem("token", token);
     localStorage.setItem("user", JSON.stringify(userData));
-    setAuthCookie(token);
+    setUserSessionCookies(token, userData);
     setUser(userData);
   };
 

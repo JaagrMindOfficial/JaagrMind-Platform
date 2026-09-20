@@ -84,9 +84,11 @@ export default function Home() {
 
     if (workspaceId === "institutional") {
       if (isValidSession) {
-        if (hasRole("counselor")) return "/counselor";
+        if (hasRole("counselor") && !user?.is_internal) return "/counselor";
+        if (hasRole("counselor") && user?.is_internal) return "/internal-ops/care-desk";
         if (hasRole("school_admin") || hasRole("teacher")) return "/school";
-        if (hasRole("superadmin") || user?.is_internal) return "/internal-ops/admin";
+        if (hasRole("superadmin")) return "/internal-ops/admin";
+        if (user?.is_internal) return "/internal-ops/care-desk";
         return "/school";
       }
       return "/login?redirect=/school";
@@ -150,13 +152,29 @@ export default function Home() {
 
         <div className="h-4 w-px bg-[#222222]/15 dark:bg-white/15" />
 
-        <Link
-          href="/internal-ops/signin"
-          className="text-xs font-semibold text-[#005456] dark:text-[#91D17C] hover:text-[#42B677] transition-colors flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border border-[#005456]/20 dark:border-[#42B677]/30 bg-white/60 dark:bg-[#181818]/60 hover:bg-[#005456]/10 shadow-2xs"
-        >
-          <ShieldCheck className="h-3.5 w-3.5 text-[#42B677]" />
-          <span>JM Internal-Ops</span>
-        </Link>
+        {/* Dynamic Internal Ops Role Tag & Quick Link */}
+        {mounted && validToken && user && (user.is_internal || hasRole("superadmin")) ? (
+          <Link
+            href={hasRole("counselor") ? "/internal-ops/care-desk" : "/internal-ops/admin"}
+            className="text-xs font-semibold text-[#005456] dark:text-[#91D17C] hover:text-[#42B677] transition-colors flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border border-[#005456]/20 dark:border-[#42B677]/30 bg-white/60 dark:bg-[#181818]/60 hover:bg-[#005456]/10 shadow-2xs"
+          >
+            <ShieldCheck className="h-3.5 w-3.5 text-[#42B677]" />
+            <span>
+              {hasRole("counselor") ? "JM Care Desk" : "JM Ops Admin"}
+            </span>
+            <span className="text-[10px] px-1.5 py-0.2 rounded-full font-mono bg-[#42B677]/15 text-[#42B677] border border-[#42B677]/30">
+              {hasRole("counselor") ? "Counselor" : "Admin"}
+            </span>
+          </Link>
+        ) : (
+          <Link
+            href="/internal-ops/signin"
+            className="text-xs font-semibold text-[#005456] dark:text-[#91D17C] hover:text-[#42B677] transition-colors flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border border-[#005456]/20 dark:border-[#42B677]/30 bg-white/60 dark:bg-[#181818]/60 hover:bg-[#005456]/10 shadow-2xs"
+          >
+            <ShieldCheck className="h-3.5 w-3.5 text-[#42B677]" />
+            <span>JM Internal-Ops</span>
+          </Link>
+        )}
 
         <div className="h-4 w-px bg-[#222222]/15 dark:bg-white/15" />
 

@@ -17,17 +17,19 @@ export function getActiveSessionDetails(
 ): ActiveSessionDetails | null {
   if (!user) return null;
 
-  const isInternal = hasRole("superadmin") || Boolean(user.is_internal);
+  const isSuperAdmin = hasRole("superadmin");
+  const isInternal = Boolean(user.is_internal);
   const isCounselor = hasRole("counselor");
   const isSchoolAdmin = hasRole("school_admin");
   const isTeacher = hasRole("teacher");
   const isStudent = hasRole("student") || (user as any).role === "student";
   const isParent = hasRole("parent") || hasRole("relative");
 
-  if (isInternal) {
+  // 1. Internal Operations: Super Administrator
+  if (isSuperAdmin) {
     return {
       space: "Internal Operations",
-      spaceBadge: "ORG. Admin",
+      spaceBadge: "JaagrMind Ops Admin",
       role: "Platform Administrator",
       subtitle: "Platform telemetry, institutional onboarding & access governance",
       destination: "/internal-ops/admin",
@@ -36,6 +38,20 @@ export function getActiveSessionDetails(
     };
   }
 
+  // 2. Internal Operations: Central Care Desk Counselor
+  if (isInternal && isCounselor) {
+    return {
+      space: "Internal Operations",
+      spaceBadge: "Care Desk Counselor",
+      role: "Central Care Counselor",
+      subtitle: "Central triage desk, parent consultations & student wellbeing coordination",
+      destination: "/internal-ops/care-desk",
+      icon: HeartHandshake,
+      accent: "#42B677",
+    };
+  }
+
+  // 3. Institutional: School Campus Counselor
   if (isCounselor) {
     return {
       space: "Institutional",
@@ -44,6 +60,19 @@ export function getActiveSessionDetails(
       subtitle: "Student psychological safety, holistic wellbeing profile & direct guidance",
       destination: "/counselor",
       icon: Building2,
+      accent: "#42B677",
+    };
+  }
+
+  // 4. Other Internal Operations
+  if (isInternal) {
+    return {
+      space: "Internal Operations",
+      spaceBadge: "JaagrMind Ops",
+      role: "Internal Operations",
+      subtitle: "Platform telemetry & central operations desk",
+      destination: "/internal-ops/admin",
+      icon: ShieldCheck,
       accent: "#42B677",
     };
   }

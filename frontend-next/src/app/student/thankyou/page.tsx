@@ -16,8 +16,7 @@ export default function ThankYouPage() {
   }, []);
 
   const handleLogout = () => {
-    logout();
-    router.push("/student/login");
+    logout("/student/login");
   };
 
   return (

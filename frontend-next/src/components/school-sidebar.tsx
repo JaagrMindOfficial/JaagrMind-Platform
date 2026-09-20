@@ -86,7 +86,7 @@ export function SchoolSidebar() {
   const pathname = usePathname()
   const router = useRouter()
   const { open } = useSidebar()
-  const { user, hasRole } = useAuth()
+  const { user, hasRole, logout } = useAuth()
 
   const isSchoolAdmin = hasRole("school_admin")
   const isTeacherOnly = hasRole("teacher") && !isSchoolAdmin
@@ -163,11 +163,7 @@ export function SchoolSidebar() {
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton 
-              onClick={() => {
-                localStorage.removeItem("token");
-                localStorage.removeItem("user");
-                router.push("/login");
-              }}
+              onClick={() => logout()}
             >
               <LogOut className="h-4 w-4 text-muted-foreground" />
               <span className="font-medium text-[13px]">Logout</span>

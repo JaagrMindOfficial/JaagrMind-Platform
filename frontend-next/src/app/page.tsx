@@ -8,6 +8,7 @@ import { BrandSidePanel } from "@/components/brand-side-panel";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/context/auth-context";
 import { getActiveSessionDetails } from "@/lib/session-utils";
+import { getValidStoredToken } from "@/lib/auth-storage";
 import {
   Building2,
   HeartHandshake,
@@ -74,12 +75,11 @@ export default function Home() {
     setMounted(true);
   }, []);
 
-  const activeSession = mounted && user ? getActiveSessionDetails(user, hasRole) : null;
+  const validToken = mounted ? getValidStoredToken() : null;
+  const activeSession = mounted && user && validToken ? getActiveSessionDetails(user, hasRole) : null;
 
   const getWorkspaceDestination = (workspaceId: string): string => {
-    const token = typeof window !== "undefined"
-      ? localStorage.getItem("token") || (document.cookie.match(/(?:^|; )token=([^;]*)/)?.[1] ?? null)
-      : null;
+    const token = getValidStoredToken();
     const isValidSession = Boolean(token && user);
 
     if (workspaceId === "institutional") {

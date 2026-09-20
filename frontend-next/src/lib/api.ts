@@ -1,3 +1,5 @@
+import { clearAllAuthSession, getValidStoredToken } from "./auth-storage";
+
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
 
 type FetchOptions = RequestInit & {
@@ -6,8 +8,7 @@ type FetchOptions = RequestInit & {
 
 class ApiClient {
   private getToken(): string | null {
-    if (typeof window === "undefined") return null;
-    return localStorage.getItem("token");
+    return getValidStoredToken();
   }
 
   async request<T = any>(
@@ -84,8 +85,7 @@ class ApiClient {
           pathname.startsWith("/student/login");
 
         if (!isAuthPage) {
-          localStorage.removeItem("token");
-          localStorage.removeItem("user");
+          clearAllAuthSession();
 
           // Route internal-ops / superadmin to internal-ops signin, others to standard login
           if (

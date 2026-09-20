@@ -18,9 +18,11 @@ import {
   GitBranch,
   Save,
   Users,
-  Plus
+  Plus,
+  LogOut
 } from "lucide-react"
 import { api } from "@/lib/api"
+import { useAuth } from "@/context/auth-context"
 import { InfoTooltip } from "@/components/ui/info-tooltip"
 import { MinimalUUID } from "@/components/ui/minimal-uuid"
 import { CreateBranchDialog } from "@/components/create-branch-dialog"
@@ -44,6 +46,7 @@ interface SchoolAccount {
 }
 
 export default function SchoolAccountPage() {
+  const { logout } = useAuth()
   const [account, setAccount] = useState<SchoolAccount | null>(null)
   const [loading, setLoading] = useState(true)
 
@@ -163,6 +166,15 @@ export default function SchoolAccountPage() {
             Manage your school institution profile, contact details, security credentials, and branch campuses.
           </p>
         </div>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => logout()}
+          className="text-xs gap-1.5 text-destructive hover:bg-destructive/10 border-destructive/30 shrink-0 self-start sm:self-auto cursor-pointer"
+        >
+          <LogOut className="h-3.5 w-3.5" />
+          <span>Sign Out</span>
+        </Button>
       </div>
 
       {/* Top 3 Summary Cards */}

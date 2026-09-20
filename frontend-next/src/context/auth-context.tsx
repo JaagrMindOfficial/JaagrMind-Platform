@@ -49,23 +49,13 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
-function setAuthCookie(token: string) {
-  if (typeof document !== "undefined") {
-    document.cookie = `token=${encodeURIComponent(token)}; path=/; max-age=604800; SameSite=Lax`;
-  }
-}
-
-function clearAuthCookie() {
-  if (typeof document !== "undefined") {
-    document.cookie = "token=; path=/; max-age=0; SameSite=Lax";
-  }
-}
-
-function getAuthCookie(): string | null {
-  if (typeof document === "undefined") return null;
-  const match = document.cookie.match(/(?:^|; )token=([^;]*)/);
-  return match ? decodeURIComponent(match[1]) : null;
-}
+import {
+  setAuthCookie,
+  clearAllAuthCookies,
+  clearAllAuthSession,
+  getValidStoredToken,
+  isTokenExpired,
+} from "@/lib/auth-storage";
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
@@ -74,24 +64,39 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    let token = localStorage.getItem("token");
-    if (!token) {
-      token = getAuthCookie();
-      if (token) {
-        localStorage.setItem("token", token);
-      }
-    }
-    const storedUser = localStorage.getItem("user");
+    const token = getValidStoredToken();
+    const storedUser = typeof window !== "undefined" ? localStorage.getItem("user") : null;
 
     if (token && storedUser) {
       try {
-        setUser(JSON.parse(storedUser));
+        const parsed = JSON.parse(storedUser);
+        setUser(parsed);
         setAuthCookie(token);
+
+        // Background session verification with /api/auth/me:
+        // Ensures if the token is revoked, user is removed, or expired on the server,
+        // client-side session is gracefully invalidated without waiting for a user action.
+        api.get("/api/auth/me", { skipAuth: false })
+          .then((freshUser) => {
+            if (freshUser && freshUser.id) {
+              setUser(freshUser);
+              localStorage.setItem("user", JSON.stringify(freshUser));
+            }
+          })
+          .catch((err: any) => {
+            const msg = String(err?.message || "");
+            if (msg.includes("401") || msg.includes("Unauthorized") || msg.includes("not found")) {
+              clearAllAuthSession();
+              setUser(null);
+            }
+          });
       } catch {
-        localStorage.removeItem("user");
-        localStorage.removeItem("token");
-        clearAuthCookie();
+        clearAllAuthSession();
+        setUser(null);
       }
+    } else {
+      clearAllAuthSession();
+      setUser(null);
     }
     setLoading(false);
   }, []);
@@ -201,10 +206,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const logout = (redirectTo?: unknown) => {
-    localStorage.removeItem("token");
-    localStorage.removeItem("user");
-    localStorage.removeItem("superadmin_impersonating");
-    clearAuthCookie();
+    clearAllAuthSession();
     setUser(null);
     if (typeof redirectTo === "string") {
       router.push(redirectTo);

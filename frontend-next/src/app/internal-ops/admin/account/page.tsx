@@ -16,9 +16,11 @@ import {
   Save,
   Server,
   Activity,
-  Calendar
+  Calendar,
+  LogOut
 } from "lucide-react"
 import { api } from "@/lib/api"
+import { useAuth } from "@/context/auth-context"
 import { InfoTooltip } from "@/components/ui/info-tooltip"
 import { MinimalUUID } from "@/components/ui/minimal-uuid"
 
@@ -31,6 +33,7 @@ interface AdminAccount {
 }
 
 export default function AdminAccountPage() {
+  const { logout } = useAuth()
   const [account, setAccount] = useState<AdminAccount | null>(null)
   const [loading, setLoading] = useState(true)
 
@@ -128,11 +131,22 @@ export default function AdminAccountPage() {
 
   return (
     <div className="space-y-6 max-w-5xl">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Superadmin Account</h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          Manage system administrator credentials, security access, and root platform permissions.
-        </p>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight">Superadmin Account</h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            Manage system administrator credentials, security access, and root platform permissions.
+          </p>
+        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => logout()}
+          className="text-xs gap-1.5 text-destructive hover:bg-destructive/10 border-destructive/30 shrink-0 self-start sm:self-auto cursor-pointer"
+        >
+          <LogOut className="h-3.5 w-3.5" />
+          <span>Sign Out</span>
+        </Button>
       </div>
 
       {/* Top 3 Summary Metrics */}

@@ -79,7 +79,7 @@ const careDeskItems = [
 export function AppSidebar() {
   const pathname = usePathname()
   const router = useRouter()
-  const { isSuperAdmin, isSchoolAdmin, isCounselor, isTeacher } = useAuth()
+  const { isSuperAdmin, isSchoolAdmin, isCounselor, isTeacher, logout } = useAuth()
 
   const isCareDeskPortal = pathname.startsWith("/internal-ops/care-desk") || pathname.startsWith("/care-desk")
   const isCounselorPortal = pathname.startsWith("/counselor")
@@ -150,11 +150,7 @@ export function AppSidebar() {
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton 
-              onClick={() => {
-                localStorage.removeItem("token");
-                localStorage.removeItem("user");
-                router.push("/login");
-              }}
+              onClick={() => logout()}
             >
               <LogOut className="h-4 w-4 text-muted-foreground" />
               <span className="font-medium text-[13px]">Logout</span>

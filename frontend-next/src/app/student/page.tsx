@@ -177,7 +177,7 @@ export default function StudentAssessmentPage() {
         <p className="text-sm text-muted-foreground max-w-sm mb-6">
           You do not have any pending assessments right now. Please check back later or ask your school counselor.
         </p>
-        <Button variant="outline" onClick={() => { logout(); router.push("/student/login"); }}>
+        <Button variant="outline" onClick={() => logout("/student/login")}>
           <LogOut className="h-4 w-4 mr-2" /> Logout
         </Button>
       </div>
@@ -190,8 +190,17 @@ export default function StudentAssessmentPage() {
 
   return (
     <div className="min-h-screen flex flex-col bg-background relative overflow-x-hidden selection:bg-primary/20">
-      <div className="absolute top-6 right-6 z-40">
+      <div className="absolute top-6 right-6 z-40 flex items-center gap-2">
         <ThemeToggle />
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => logout("/student/login")}
+          className="text-xs text-muted-foreground hover:text-destructive gap-1.5 h-9 px-2.5 cursor-pointer"
+        >
+          <LogOut className="h-3.5 w-3.5" />
+          <span>Exit</span>
+        </Button>
       </div>
 
       <div className="flex-1 flex items-center justify-center p-4 sm:p-6 my-auto">

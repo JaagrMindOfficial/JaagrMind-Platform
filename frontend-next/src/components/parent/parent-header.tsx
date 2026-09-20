@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useAuth } from "@/context/auth-context";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { RoleSwitcherPill } from "@/components/role-switcher-pill";
 import { Button } from "@/components/ui/button";
@@ -55,11 +56,10 @@ export function ParentHeader({
   onOpenCounselorModal,
 }: ParentHeaderProps) {
   const router = useRouter();
+  const { logout } = useAuth();
 
   const handleSignOut = () => {
-    localStorage.removeItem("token");
-    localStorage.removeItem("user");
-    router.push("/login");
+    logout("/login");
   };
 
   return (

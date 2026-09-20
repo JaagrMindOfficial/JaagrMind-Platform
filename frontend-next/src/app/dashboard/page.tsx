@@ -7,33 +7,29 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Separator } from "@/components/ui/separator";
 
+import { useAuth } from "@/context/auth-context";
+
 export default function DashboardPage() {
   const router = useRouter();
+  const { user: authUser, logout, loading: authLoading } = useAuth();
   const [user, setUser] = useState<any>(null);
 
   useEffect(() => {
-    const token = localStorage.getItem("token");
-    const userData = localStorage.getItem("user");
-    
-    if (!token || !userData) {
+    if (authLoading) return;
+    if (!authUser) {
       router.push("/login");
       return;
     }
     
-    try {
-      const parsed = JSON.parse(userData);
-      setUser(parsed);
-      const roles = parsed.roles?.map((r: any) => r.role) || [];
-      if (roles.includes("parent") || roles.includes("relative")) {
-        router.replace("/parent");
-        return;
-      }
-    } catch {
-      router.push("/login");
+    setUser(authUser);
+    const roles = authUser.roles?.map((r: any) => r.role) || [];
+    if (roles.includes("parent") || roles.includes("relative")) {
+      router.replace("/parent");
+      return;
     }
-  }, [router]);
+  }, [authUser, authLoading, router]);
 
-  if (!user) return <div className="flex h-screen items-center justify-center bg-background text-muted-foreground text-sm">Loading...</div>;
+  if (authLoading || !user) return <div className="flex h-screen items-center justify-center bg-background text-muted-foreground text-sm">Loading...</div>;
 
   const isAdmin = user.roles?.some((r: any) => r.role === "superadmin");
 
@@ -62,9 +58,7 @@ export default function DashboardPage() {
             variant="ghost"
             size="sm"
             onClick={() => {
-              localStorage.removeItem("token");
-              localStorage.removeItem("user");
-              router.push("/");
+              logout("/");
             }}
           >
             Sign out

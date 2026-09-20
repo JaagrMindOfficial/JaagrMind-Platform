@@ -18,7 +18,7 @@ export default function CareDeskLayout({ children }: { children: React.ReactNode
                   <div className="hidden sm:flex items-center gap-2 text-xs font-mono text-muted-foreground border-l pl-3 border-border/60">
                     <span className="font-semibold text-foreground">JaagrMind Care Desk</span>
                     <span>&bull;</span>
-                    <span>Central Clinical Operations</span>
+                    <span>Central Care Operations</span>
                   </div>
                 </div>
                 <ThemeToggle />

@@ -2,7 +2,10 @@ package handlers
 
 import (
 	"context"
+	"crypto/rand"
 	"fmt"
+	"math/big"
+	"path/filepath"
 	"strings"
 
 	"github.com/gofiber/fiber/v3"
@@ -10,6 +13,30 @@ import (
 	"github.com/jaagrmind/platform-api/internal/middleware"
 	"github.com/jaagrmind/platform-api/internal/utils"
 )
+
+func generateSecureTempPassword() string {
+	const upper = "ABCDEFGHJKLMNPQRSTUVWXYZ"
+	const lower = "abcdefghjkmnpqrstuvwxyz"
+	const digits = "23456789"
+	const special = "!@#$%"
+	const all = upper + lower + digits + special
+
+	res := make([]byte, 10)
+	r1, _ := rand.Int(rand.Reader, big.NewInt(int64(len(upper))))
+	res[0] = upper[r1.Int64()]
+	r2, _ := rand.Int(rand.Reader, big.NewInt(int64(len(lower))))
+	res[1] = lower[r2.Int64()]
+	r3, _ := rand.Int(rand.Reader, big.NewInt(int64(len(digits))))
+	res[2] = digits[r3.Int64()]
+	r4, _ := rand.Int(rand.Reader, big.NewInt(int64(len(special))))
+	res[3] = special[r4.Int64()]
+
+	for i := 4; i < 10; i++ {
+		n, _ := rand.Int(rand.Reader, big.NewInt(int64(len(all))))
+		res[i] = all[n.Int64()]
+	}
+	return "JM-" + string(res)
+}
 
 type SchoolAPIHandler struct {
 	userRepo       domain.UserRepository
@@ -274,8 +301,8 @@ func (h *SchoolAPIHandler) AddTeacher(c fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Name and email are required"})
 	}
 
-	// Generate a temporary password (teacher will change on first login)
-	tempPassword := "changeme123"
+	// Generate a high-entropy temporary password (teacher will change on first login)
+	tempPassword := generateSecureTempPassword()
 	hash, err := h.authSvc.HashPassword(tempPassword)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to create password"})
@@ -327,9 +354,22 @@ func (h *SchoolAPIHandler) AddTeacher(c fiber.Ctx) error {
 
 // GetCounselorNotes returns confidential counselor case notes for a student
 func (h *SchoolAPIHandler) GetCounselorNotes(c fiber.Ctx) error {
+	schoolID := h.extractSchoolID(c)
 	studentID := c.Params("studentId")
-	if studentID == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Student ID required"})
+	if schoolID == "" || studentID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "School ID and Student ID required"})
+	}
+
+	// Verify student belongs to this school
+	student, err := h.studentRepo.GetByID(c.Context(), studentID)
+	if err != nil || student == nil || student.SchoolID != schoolID {
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "Student not found or unauthorized for this institution"})
+	}
+
+	// Block teachers from viewing confidential clinical / wellbeing case notes
+	user := h.getAuthenticatedUser(c)
+	if h.isTeacherOnly(user) {
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "Classroom teachers are not authorized to view confidential counseling case notes"})
 	}
 
 	notes, err := h.counselorRepo.GetByStudentID(c.Context(), studentID)
@@ -348,6 +388,12 @@ func (h *SchoolAPIHandler) CreateCounselorNote(c fiber.Ctx) error {
 	studentID := c.Params("studentId")
 	if schoolID == "" || studentID == "" {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "School ID and Student ID required"})
+	}
+
+	// Verify student belongs to this school
+	student, err := h.studentRepo.GetByID(c.Context(), studentID)
+	if err != nil || student == nil || student.SchoolID != schoolID {
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "Student not found or unauthorized for this institution"})
 	}
 
 	var req domain.CreateCounselorNoteRequest
@@ -1224,6 +1270,17 @@ func (h *SchoolAPIHandler) UploadLogo(c fiber.Ctx) error {
 	file, err := c.FormFile("logo")
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Failed to parse logo file"})
+	}
+
+	// Check file size (max 2MB)
+	if file.Size > 2*1024*1024 {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "File size exceeds 2MB limit. Please upload an image under 2MB."})
+	}
+
+	// Check allowed image extensions
+	ext := strings.ToLower(filepath.Ext(file.Filename))
+	if ext != ".png" && ext != ".jpg" && ext != ".jpeg" && ext != ".webp" && ext != ".svg" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid file format. Allowed types: PNG, JPG, JPEG, WebP, SVG."})
 	}
 
 	url, err := h.storageSvc.UploadFile(c.Context(), file, "jaagrmind-platform/web/schools/logos")
@@ -2153,7 +2210,7 @@ func (h *SchoolAPIHandler) ProvisionCounselorAccess(c fiber.Ctx) error {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "Counselor not found for this school"})
 	}
 
-	tempPassword := "counselor123"
+	tempPassword := generateSecureTempPassword()
 	hash, err := h.authSvc.HashPassword(tempPassword)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to hash password"})

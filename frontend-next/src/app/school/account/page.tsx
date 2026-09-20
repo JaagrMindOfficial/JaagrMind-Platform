@@ -19,7 +19,9 @@ import {
   Save,
   Users,
   Plus,
-  LogOut
+  LogOut,
+  UploadCloud,
+  ImageIcon,
 } from "lucide-react"
 import { api } from "@/lib/api"
 import { useAuth } from "@/context/auth-context"
@@ -35,6 +37,7 @@ interface SchoolAccount {
   contact_phone: string
   contact_email: string
   status: string
+  logo?: string
   branches?: Array<{
     id: string
     name: string
@@ -72,6 +75,14 @@ export default function SchoolAccountPage() {
   const [passwordError, setPasswordError] = useState("")
   const [isBranchModalOpen, setIsBranchModalOpen] = useState(false)
 
+  // Logo Upload State
+  const [selectedFile, setSelectedFile] = useState<File | null>(null)
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null)
+  const [imageDimensions, setImageDimensions] = useState<{ width: number; height: number } | null>(null)
+  const [uploadingLogo, setUploadingLogo] = useState(false)
+  const [logoSuccess, setLogoSuccess] = useState("")
+  const [logoError, setLogoError] = useState("")
+
   const fetchAccount = async () => {
     setLoading(true)
     try {
@@ -86,6 +97,7 @@ export default function SchoolAccountPage() {
           contact_phone: s.phone_number || s.contact_phone || "",
           contact_email: s.contact || s.contact_email || "",
           status: s.is_active !== false ? "active" : "inactive",
+          logo: s.logo || "",
           branches: data.branches || s.branches || [],
         })
         setProfileData({
@@ -155,6 +167,81 @@ export default function SchoolAccountPage() {
       setPasswordError(err?.message || "Failed to change password. Verify your current password.")
     } finally {
       setChangingPassword(false)
+    }
+  }
+
+  const handleLogoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setLogoError("")
+    setLogoSuccess("")
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    // 1. Size check: max 2MB
+    if (file.size > 2 * 1024 * 1024) {
+      setLogoError("File size exceeds 2MB limit. Please upload an image under 2MB.")
+      return
+    }
+
+    // 2. Type check
+    const allowed = ["image/png", "image/jpeg", "image/webp", "image/svg+xml"]
+    if (!allowed.includes(file.type)) {
+      setLogoError("Invalid file format. Allowed formats: PNG, JPG, JPEG, WebP, SVG.")
+      return
+    }
+
+    // 3. Dimension check
+    const objectUrl = URL.createObjectURL(file)
+    setPreviewUrl(objectUrl)
+    setSelectedFile(file)
+
+    if (file.type !== "image/svg+xml") {
+      const img = new Image()
+      img.src = objectUrl
+      img.onload = () => {
+        setImageDimensions({ width: img.naturalWidth, height: img.naturalHeight })
+        if (img.naturalWidth < 100 || img.naturalHeight < 100) {
+          setLogoError("Image dimensions are below recommended 100x100px. It may appear blurry on reports.")
+        }
+      }
+    } else {
+      setImageDimensions({ width: 256, height: 256 })
+    }
+  }
+
+  const handleLogoUpload = async () => {
+    if (!selectedFile) return
+    setUploadingLogo(true)
+    setLogoError("")
+    setLogoSuccess("")
+
+    try {
+      const token = localStorage.getItem("token")
+      const apiBase = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080"
+      const formData = new FormData()
+      formData.append("logo", selectedFile)
+
+      const res = await fetch(`${apiBase}/api/school/logo`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        body: formData,
+      })
+
+      const data = await res.json()
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to upload logo.")
+      }
+
+      setLogoSuccess("Institution crest uploaded and applied successfully across portals!")
+      if (data.logo_url && account) {
+        setAccount({ ...account, logo: data.logo_url })
+      }
+      setSelectedFile(null)
+    } catch (err: any) {
+      setLogoError(err.message || "Failed to upload logo.")
+    } finally {
+      setUploadingLogo(false)
     }
   }
 
@@ -333,6 +420,101 @@ export default function SchoolAccountPage() {
                 </Button>
               </div>
             </form>
+          </CardContent>
+        </Card>
+
+        {/* Institution Logo & Branding Card */}
+        <Card className="border-border shadow-none">
+          <CardHeader className="border-b border-border/40 pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <ImageIcon className="h-4 w-4 text-primary" />
+              Institution Logo & Branding
+            </CardTitle>
+            <CardDescription className="text-xs mt-0.5">
+              Upload your official school logo or crest. This is displayed on student assessment reports, completion certificates, and portal headers.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="pt-4 space-y-4">
+            {logoSuccess && (
+              <div className="p-3 bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-xs rounded-lg flex items-center gap-2">
+                <CheckCircle2 className="h-4 w-4 shrink-0" />
+                <span>{logoSuccess}</span>
+              </div>
+            )}
+            {logoError && (
+              <div className="p-3 bg-rose-500/10 border border-rose-500/20 text-rose-600 dark:text-rose-400 text-xs rounded-lg flex items-center gap-2">
+                <AlertCircle className="h-4 w-4 shrink-0" />
+                <span>{logoError}</span>
+              </div>
+            )}
+
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-6">
+              {/* Current or Preview Logo */}
+              <div className="flex flex-col items-center gap-2 shrink-0">
+                <div className="h-24 w-24 rounded-xl border border-dashed border-border bg-muted/30 flex items-center justify-center overflow-hidden relative">
+                  {previewUrl ? (
+                    <img
+                      src={previewUrl}
+                      alt="Logo preview"
+                      className="h-full w-full object-contain p-1"
+                    />
+                  ) : account?.logo ? (
+                    <img
+                      src={account.logo}
+                      alt="Current logo"
+                      className="h-full w-full object-contain p-1"
+                    />
+                  ) : (
+                    <div className="flex flex-col items-center justify-center text-muted-foreground p-2 text-center">
+                      <Building2 className="h-8 w-8 stroke-1 opacity-50 mb-1" />
+                      <span className="text-[10px] leading-tight">No crest</span>
+                    </div>
+                  )}
+                </div>
+                {imageDimensions && (
+                  <span className="text-[10px] font-mono text-muted-foreground">
+                    {imageDimensions.width} × {imageDimensions.height} px
+                  </span>
+                )}
+              </div>
+
+              {/* Upload Controls & Guidelines */}
+              <div className="flex-1 space-y-3 w-full">
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-foreground">Select Crest / Logo File</label>
+                  <input
+                    type="file"
+                    accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                    onChange={handleLogoSelect}
+                    className="block w-full text-xs text-muted-foreground file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-medium file:bg-primary/10 file:text-primary hover:file:bg-primary/20 file:cursor-pointer cursor-pointer border border-input rounded-md bg-background"
+                  />
+                </div>
+
+                <div className="text-[11px] text-muted-foreground leading-relaxed space-y-1">
+                  <p>• <strong>Dimensions:</strong> Square (1:1) aspect ratio recommended (min 100×100 px, optimal 256×256 px).</p>
+                  <p>• <strong>File size limit:</strong> Under 2.0 MB.</p>
+                  <p>• <strong>Supported formats:</strong> PNG (transparent background recommended), JPG, WebP, SVG.</p>
+                </div>
+
+                {selectedFile && (
+                  <div className="pt-1 flex items-center gap-3">
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={handleLogoUpload}
+                      disabled={uploadingLogo}
+                      className="gap-2"
+                    >
+                      <UploadCloud className="h-3.5 w-3.5" />
+                      {uploadingLogo ? "Uploading & Applying..." : "Upload & Save Logo"}
+                    </Button>
+                    <span className="text-xs text-muted-foreground font-mono">
+                      {(selectedFile.size / 1024).toFixed(1)} KB
+                    </span>
+                  </div>
+                )}
+              </div>
+            </div>
           </CardContent>
         </Card>
 

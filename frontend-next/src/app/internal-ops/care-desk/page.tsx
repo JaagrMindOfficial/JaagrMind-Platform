@@ -226,7 +226,7 @@ export default function CareDeskPage() {
             : item
         )
       );
-      setCaseSuccessMsg("Clinical response delivered and consultation details updated.");
+      setCaseSuccessMsg("Care response delivered and consultation details updated.");
       setTimeout(() => setCaseSuccessMsg(""), 3000);
     } catch (err: any) {
       setCaseError(err.message || "Failed to post reply.");
@@ -317,11 +317,11 @@ export default function CareDeskPage() {
               JaagrMind Care Desk
             </h1>
             <Badge variant="outline" className="text-xs font-mono border-primary/30 text-primary bg-primary/10">
-              Central Clinical Telemetry
+              Central Care Telemetry
             </Badge>
           </div>
           <p className="text-xs text-muted-foreground mt-1">
-            Centralized consultation queue, virtual appointment scheduling, and clinical counselor roster.
+            Centralized consultation queue, virtual appointment scheduling, and care specialist roster.
           </p>
         </div>
 
@@ -397,7 +397,7 @@ export default function CareDeskPage() {
                 Resolved Consultations
               </p>
               <h3 className="text-2xl font-bold text-emerald-600 dark:text-emerald-400 mt-1">{resolvedCases}</h3>
-              <p className="text-[11px] text-muted-foreground mt-0.5">Completed clinical care cycles</p>
+              <p className="text-[11px] text-muted-foreground mt-0.5">Completed care cycles</p>
             </div>
             <div className="p-2.5 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
               <CheckCircle2 className="h-5 w-5" />
@@ -575,7 +575,7 @@ export default function CareDeskPage() {
                             variant="outline"
                             onClick={() => handleOpenDossier(inq.student_id, inq.student_name, inq.school_name)}
                             className="h-7 px-2 text-xs gap-1 border-border font-medium hover:bg-muted/50 cursor-pointer"
-                            title="Open Student Clinical Dossier"
+                            title="Open Student Wellbeing Dossier"
                           >
                             <FolderOpen className="h-3 w-3 text-primary" />
                             <span className="hidden sm:inline">Dossier</span>
@@ -617,7 +617,7 @@ export default function CareDeskPage() {
           <DialogHeader className="p-5 border-b border-border/60 bg-muted/20">
             <div className="flex items-center justify-between">
               <span className="text-xs font-mono font-bold uppercase tracking-wider text-muted-foreground">
-                Central Clinical Care Case
+                Central Care Consultation Case
               </span>
               <Badge variant="outline" className="text-[10px] font-mono">
                 Case #{selectedCase?.id.slice(0, 8)}

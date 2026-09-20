@@ -9,10 +9,10 @@ export default function CareDeskSupportPage() {
       <div>
         <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground flex items-center gap-2.5">
           <LifeBuoy className="h-6 w-6 text-primary" />
-          <span>Care Desk Clinical Operations & Support</span>
+          <span>Care Desk Operations & Support</span>
         </h1>
         <p className="text-xs text-muted-foreground mt-0.5">
-          Operational telemetry assistance, clinical escalation procedures, and internal platform inquiries.
+          Operational telemetry assistance, specialist escalation procedures, and internal platform inquiries.
         </p>
       </div>
 
@@ -21,7 +21,7 @@ export default function CareDeskSupportPage() {
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2">
               <Mail className="h-4 w-4 text-sky-500" />
-              <span>JaagrMind Clinical Advisory Board</span>
+              <span>JaagrMind Care Advisory Board</span>
             </CardTitle>
             <CardDescription className="text-xs">
               Direct consultation on high-priority student cases and psychological regulation protocols.

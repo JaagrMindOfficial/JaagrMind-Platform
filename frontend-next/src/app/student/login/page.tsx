@@ -8,7 +8,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/theme-toggle";
-import { ArrowUpRight } from "lucide-react";
+import { ArrowUpRight, ArrowLeft } from "lucide-react";
 import { useAuth } from "@/context/auth-context";
 import { api } from "@/lib/api";
 
@@ -141,6 +141,15 @@ export default function StudentLoginPage() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background relative px-4">
+      <div className="absolute top-6 left-6 z-30">
+        <Link href="/">
+          <Button variant="ghost" size="sm" className="gap-2 text-xs text-muted-foreground hover:text-foreground">
+            <ArrowLeft className="h-4 w-4" />
+            <span>Back to Home</span>
+          </Button>
+        </Link>
+      </div>
+
       <div className="absolute top-6 right-6 flex items-center gap-3 z-30">
         <a
           href="https://jaagrmind.com"

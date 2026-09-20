@@ -441,7 +441,7 @@ export default function SchoolAnalyticsPage() {
                 4 Core Regulation Buckets Telemetry
               </h3>
               <p className="text-xs text-muted-foreground">
-                School-wide clinical baseline across the 4 regulation domains: Attention, Calm, Grounding, and Social Comfort.
+                School-wide wellbeing baseline across the 4 regulation domains: Attention, Calm, Grounding, and Social Comfort.
               </p>
             </div>
 
@@ -636,7 +636,7 @@ export default function SchoolAnalyticsPage() {
                 <div className="flex items-center justify-between">
                   <div className="space-y-0.5">
                     <CardTitle className="text-base font-semibold">
-                      Assigned 16-Track Clinical Curriculum Distribution
+                      Assigned 16-Track Wellbeing Curriculum Distribution
                     </CardTitle>
                     <CardDescription className="text-xs">
                       Live enrollment across personalized 16-track regulation pathways.
@@ -683,7 +683,7 @@ export default function SchoolAnalyticsPage() {
             <div className="mb-3 space-y-0.5">
               <h3 className="text-base font-semibold text-foreground">Cohort Regulation Focus Profiles</h3>
               <p className="text-xs text-muted-foreground">
-                Distribution of learners across clinical regulation profiles with actionable faculty strategies.
+                Distribution of learners across student regulation profiles with actionable faculty strategies.
               </p>
             </div>
 

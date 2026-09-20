@@ -23,6 +23,7 @@ import {
   ShieldCheck,
   School,
   GraduationCap,
+  Home,
   Lightbulb,
 } from "lucide-react";
 
@@ -156,8 +157,18 @@ function SignupContent() {
   return (
     <div className="h-screen max-h-screen overflow-hidden w-screen bg-[#FFF8F0] dark:bg-[#121212] text-[#222222] dark:text-[#FFF8F0] flex flex-col md:flex-row relative select-none">
       
-      {/* ── Top-Right Controls: Visit Our Page + JM Internal-Ops + Theme Toggle ── */}
+      {/* ── Top-Right Controls: Home + Visit Our Page + JM Internal-Ops + Theme Toggle ── */}
       <div className="absolute top-4 right-5 z-30 flex items-center gap-2.5">
+        <Link
+          href="/"
+          className="text-xs font-medium text-[#222222]/70 dark:text-[#FFF8F0]/70 hover:text-[#42B677] dark:hover:text-[#42B677] transition-colors flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl hover:bg-[#222222]/5 dark:hover:bg-white/5"
+        >
+          <Home className="h-3.5 w-3.5" />
+          <span>Home</span>
+        </Link>
+
+        <div className="h-4 w-px bg-[#222222]/15 dark:bg-white/15" />
+
         <a
           href="https://jaagrmind.com"
           target="_blank"

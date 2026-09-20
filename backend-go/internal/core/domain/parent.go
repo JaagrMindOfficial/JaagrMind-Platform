@@ -247,6 +247,7 @@ type ParentRepository interface {
 	GetParentInquiriesForSuperAdmin(ctx context.Context) ([]ParentInquiry, error)
 	GetParentInquiriesForSchool(ctx context.Context, schoolID string) ([]ParentInquiry, error)
 	GetParentInquiriesForParent(ctx context.Context, parentID string) ([]ParentInquiry, error)
+	GetInquiryByID(ctx context.Context, inquiryID string) (*ParentInquiry, error)
 	UpdateInquiryStatus(ctx context.Context, inquiryID, status, resolutionNotes string) error
 	UpdateSchoolInquiryStatus(ctx context.Context, schoolID, inquiryID, status, resolutionNotes string) error
 	UpdateSuperAdminInquiryStatus(ctx context.Context, inquiryID, status, resolutionNotes string) error

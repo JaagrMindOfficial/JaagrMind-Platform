@@ -107,7 +107,7 @@ class ApiClient {
     }
 
     if (!res.ok) {
-      throw new Error(data?.error || `Request failed with status ${res.status}`);
+      throw new Error(data?.error || data?.message || `Request failed with status ${res.status}`);
     }
 
     return data as T;

@@ -227,7 +227,7 @@ export function ParentConversationThreadDialog({
           </div>
           <div className="flex items-center justify-between text-[11px] text-zinc-400">
             <span>Press Enter to send, Shift + Enter for new line</span>
-            <span>Direct 2-way clinical communication</span>
+            <span>Direct 2-way care advisory communication</span>
           </div>
         </div>
       </DialogContent>

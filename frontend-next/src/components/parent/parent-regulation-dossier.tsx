@@ -166,7 +166,7 @@ export function ParentRegulationDossier({
           <div className="space-y-1.5 max-w-2xl">
             <div className="flex items-center gap-2 flex-wrap">
               <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-sky-600 dark:text-sky-400">
-                CLINICAL REGULATION DOSSIER
+                WELLBEING REGULATION DOSSIER
               </span>
               <span className="text-muted-foreground/40">•</span>
               <Badge variant="outline" className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-full ${profileHeader.badgeColor}`}>
@@ -519,7 +519,7 @@ export function ParentRegulationDossier({
               onClick={() => setDossierModalOpen(true)}
               className="text-[11px] font-semibold text-sky-600 dark:text-sky-400 hover:underline cursor-pointer flex items-center gap-1"
             >
-              <span>Full Clinical Breakdown</span>
+              <span>Full Wellbeing Breakdown</span>
               <ArrowUpRight className="h-3 w-3" />
             </button>
           </div>

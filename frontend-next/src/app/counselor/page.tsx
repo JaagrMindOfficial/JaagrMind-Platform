@@ -411,7 +411,7 @@ export default function CounselorPortalPage() {
           </div>
           <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground mt-1 flex items-center gap-2.5">
             <HeartHandshake className="h-6 w-6 text-primary" />
-            <span>Counselor Desk & Clinical Care</span>
+            <span>Counselor Desk & Student Care</span>
           </h1>
           <p className="text-xs text-muted-foreground mt-0.5">
             Longitudinal student wellness monitoring, parent consultations, and developmental case disposition.

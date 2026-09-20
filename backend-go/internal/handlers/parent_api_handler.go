@@ -234,9 +234,23 @@ func (h *ParentAPIHandler) GetParentInquiries(c fiber.Ctx) error {
 }
 
 func (h *ParentAPIHandler) GetInquiryMessages(c fiber.Ctx) error {
+	parentID, ok := c.Locals("user_id").(string)
+	if !ok || parentID == "" {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Unauthorized"})
+	}
+
 	inquiryID := c.Params("id")
 	if inquiryID == "" {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Inquiry ID is required"})
+	}
+
+	// IDOR check: ensure the inquiry belongs to this authenticated parent
+	inq, err := h.parentRepo.GetInquiryByID(c.Context(), inquiryID)
+	if err != nil || inq == nil {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "Inquiry not found"})
+	}
+	if inq.ParentID != parentID {
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "Unauthorized access to inquiry thread"})
 	}
 
 	messages, err := h.parentRepo.GetInquiryMessages(c.Context(), inquiryID)
@@ -255,6 +269,15 @@ func (h *ParentAPIHandler) ReplyToInquiry(c fiber.Ctx) error {
 	inquiryID := c.Params("id")
 	if inquiryID == "" {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Inquiry ID is required"})
+	}
+
+	// IDOR check: ensure the inquiry belongs to this authenticated parent
+	inq, err := h.parentRepo.GetInquiryByID(c.Context(), inquiryID)
+	if err != nil || inq == nil {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "Inquiry not found"})
+	}
+	if inq.ParentID != parentID {
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "Unauthorized access to inquiry thread"})
 	}
 
 	var req struct {

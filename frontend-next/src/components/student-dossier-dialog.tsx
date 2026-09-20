@@ -428,7 +428,7 @@ export function StudentDossierDialog({
                   </span>
                 </div>
                 <p className="text-[11px] text-muted-foreground">
-                  Assigned 16-Track Pathway and clinical regulation profile will generate automatically after the first submission.
+                  Assigned 16-Track Pathway and wellbeing regulation profile will generate automatically after the first submission.
                 </p>
               </div>
               <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-background/80 border border-border/60 text-xs text-muted-foreground font-mono">
@@ -924,7 +924,7 @@ export function StudentDossierDialog({
                 </div>
 
                 <div className="space-y-1">
-                  <label className="text-[11px] font-medium text-foreground">Clinical & Counselor Notes</label>
+                  <label className="text-[11px] font-medium text-foreground">Guidance & Counselor Notes</label>
                   <Textarea
                     placeholder="Document 1-on-1 session highlights, agreed student behavioral commitments, or teacher coordination actions..."
                     value={noteText}

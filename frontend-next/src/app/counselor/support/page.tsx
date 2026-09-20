@@ -22,7 +22,7 @@ export default function CounselorSupportPage() {
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2">
               <Mail className="h-4 w-4 text-sky-500" />
-              <span>JaagrMind Psychology Clinical Desk</span>
+              <span>JaagrMind Care & Advisory Desk</span>
             </CardTitle>
             <CardDescription className="text-xs">
               Direct consultation with our senior child psychology & assessment team.

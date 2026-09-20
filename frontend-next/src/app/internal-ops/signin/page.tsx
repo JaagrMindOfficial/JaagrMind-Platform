@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, Suspense } from "react";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -15,6 +16,7 @@ import {
   Mail,
   AlertCircle,
   Terminal,
+  ArrowLeft,
 } from "lucide-react";
 
 function InternalOpsSignInContent() {
@@ -51,6 +53,15 @@ function InternalOpsSignInContent() {
 
   return (
     <div className="min-h-screen bg-background flex flex-col justify-center py-10 px-4 sm:px-6 lg:px-8 relative">
+      <div className="absolute top-6 left-6 z-20">
+        <Link href="/">
+          <Button variant="ghost" size="sm" className="gap-2 text-xs text-muted-foreground hover:text-foreground">
+            <ArrowLeft className="h-4 w-4" />
+            <span>Back to Home</span>
+          </Button>
+        </Link>
+      </div>
+
       <div className="absolute top-6 right-6">
         <ThemeToggle />
       </div>

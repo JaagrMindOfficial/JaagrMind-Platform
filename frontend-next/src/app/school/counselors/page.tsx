@@ -473,8 +473,9 @@ export default function SchoolCounselorsPage() {
 
   const copyCredentials = () => {
     if (accessResult) {
+      const loginUrl = typeof window !== "undefined" ? `${window.location.origin}/login` : "/login";
       navigator.clipboard.writeText(
-        `Counselor Portal Access:\nEmail: ${accessResult.email}\nTemporary Password: ${accessResult.temp_password}\nPortal URL: ${window.location.origin}/counselor`
+        `Counselor Portal Access:\nCounselor: ${accessResult.name}\nEmail: ${accessResult.email}\nTemporary Password: ${accessResult.temp_password}\nLogin URL: ${loginUrl}\nCounselor Desk: ${window.location.origin}/counselor`
       );
       setAccessCopied(true);
       setTimeout(() => setAccessCopied(false), 2000);
@@ -526,7 +527,7 @@ export default function SchoolCounselorsPage() {
           </div>
           <h2 className="text-xl font-bold text-foreground">Access Restricted</h2>
           <p className="text-sm text-muted-foreground max-w-md mx-auto leading-relaxed">
-            The Counselor Desk and clinical student escalation oversight are restricted to School Administrators and Certified Counselors. Classroom teachers do not have authorization to manage faculty wellness personnel or view clinical parent inquiries.
+            The Counselor Desk and student guidance escalation oversight are restricted to School Administrators and Certified Counselors. Classroom teachers do not have authorization to manage faculty wellness personnel or view confidential parent inquiries.
           </p>
           <div className="pt-2">
             <Button variant="outline" onClick={() => router.push("/school")}>
@@ -1158,7 +1159,7 @@ export default function SchoolCounselorsPage() {
                   <span>Counselor Follow-up & Resolution Notes</span>
                 </label>
                 <Textarea
-                  placeholder="Document your clinical follow-up, discussions with teachers, or recommendations communicated to the parent..."
+                  placeholder="Document your guidance follow-up, discussions with teachers, or recommendations communicated to the parent..."
                   value={caseNotes}
                   onChange={(e) => setCaseNotes(e.target.value)}
                   rows={4}
@@ -1562,9 +1563,25 @@ export default function SchoolCounselorsPage() {
                   </span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground font-mono">Portal URL:</span>
+                  <span className="text-muted-foreground font-mono">Full Login Route:</span>
+                  <span className="font-mono text-sky-600 dark:text-sky-400">
+                    {typeof window !== "undefined" ? `${window.location.origin}/login` : "/login"}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground font-mono">Counselor Desk:</span>
                   <span className="font-mono text-sky-600 dark:text-sky-400">/counselor</span>
                 </div>
+              </div>
+
+              <div className="p-3 rounded-xl border border-amber-500/30 bg-amber-500/10 text-xs text-amber-800 dark:text-amber-300 space-y-1">
+                <div className="flex items-center gap-1.5 font-semibold">
+                  <AlertCircle className="h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
+                  One-Time Credential Display Warning
+                </div>
+                <p className="text-[11px] leading-relaxed">
+                  This temporary password will <strong>not</strong> be shown again and cannot be retrieved after closing this window. Please copy and securely share it with the counselor now.
+                </p>
               </div>
 
               <div className="p-3 rounded-xl border border-sky-500/20 bg-sky-500/5 text-[11px] text-muted-foreground space-y-1">

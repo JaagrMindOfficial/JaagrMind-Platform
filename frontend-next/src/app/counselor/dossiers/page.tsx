@@ -168,7 +168,7 @@ export default function CounselorDossiersPage() {
         <div>
           <div className="flex items-center gap-2">
             <span className="text-xs font-mono font-bold uppercase tracking-wider text-muted-foreground">
-              Campus Wellness Directory & Clinical Profiles
+              Campus Wellness Directory & Student Profiles
             </span>
             <Badge
               variant="outline"
@@ -381,7 +381,7 @@ export default function CounselorDossiersPage() {
           {loading ? (
             <div className="p-12 text-center text-muted-foreground text-xs flex flex-col items-center justify-center gap-2">
               <Loader2 className="h-5 w-5 animate-spin text-primary" />
-              <span>Loading student clinical records...</span>
+              <span>Loading student wellbeing records...</span>
             </div>
           ) : filteredStudents.length === 0 ? (
             <div className="p-12 text-center text-muted-foreground text-xs space-y-1">

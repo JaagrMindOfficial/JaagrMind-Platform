@@ -195,7 +195,7 @@ export default function ParentDashboardPage() {
                   Welcome to Your Family Space, {overview.parent_name ? overview.parent_name.split(" ")[0] : "Parent"}
                 </h2>
                 <p className="text-sm text-muted-foreground max-w-md mx-auto leading-relaxed">
-                  Connect your child using their School Access Code or add an independent student profile to view their 4-bucket clinical regulation rhythm, focus cadence, and care support.
+                  Connect your child using their School Access Code or add an independent student profile to view their 4-bucket wellness regulation rhythm, focus cadence, and care support.
                 </p>
               </div>
 
@@ -266,7 +266,7 @@ export default function ParentDashboardPage() {
                 <p className="text-sm text-muted-foreground mt-1 flex items-center gap-3 flex-wrap">
                   <span>Welcome back, <span className="font-medium text-foreground">{overview.parent_name || "Parent"}</span></span>
                   <span>•</span>
-                  <span>4-bucket clinical regulation & care desk</span>
+                  <span>4-bucket wellness regulation & care desk</span>
                 </p>
               </div>
 
@@ -396,7 +396,7 @@ export default function ParentDashboardPage() {
 
                       <p className="text-xs text-muted-foreground leading-relaxed pt-1">
                         {isPlatformCounselor
-                          ? `Because ${firstName} is studying independently, you have direct access to JaagrMind's central clinical desk for study routine planning, screen balance, and emotional regulation guidance.`
+                          ? `Because ${firstName} is studying independently, you have direct access to JaagrMind's central care desk for study routine planning, screen balance, and emotional regulation guidance.`
                           : `Your family is directly connected to ${counselor.name} at ${counselor.school_name} for coordinated academic and wellbeing guidance.`}
                       </p>
                     </div>
@@ -555,7 +555,7 @@ export default function ParentDashboardPage() {
         onChildUpdated={(updated) => fetchOverview(updated.id)}
       />
 
-      {/* Full Clinical Student Dossier Dialog */}
+      {/* Full Student Wellbeing Dossier Dialog */}
       <StudentDossierDialog
         isOpen={fullDossierModalOpen}
         onClose={() => setFullDossierModalOpen(false)}

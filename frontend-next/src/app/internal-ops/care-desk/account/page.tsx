@@ -69,7 +69,7 @@ export default function CareDeskAccountPage() {
       <div>
         <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground flex items-center gap-2.5">
           <Settings className="h-6 w-6 text-primary" />
-          <span>Care Desk Clinical Profile</span>
+          <span>Care Desk Practitioner Profile</span>
         </h1>
         <p className="text-xs text-muted-foreground mt-0.5">
           Credentials, authentication security, and platform identity for central care operations.
@@ -81,7 +81,7 @@ export default function CareDeskAccountPage() {
         <CardHeader>
           <CardTitle className="text-base flex items-center gap-2">
             <User className="h-4 w-4 text-primary" />
-            <span>Clinical Practitioner Profile</span>
+            <span>Care Desk Practitioner Profile</span>
           </CardTitle>
           <CardDescription className="text-xs">
             Assigned practitioner account managed under JaagrMind Central Operations.
@@ -91,7 +91,7 @@ export default function CareDeskAccountPage() {
           <div className="p-4 bg-muted/40 border border-border/70 rounded-xl space-y-3">
             <div className="flex items-center justify-between">
               <span className="text-muted-foreground font-mono">Full Name:</span>
-              <span className="font-semibold text-foreground text-sm">{user?.name || "Clinical Practitioner"}</span>
+              <span className="font-semibold text-foreground text-sm">{user?.name || "Care Practitioner"}</span>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-muted-foreground font-mono">Work Email:</span>
@@ -102,7 +102,7 @@ export default function CareDeskAccountPage() {
               <div className="flex items-center gap-1.5">
                 <Badge variant="outline" className="text-[10px] font-mono bg-sky-500/10 text-sky-600 dark:text-sky-400 border-sky-500/20 flex items-center gap-1">
                   <HeartHandshake className="h-3 w-3" />
-                  Central Clinical Counselor
+                  Central Care Specialist
                 </Badge>
               </div>
             </div>
@@ -141,7 +141,7 @@ export default function CareDeskAccountPage() {
             <span>Update Account Password</span>
           </CardTitle>
           <CardDescription className="text-xs">
-            Ensure your clinical staff account uses a strong, unique password. Minimum 6 characters required.
+            Ensure your care desk staff account uses a strong, unique password. Minimum 6 characters required.
           </CardDescription>
         </CardHeader>
         <CardContent>

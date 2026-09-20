@@ -522,6 +522,16 @@ func AutoMigrate(ctx context.Context, db *pgxpool.Pool) error {
 		ALTER TABLE students ADD COLUMN IF NOT EXISTS stream TEXT;
 		CREATE INDEX IF NOT EXISTS idx_students_class_roll ON students(school_id, grade, section, roll_number);
 
+		-- High-traffic foreign-key & performance indexes
+		CREATE INDEX IF NOT EXISTS idx_student_results_student_id ON student_results(student_id);
+		CREATE INDEX IF NOT EXISTS idx_student_results_school_id ON student_results(school_id, completed_at DESC);
+		CREATE INDEX IF NOT EXISTS idx_counselor_notes_student_id ON counselor_notes(student_id);
+		CREATE INDEX IF NOT EXISTS idx_events_school_created ON events(school_id, created_at DESC);
+		CREATE INDEX IF NOT EXISTS idx_parent_students_parent_id ON parent_students(parent_id);
+		CREATE INDEX IF NOT EXISTS idx_parent_counselor_inquiries_parent ON parent_counselor_inquiries(parent_id);
+		CREATE INDEX IF NOT EXISTS idx_parent_counselor_inquiries_school ON parent_counselor_inquiries(school_id, status);
+		CREATE INDEX IF NOT EXISTS idx_inquiry_messages_inquiry_id ON inquiry_messages(inquiry_id);
+
 		-- Sync historical columns if present from earlier migrations
 		DO $$ 
 		BEGIN

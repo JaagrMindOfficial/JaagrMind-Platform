@@ -13,7 +13,7 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { useRouter } from "next/navigation"
-import { Search, Plus, Check, Copy, Lock } from "lucide-react"
+import { Search, Plus, Check, Copy, Lock, AlertCircle } from "lucide-react"
 import { api } from "@/lib/api"
 import {
   Dialog,
@@ -111,8 +111,9 @@ export default function TeachersPage() {
 
   const copyToClipboard = () => {
     if (addResult) {
+      const loginUrl = typeof window !== "undefined" ? `${window.location.origin}/login` : "/login"
       navigator.clipboard.writeText(
-        `Teacher Credentials Provisioned:\nName: ${name}\nDesignation: ${addResult.designation || designation}\nPhone: ${phone}\nEmail: ${email}\nPassword: ${addResult.temp_password}\nAssigned Class: Class ${addResult.assigned_grade || assignedGrade}th - Section ${addResult.assigned_section || assignedSection}`
+        `Teacher Credentials Provisioned:\nName: ${name}\nDesignation: ${addResult.designation || designation}\nPhone: ${phone}\nEmail: ${email}\nTemporary Password: ${addResult.temp_password}\nAssigned Class: Class ${addResult.assigned_grade || assignedGrade}th - Section ${addResult.assigned_section || assignedSection}\nLogin URL: ${loginUrl}`
       )
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)
@@ -270,24 +271,56 @@ export default function TeachersPage() {
                   </DialogFooter>
                 </form>
               ) : (
-                <div className="space-y-4 py-4">
-                  <div className="p-3 bg-muted/50 rounded-md border text-sm text-muted-foreground space-y-1">
-                    <div className="font-semibold text-foreground">Teacher Account Provisioned</div>
-                    <div className="text-xs">
-                      Designation: <strong>{addResult.designation || designation}</strong>
+                <div className="space-y-4 py-2">
+                  <div className="p-3.5 bg-muted/40 rounded-xl border border-border/70 space-y-2 text-xs">
+                    <div className="flex items-center justify-between">
+                      <span className="text-muted-foreground font-mono">Teacher Name:</span>
+                      <span className="font-semibold text-foreground">{name}</span>
                     </div>
-                    <div className="text-xs">
-                      Assigned to: <strong>Class {addResult.assigned_grade || assignedGrade}th - Section {addResult.assigned_section || assignedSection}</strong>
+                    <div className="flex items-center justify-between">
+                      <span className="text-muted-foreground font-mono">Designation:</span>
+                      <span className="font-medium text-foreground">{addResult.designation || designation}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-muted-foreground font-mono">Assigned Scope:</span>
+                      <span className="font-medium text-foreground">Class {addResult.assigned_grade || assignedGrade}th - Section {addResult.assigned_section || assignedSection}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-muted-foreground font-mono">Login Email:</span>
+                      <span className="font-mono text-foreground font-medium">{email}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-muted-foreground font-mono">Temporary Password:</span>
+                      <span className="font-mono text-emerald-600 dark:text-emerald-400 font-bold bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
+                        {addResult.temp_password}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-muted-foreground font-mono">Full Login Route:</span>
+                      <span className="font-mono text-sky-600 dark:text-sky-400">
+                        {typeof window !== "undefined" ? `${window.location.origin}/login` : "/login"}
+                      </span>
                     </div>
                   </div>
-                  <div className="space-y-2">
-                    <label className="text-xs font-medium text-muted-foreground">Temporary Password</label>
-                    <div className="flex items-center gap-2">
-                      <Input value={addResult.temp_password} readOnly className="font-mono text-xs" />
-                      <Button size="icon" variant="outline" onClick={copyToClipboard} className="shrink-0">
-                        {copied ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
-                      </Button>
+
+                  <div className="p-3 rounded-xl border border-amber-500/30 bg-amber-500/10 text-xs text-amber-800 dark:text-amber-300 space-y-1">
+                    <div className="flex items-center gap-1.5 font-semibold">
+                      <AlertCircle className="h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
+                      One-Time Credential Display Warning
                     </div>
+                    <p className="text-[11px] leading-relaxed">
+                      This temporary password will <strong>not</strong> be shown again and cannot be retrieved after closing this window. Please copy and securely share it with the educator now.
+                    </p>
+                  </div>
+
+                  <div className="flex items-center gap-2 pt-1">
+                    <Button onClick={copyToClipboard} className="flex-1 text-xs gap-2" variant="default">
+                      {copied ? <Check className="h-4 w-4 text-emerald-300" /> : <Copy className="h-4 w-4" />}
+                      {copied ? "Credentials Copied to Clipboard!" : "Copy Full Credentials"}
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={resetForm} className="text-xs">
+                      Done
+                    </Button>
                   </div>
                 </div>
               )}

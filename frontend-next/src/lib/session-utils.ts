@@ -41,7 +41,7 @@ export function getActiveSessionDetails(
       space: "Institutional",
       spaceBadge: "Counselor Desk",
       role: "School Counselor",
-      subtitle: "Student psychological safety, 4-pole clinical dossier & direct guidance",
+      subtitle: "Student psychological safety, holistic wellbeing profile & direct guidance",
       destination: "/counselor",
       icon: Building2,
       accent: "#42B677",

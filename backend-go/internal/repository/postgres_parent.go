@@ -1371,6 +1371,34 @@ func (r *postgresParent) UpdateInquiryMeeting(ctx context.Context, inquiryID, me
 	return err
 }
 
+func (r *postgresParent) GetInquiryByID(ctx context.Context, inquiryID string) (*domain.ParentInquiry, error) {
+	var inq domain.ParentInquiry
+	var sID, cID string
+	err := r.db.QueryRow(ctx, `
+		SELECT id, parent_id, student_id, COALESCE(student_name, ''),
+		       COALESCE(school_id::text, ''), COALESCE(counselor_id::text, ''),
+		       COALESCE(counselor_type, 'school'), COALESCE(target_recipient, 'school_counselor'),
+		       COALESCE(parent_name, ''), COALESCE(parent_email, ''),
+		       COALESCE(subject, ''), COALESCE(message, ''), COALESCE(status, 'open'),
+		       COALESCE(resolution_notes, ''), created_at
+		FROM parent_counselor_inquiries
+		WHERE id = $1::uuid
+	`, inquiryID).Scan(
+		&inq.ID, &inq.ParentID, &inq.StudentID, &inq.StudentName,
+		&sID, &cID,
+		&inq.CounselorType, &inq.TargetRecipient,
+		&inq.ParentName, &inq.ParentEmail,
+		&inq.Subject, &inq.Message, &inq.Status,
+		&inq.ResolutionNotes, &inq.CreatedAt,
+	)
+	if err != nil {
+		return nil, err
+	}
+	inq.SchoolID = sID
+	inq.CounselorID = cID
+	return &inq, nil
+}
+
 func (r *postgresParent) GetInquiryMessages(ctx context.Context, inquiryID string) ([]domain.InquiryMessage, error) {
 	rows, err := r.db.Query(ctx, `
 		SELECT id, inquiry_id, COALESCE(sender_id::text, ''), sender_name, sender_role, message, created_at::text

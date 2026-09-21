@@ -572,6 +572,17 @@ export function StudentDossierDialog({
                       <PolarGrid stroke={isDark ? "#334155" : "#e2e8f0"} strokeDasharray="3 3" />
                       <PolarAngleAxis
                         dataKey="subject"
+                        tickFormatter={(v: string) =>
+                          v === "Attention & Focus Flow"
+                            ? "Focus Flow"
+                            : v === "Social Comfort & Belonging"
+                            ? "Social Ease"
+                            : v === "Calm & Stress Reset"
+                            ? "Calm Reset"
+                            : v === "Inner Grounding & Confidence"
+                            ? "Grounding"
+                            : v
+                        }
                         tick={{ fill: isDark ? "#94a3b8" : "#475569", fontSize: 10, fontWeight: 500 }}
                       />
                       <PolarRadiusAxis domain={[0, 100]} tick={false} axisLine={false} />

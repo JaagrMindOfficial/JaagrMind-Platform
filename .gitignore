@@ -70,3 +70,6 @@ previous_chat_readable.md
 backend-go/cmd/seed-workflow/
 platform_flow.md
 backend-go/seed-workflow
+backend-go/bin/.agents
+graphify-out
+DECISIONS.md

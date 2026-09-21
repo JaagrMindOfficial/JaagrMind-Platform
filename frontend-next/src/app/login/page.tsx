@@ -68,51 +68,63 @@ function LoginContent() {
     window.location.href = `${apiBase}/api/auth/google/login?role=parent&intent=login`;
   };
 
+  const navActions = (
+    <>
+      <Link
+        href="/"
+        title="Return to Home"
+        className="h-8 text-xs font-medium text-[#222222]/70 dark:text-[#FFF8F0]/70 hover:text-[#42B677] dark:hover:text-[#42B677] transition-colors inline-flex items-center justify-center gap-1.5 px-2.5 rounded-xl hover:bg-[#222222]/5 dark:hover:bg-white/5 shrink-0"
+      >
+        <Home className="h-3.5 w-3.5" />
+        <span className="hidden sm:inline">Home</span>
+      </Link>
+
+      <div className="hidden sm:block h-4 w-px bg-[#222222]/15 dark:bg-white/15 shrink-0" />
+
+      <a
+        href="https://jaagrmind.com"
+        target="_blank"
+        rel="noopener noreferrer"
+        className="hidden sm:inline-flex h-8 text-xs font-medium text-[#222222]/70 dark:text-[#FFF8F0]/70 hover:text-[#42B677] dark:hover:text-[#42B677] transition-colors items-center gap-1.5 px-2.5 rounded-xl hover:bg-[#222222]/5 dark:hover:bg-white/5 shrink-0"
+      >
+        <span>Visit our page</span>
+        <ArrowUpRight className="h-3.5 w-3.5" />
+      </a>
+
+      <div className="h-4 w-px bg-[#222222]/15 dark:bg-white/15 shrink-0" />
+
+      <Link
+        href="/internal-ops/signin"
+        title="JaagrMind Internal Operations"
+        className="h-8 text-xs font-semibold text-[#005456] dark:text-[#91D17C] hover:text-[#42B677] transition-colors inline-flex items-center gap-1.5 px-2.5 rounded-xl border border-[#005456]/20 dark:border-[#42B677]/30 bg-white/60 dark:bg-[#181818]/60 hover:bg-[#005456]/10 shadow-2xs shrink-0"
+      >
+        <ShieldCheck className="h-3.5 w-3.5 text-[#42B677] shrink-0" />
+        <span className="hidden sm:inline">JM Internal-Ops</span>
+        <span className="sm:hidden">Ops</span>
+      </Link>
+
+      <div className="h-4 w-px bg-[#222222]/15 dark:bg-white/15 shrink-0" />
+
+      <ThemeToggle />
+    </>
+  );
+
   return (
-    <div className="h-screen max-h-screen overflow-hidden w-screen bg-[#FFF8F0] dark:bg-[#121212] text-[#222222] dark:text-[#FFF8F0] flex flex-col md:flex-row relative select-none">
+    <div className="min-h-screen min-h-dvh overflow-y-auto md:overflow-hidden md:h-screen w-full bg-[#FFF8F0] dark:bg-[#121212] text-[#222222] dark:text-[#FFF8F0] flex flex-col md:flex-row relative select-none">
       
-      {/* ── Top-Right Controls: Home + Visit Our Page + JM Internal-Ops + Theme Toggle ── */}
-      <div className="absolute top-5 right-6 z-30 flex items-center gap-2.5">
-        <Link
-          href="/"
-          className="text-xs font-medium text-[#222222]/70 dark:text-[#FFF8F0]/70 hover:text-[#42B677] dark:hover:text-[#42B677] transition-colors flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl hover:bg-[#222222]/5 dark:hover:bg-white/5"
-        >
-          <Home className="h-3.5 w-3.5" />
-          <span>Home</span>
-        </Link>
-
-        <div className="h-4 w-px bg-[#222222]/15 dark:bg-white/15" />
-
-        <a
-          href="https://jaagrmind.com"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-xs font-medium text-[#222222]/70 dark:text-[#FFF8F0]/70 hover:text-[#42B677] dark:hover:text-[#42B677] transition-colors flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl hover:bg-[#222222]/5 dark:hover:bg-white/5"
-        >
-          <span>Visit our page</span>
-          <ArrowUpRight className="h-3.5 w-3.5" />
-        </a>
-
-        <div className="h-4 w-px bg-[#222222]/15 dark:bg-white/15" />
-
-        <Link
-          href="/internal-ops/signin"
-          className="text-xs font-semibold text-[#005456] dark:text-[#91D17C] hover:text-[#42B677] transition-colors flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border border-[#005456]/20 dark:border-[#42B677]/30 bg-white/60 dark:bg-[#181818]/60 hover:bg-[#005456]/10 shadow-2xs"
-        >
-          <ShieldCheck className="h-3.5 w-3.5 text-[#42B677]" />
-          <span>JM Internal-Ops</span>
-        </Link>
-
-        <div className="h-4 w-px bg-[#222222]/15 dark:bg-white/15" />
-
-        <ThemeToggle />
+      {/* ── Desktop-Only Top-Right Controls: Home + Visit Our Page + JM Internal-Ops + Theme Toggle ── */}
+      <div className="hidden md:flex absolute top-5 right-6 z-30 items-center gap-2.5">
+        {navActions}
       </div>
 
-      {/* ── LEFT SIDE: Brand Kit Architectural Graphics ──────────────── */}
-      <BrandSidePanel subtitle="Access your personalized school leadership, classroom, counselor, or family wellness portal." />
+      {/* ── LEFT SIDE: Brand Kit Architectural Graphics (Inline mobile controls with logo) ──── */}
+      <BrandSidePanel
+        actions={navActions}
+        subtitle="Access your personalized school leadership, classroom, counselor, or family wellness portal."
+      />
 
       {/* ── RIGHT SIDE: Seamless Login Form or Active Session ────────── */}
-      <div className="w-full md:w-7/12 lg:w-[54%] h-full flex flex-col justify-center px-6 sm:px-12 lg:px-16 py-6 overflow-y-auto relative">
+      <div className="w-full md:w-7/12 lg:w-[54%] min-h-full h-auto md:h-full flex flex-col justify-center px-5 sm:px-12 lg:px-16 py-6 pb-14 md:py-6 overflow-y-auto relative">
         
         {/* Subtle Ambient Radial Glow */}
         <div className="absolute top-1/4 right-1/4 w-80 h-80 bg-[#42B677]/8 rounded-full blur-[120px] pointer-events-none" />
@@ -361,7 +373,7 @@ function LoginContent() {
       </div>
 
       {/* ── Discrete Bottom-Right Copyright Overlay ──────────────────── */}
-      <div className="absolute bottom-5 right-6 z-20 text-[11px] font-mono tracking-wider text-[#222222]/40 dark:text-[#FFF8F0]/40 pointer-events-none">
+      <div className="hidden md:block absolute bottom-5 right-6 z-20 text-[11px] font-mono tracking-wider text-[#222222]/40 dark:text-[#FFF8F0]/40 pointer-events-none">
         JaagrMind © 2026
       </div>
     </div>

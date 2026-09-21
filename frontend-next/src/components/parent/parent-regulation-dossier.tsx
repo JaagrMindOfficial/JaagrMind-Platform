@@ -262,6 +262,17 @@ export function ParentRegulationDossier({
                   <PolarGrid stroke="currentColor" className="text-border/50" />
                   <PolarAngleAxis
                     dataKey="subject"
+                    tickFormatter={(v: string) =>
+                      v === "Attention & Focus Flow"
+                        ? "Focus Flow"
+                        : v === "Social Comfort & Belonging"
+                        ? "Social Ease"
+                        : v === "Calm & Stress Reset"
+                        ? "Calm Reset"
+                        : v === "Inner Grounding & Confidence"
+                        ? "Grounding"
+                        : v
+                    }
                     tick={{ fill: "currentColor", fontSize: 10, fontWeight: 600 }}
                     className="text-foreground font-sans"
                   />

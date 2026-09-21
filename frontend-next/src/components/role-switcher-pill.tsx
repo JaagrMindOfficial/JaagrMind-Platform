@@ -13,6 +13,7 @@ import {
   ArrowRight,
   Loader2,
   Info,
+  ChevronDown,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -24,6 +25,14 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
 
 export function RoleSwitcherPill() {
   const router = useRouter();
@@ -61,7 +70,8 @@ export function RoleSwitcherPill() {
     return (
       <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-muted/60 border border-border/70 text-xs font-semibold text-foreground shadow-2xs">
         <Users className="h-3.5 w-3.5 text-emerald-500" />
-        <span>Parent Portal</span>
+        <span className="hidden sm:inline">Parent Portal</span>
+        <span className="sm:hidden">Parent</span>
       </div>
     );
   }
@@ -125,7 +135,8 @@ export function RoleSwitcherPill() {
 
   return (
     <>
-      <div className="inline-flex items-center p-0.5 rounded-full bg-muted/70 border border-border shadow-2xs">
+      {/* Desktop & Tablet: Full Horizontal Pill Bar */}
+      <div className="hidden sm:inline-flex items-center p-0.5 rounded-full bg-muted/70 border border-border shadow-2xs">
         {/* 1. School Admin Role (Visible ONLY for accounts with school_admin) */}
         {isSchoolAdmin && (
           <button
@@ -198,6 +209,107 @@ export function RoleSwitcherPill() {
             </Badge>
           )}
         </button>
+      </div>
+
+      {/* Mobile (< sm): Compact Role Dropdown */}
+      <div className="inline-flex sm:hidden">
+        <DropdownMenu>
+          <DropdownMenuTrigger className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-muted/70 hover:bg-muted border border-border text-xs font-semibold text-foreground shadow-2xs transition-colors cursor-pointer">
+            {activeRole === "school_admin" && (
+              <>
+                <ShieldCheck className="h-3.5 w-3.5 shrink-0 text-primary" />
+                <span>Admin</span>
+              </>
+            )}
+            {activeRole === "teacher" && (
+              <>
+                <GraduationCap className="h-3.5 w-3.5 shrink-0 text-blue-500" />
+                <span>Teacher</span>
+              </>
+            )}
+            {activeRole === "counselor" && (
+              <>
+                <HeartHandshake className="h-3.5 w-3.5 shrink-0 text-amber-500" />
+                <span>Counselor</span>
+              </>
+            )}
+            {activeRole === "parent" && (
+              <>
+                <Users className="h-3.5 w-3.5 shrink-0 text-emerald-500" />
+                <span>Parent</span>
+              </>
+            )}
+            <ChevronDown className="h-3 w-3 text-muted-foreground ml-0.5" />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-48">
+            <DropdownMenuLabel className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
+              Switch Role
+            </DropdownMenuLabel>
+            <DropdownMenuSeparator />
+
+            {isSchoolAdmin && (
+              <DropdownMenuItem
+                onClick={handleSchoolAdminClick}
+                className="cursor-pointer text-xs font-medium flex items-center justify-between"
+              >
+                <div className="flex items-center gap-2">
+                  <ShieldCheck className="h-3.5 w-3.5 text-primary" />
+                  <span>School Admin</span>
+                </div>
+                {activeRole === "school_admin" && (
+                  <span className="h-1.5 w-1.5 rounded-full bg-primary" />
+                )}
+              </DropdownMenuItem>
+            )}
+
+            {isTeacher && (
+              <DropdownMenuItem
+                onClick={handleTeacherClick}
+                className="cursor-pointer text-xs font-medium flex items-center justify-between"
+              >
+                <div className="flex items-center gap-2">
+                  <GraduationCap className="h-3.5 w-3.5 text-blue-500" />
+                  <span>Teacher</span>
+                </div>
+                {activeRole === "teacher" && (
+                  <span className="h-1.5 w-1.5 rounded-full bg-blue-500" />
+                )}
+              </DropdownMenuItem>
+            )}
+
+            {isCounselor && (
+              <DropdownMenuItem
+                onClick={handleCounselorClick}
+                className="cursor-pointer text-xs font-medium flex items-center justify-between"
+              >
+                <div className="flex items-center gap-2">
+                  <HeartHandshake className="h-3.5 w-3.5 text-amber-500" />
+                  <span>Counselor</span>
+                </div>
+                {activeRole === "counselor" && (
+                  <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
+                )}
+              </DropdownMenuItem>
+            )}
+
+            <DropdownMenuItem
+              onClick={handleParentClick}
+              className="cursor-pointer text-xs font-medium flex items-center justify-between"
+            >
+              <div className="flex items-center gap-2">
+                <Users className="h-3.5 w-3.5 text-emerald-500" />
+                <span>Parent Portal</span>
+              </div>
+              {activeRole === "parent" ? (
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+              ) : !isParent ? (
+                <Badge variant="outline" className="text-[9px] px-1 py-0 h-3.5 bg-primary/5 text-primary border-primary/20">
+                  Enable
+                </Badge>
+              ) : null}
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
 
       {/* Guide Dialog for Enabling Parent Dashboard */}

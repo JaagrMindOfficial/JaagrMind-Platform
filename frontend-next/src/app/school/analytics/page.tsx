@@ -338,7 +338,7 @@ export default function SchoolAnalyticsPage() {
         </div>
 
         {/* Scope Selector Tabs */}
-        <div className="flex items-center gap-1 bg-muted/60 p-1 rounded-lg border border-border/70 self-start md:self-auto">
+        <div className="flex items-center gap-1 bg-muted/60 p-1 rounded-lg border border-border/70 self-start md:self-auto overflow-x-auto max-w-full">
           {[
             { id: "overview", label: isTeacherOnly ? "Classroom Overview" : "Campus Overview", icon: Building2 },
             ...(!isTeacherOnly ? [{ id: "branches", label: "Branch-Wise", icon: GitBranch, badge: branches.length > 0 ? `${branches.length + 1}` : undefined }] : []),
@@ -351,7 +351,7 @@ export default function SchoolAnalyticsPage() {
               <button
                 key={tab.id}
                 onClick={() => setScopeTab(tab.id as any)}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all shrink-0 ${
                   isActive
                     ? "bg-background text-foreground shadow-xs border border-border/60"
                     : "text-muted-foreground hover:text-foreground"
@@ -1019,7 +1019,8 @@ export default function SchoolAnalyticsPage() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="p-0">
-                <div className="overflow-x-auto max-h-72 overflow-y-auto">
+                {/* Desktop Table View */}
+                <div className="hidden md:block overflow-x-auto max-h-72 overflow-y-auto">
                   <Table>
                     <TableHeader className="bg-muted/30">
                       <TableRow className="text-[11px]">
@@ -1072,6 +1073,61 @@ export default function SchoolAnalyticsPage() {
                     </TableBody>
                   </Table>
                 </div>
+
+                {/* Mobile Card List View */}
+                <div className="md:hidden divide-y divide-border/60 max-h-80 overflow-y-auto">
+                  {classes.map((c, i) => (
+                    <div
+                      key={i}
+                      onClick={() => {
+                        setSelectedGrade(c.grade)
+                        setSelectedSection(c.section)
+                      }}
+                      className={`p-3 space-y-2 cursor-pointer transition-colors ${
+                        c.grade === selectedGrade && c.section === selectedSection ? "bg-muted/40" : "hover:bg-muted/20"
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="font-semibold text-xs text-foreground">Class {c.grade} - {c.section}</span>
+                        <Badge variant="outline" className="text-[10px]">
+                          {c.action_priority || c.overall_status || "Standard"}
+                        </Badge>
+                      </div>
+                      <div className="grid grid-cols-4 gap-1.5 text-center text-[10px]">
+                        <div className="bg-sky-500/10 dark:bg-sky-500/20 rounded p-1">
+                          <div className="text-muted-foreground text-[9px]">Attn</div>
+                          <div className="font-semibold text-sky-600 dark:text-sky-400">
+                            {c.attn_stability_score || Math.round(8 + (100 - (c.focus_score || 80)) * 24 / 100)}
+                          </div>
+                        </div>
+                        <div className="bg-amber-500/10 dark:bg-amber-500/20 rounded p-1">
+                          <div className="text-muted-foreground text-[9px]">Calm</div>
+                          <div className="font-semibold text-amber-600 dark:text-amber-400">
+                            {c.load_regulation_score || Math.round(8 + (100 - (c.recovery_score || 65)) * 24 / 100)}
+                          </div>
+                        </div>
+                        <div className="bg-rose-500/10 dark:bg-rose-500/20 rounded p-1">
+                          <div className="text-muted-foreground text-[9px]">Ground</div>
+                          <div className="font-semibold text-rose-600 dark:text-rose-400">
+                            {c.self_safety_score || Math.round(8 + (100 - (c.resilience_score || 70)) * 24 / 100)}
+                          </div>
+                        </div>
+                        <div className="bg-emerald-500/10 dark:bg-emerald-500/20 rounded p-1">
+                          <div className="text-muted-foreground text-[9px]">Social</div>
+                          <div className="font-semibold text-emerald-600 dark:text-emerald-400">
+                            {c.social_comfort_score || Math.round(8 + (100 - (c.peer_dynamics_score || 78)) * 24 / 100)}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex items-center justify-between text-[11px] text-muted-foreground pt-1 border-t border-border/40">
+                        <span>{c.total_students} students</span>
+                        <span className="text-foreground font-medium truncate max-w-[180px]">
+                          {c.primary_focus_area || c.dominant_archetype || "Calm & Stress Reset"}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </CardContent>
             </Card>
           </div>
@@ -1098,9 +1154,9 @@ export default function SchoolAnalyticsPage() {
                   </CardDescription>
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
                   {isTeacherOnly ? (
-                    <Badge variant="outline" className="h-8 px-3 text-xs font-mono border-primary/20 bg-primary/5 text-primary">
+                    <Badge variant="outline" className="h-8 px-3 text-xs font-mono border-primary/20 bg-primary/5 text-primary justify-center">
                       Class {user?.metadata?.assigned_grade || "9"}-{user?.metadata?.assigned_section || "A"} Roster
                     </Badge>
                   ) : (
@@ -1116,7 +1172,7 @@ export default function SchoolAnalyticsPage() {
                     </select>
                   )}
 
-                  <div className="relative w-48 sm:w-60">
+                  <div className="relative w-full sm:w-60">
                     <Search className="h-3.5 w-3.5 text-muted-foreground absolute left-2.5 top-2.5" />
                     <Input
                       placeholder="Search name or ID..."
@@ -1130,7 +1186,8 @@ export default function SchoolAnalyticsPage() {
             </CardHeader>
 
             <CardContent className="p-0">
-              <div className="overflow-x-auto">
+              {/* Desktop Table View */}
+              <div className="hidden md:block overflow-x-auto">
                 <Table>
                   <TableHeader className="bg-muted/30">
                     <TableRow className="text-[11px]">
@@ -1222,6 +1279,76 @@ export default function SchoolAnalyticsPage() {
                     )}
                   </TableBody>
                 </Table>
+              </div>
+
+              {/* Mobile Card List View */}
+              <div className="md:hidden divide-y divide-border/60">
+                {filteredStudents.length > 0 ? (
+                  filteredStudents.map((st) => (
+                    <div key={st.id} className="p-3.5 space-y-2.5 hover:bg-muted/10 transition-colors">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <span className="font-semibold text-xs text-foreground block truncate">{st.name}</span>
+                          <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
+                            <span className="font-mono">ID: {st.access_id}</span>
+                            <span>•</span>
+                            <span>Class {st.grade} - {st.section}</span>
+                          </div>
+                        </div>
+                        <Badge
+                          className={`text-[10px] shrink-0 ${
+                            st.overall_status === "Support Needed"
+                              ? "bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20"
+                              : st.overall_status === "Emerging"
+                              ? "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20"
+                              : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20"
+                          }`}
+                        >
+                          {st.overall_status || "Stable"}
+                        </Badge>
+                      </div>
+
+                      <div className="flex items-center gap-2 flex-wrap text-[11px]">
+                        <Badge variant="outline" className="text-[10px] font-medium border-sky-500/30 bg-sky-500/10 text-sky-700 dark:text-sky-300">
+                          {st.regulation_profile || (st.is_balance_mode ? "Balance Mode" : st.primary_bucket ? st.primary_bucket.replace(/_/g, " ") : "Calm Reset")}
+                        </Badge>
+                        <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                          {st.momentum_trend === "improving" ? (
+                            <TrendingUp className="h-3 w-3 text-emerald-500" />
+                          ) : st.momentum_trend === "declining" ? (
+                            <TrendingDown className="h-3 w-3 text-rose-500" />
+                          ) : (
+                            <Minus className="h-3 w-3 text-muted-foreground" />
+                          )}
+                          <span className="capitalize">{st.momentum_trend || "stable"}</span>
+                        </div>
+                      </div>
+
+                      <div className="text-[11px] text-muted-foreground bg-muted/30 rounded p-2 flex items-center justify-between">
+                        <span className="truncate pr-2">{st.pathway_track_name || "Calm Reset – with Ground Support"}</span>
+                        <span className="text-[9px] font-mono shrink-0">{st.pathway_track_id || "TRACK_CR_GROUND"}</span>
+                      </div>
+
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full text-xs h-8 gap-1.5 justify-center"
+                        onClick={() => {
+                          setSelectedStudent(st)
+                          setIsDossierOpen(true)
+                        }}
+                      >
+                        <FolderOpen className="h-3.5 w-3.5" />
+                        <span>Inspect Full Dossier</span>
+                        <ArrowUpRight className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  ))
+                ) : (
+                  <div className="text-center py-8 text-muted-foreground text-xs">
+                    No student records found matching your filters.
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>

@@ -225,14 +225,14 @@ export default function AdminCounselingPage() {
 
       {/* Table Card */}
       <Card className="clay-card border-border/70 overflow-hidden">
-        <CardHeader className="p-5 border-b border-border/40 flex flex-row items-center justify-between gap-4">
+        <CardHeader className="p-4 sm:p-5 border-b border-border/40 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
             <CardTitle className="text-base font-bold">Incoming Parent Notes</CardTitle>
             <CardDescription className="text-xs">
               Manage queries, review context, and record guidance notes.
             </CardDescription>
           </div>
-          <div className="relative w-64">
+          <div className="relative w-full sm:w-64">
             <Search className="h-3.5 w-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
             <Input
               placeholder="Search parent, student, topic..."
@@ -257,80 +257,159 @@ export default function AdminCounselingPage() {
               </p>
             </div>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow className="border-border/50 bg-secondary/20">
-                  <TableHead className="text-xs font-bold font-mono uppercase">Parent & Student</TableHead>
-                  <TableHead className="text-xs font-bold font-mono uppercase">Route Target</TableHead>
-                  <TableHead className="text-xs font-bold font-mono uppercase">Subject & Message</TableHead>
-                  <TableHead className="text-xs font-bold font-mono uppercase">Status</TableHead>
-                  <TableHead className="text-xs font-bold font-mono uppercase">Date</TableHead>
-                  <TableHead className="text-xs font-bold font-mono uppercase text-right">Action</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
+            <>
+              {/* Desktop Table View */}
+              <div className="hidden md:block overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="border-border/50 bg-secondary/20">
+                      <TableHead className="text-xs font-bold font-mono uppercase">Parent & Student</TableHead>
+                      <TableHead className="text-xs font-bold font-mono uppercase">Route Target</TableHead>
+                      <TableHead className="text-xs font-bold font-mono uppercase">Subject & Message</TableHead>
+                      <TableHead className="text-xs font-bold font-mono uppercase">Status</TableHead>
+                      <TableHead className="text-xs font-bold font-mono uppercase">Date</TableHead>
+                      <TableHead className="text-xs font-bold font-mono uppercase text-right">Action</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filtered.map((inq) => (
+                      <TableRow key={inq.id} className="border-border/40 hover:bg-secondary/10">
+                        <TableCell>
+                          <div className="space-y-0.5">
+                            <div className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                              <User className="h-3 w-3 text-muted-foreground" />
+                              <span>{inq.parent_name}</span>
+                            </div>
+                            <div className="text-[11px] text-muted-foreground font-mono">
+                              {inq.parent_email}
+                            </div>
+                            <div className="text-[11px] text-sky-600 dark:text-sky-400 font-semibold">
+                              Child: {inq.student_name}
+                            </div>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="space-y-1">
+                            {inq.target_recipient === "superadmin" ? (
+                              <Badge variant="outline" className="text-[10px] font-mono text-sky-600 dark:text-sky-400 bg-sky-500/10 border-sky-500/20">
+                                JaagrMind Desk
+                              </Badge>
+                            ) : (
+                              <Badge variant="outline" className="text-[10px] font-mono text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border-emerald-500/20">
+                                School Counselor
+                              </Badge>
+                            )}
+                            <div className="text-[10px] text-muted-foreground flex items-center gap-1 font-mono">
+                              <Building2 className="h-2.5 w-2.5" />
+                              <span>{inq.school_name || "Independent"}</span>
+                            </div>
+                          </div>
+                        </TableCell>
+                        <TableCell className="max-w-xs">
+                          <div className="space-y-0.5">
+                            <div className="text-xs font-semibold text-foreground line-clamp-1">
+                              {inq.subject}
+                            </div>
+                            <p className="text-[11px] text-muted-foreground line-clamp-2">
+                              {inq.message}
+                            </p>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          {inq.status === "resolved" ? (
+                            <Badge variant="outline" className="text-[10px] font-mono text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border-emerald-500/20">
+                              Resolved
+                            </Badge>
+                          ) : inq.status === "in_progress" ? (
+                            <Badge variant="outline" className="text-[10px] font-mono text-sky-600 dark:text-sky-400 bg-sky-500/10 border-sky-500/20">
+                              In Progress
+                            </Badge>
+                          ) : (
+                            <Badge variant="outline" className="text-[10px] font-mono text-amber-600 dark:text-amber-400 bg-amber-500/10 border-amber-500/20">
+                              Pending
+                            </Badge>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-xs font-mono text-muted-foreground">
+                          {inq.created_at ? inq.created_at.split("T")[0] : "Recent"}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleOpenModal(inq)}
+                            className="text-xs h-7 neo-well"
+                          >
+                            {inq.target_recipient === "school_counselor" || inq.counselor_type === "school_counselor" ? (
+                              <span className="flex items-center gap-1 text-muted-foreground">
+                                <Eye className="h-3 w-3 text-amber-500" /> View Only
+                              </span>
+                            ) : (
+                              "Review Note"
+                            )}
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+
+              {/* Mobile Card View */}
+              <div className="md:hidden divide-y divide-border/60">
                 {filtered.map((inq) => (
-                  <TableRow key={inq.id} className="border-border/40 hover:bg-secondary/10">
-                    <TableCell>
-                      <div className="space-y-0.5">
-                        <div className="text-xs font-bold text-foreground flex items-center gap-1.5">
-                          <User className="h-3 w-3 text-muted-foreground" />
-                          <span>{inq.parent_name}</span>
+                  <div key={inq.id} className="p-3.5 space-y-2.5">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <div className="font-semibold text-sm text-foreground flex items-center gap-1.5 truncate">
+                          <User className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                          <span className="truncate">{inq.parent_name}</span>
                         </div>
-                        <div className="text-[11px] text-muted-foreground font-mono">
-                          {inq.parent_email}
-                        </div>
-                        <div className="text-[11px] text-sky-600 dark:text-sky-400 font-semibold">
+                        <p className="text-xs font-semibold text-sky-600 dark:text-sky-400 mt-0.5">
                           Child: {inq.student_name}
-                        </div>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="space-y-1">
-                        {inq.target_recipient === "superadmin" ? (
-                          <Badge variant="outline" className="text-[10px] font-mono text-sky-600 dark:text-sky-400 bg-sky-500/10 border-sky-500/20">
-                            JaagrMind Desk
-                          </Badge>
-                        ) : (
-                          <Badge variant="outline" className="text-[10px] font-mono text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border-emerald-500/20">
-                            School Counselor
-                          </Badge>
-                        )}
-                        <div className="text-[10px] text-muted-foreground flex items-center gap-1 font-mono">
-                          <Building2 className="h-2.5 w-2.5" />
-                          <span>{inq.school_name || "Independent"}</span>
-                        </div>
-                      </div>
-                    </TableCell>
-                    <TableCell className="max-w-xs">
-                      <div className="space-y-0.5">
-                        <div className="text-xs font-semibold text-foreground line-clamp-1">
-                          {inq.subject}
-                        </div>
-                        <p className="text-[11px] text-muted-foreground line-clamp-2">
-                          {inq.message}
                         </p>
                       </div>
-                    </TableCell>
-                    <TableCell>
+
                       {inq.status === "resolved" ? (
-                        <Badge variant="outline" className="text-[10px] font-mono text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border-emerald-500/20">
+                        <Badge variant="outline" className="text-[10px] font-mono text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border-emerald-500/20 shrink-0">
                           Resolved
                         </Badge>
                       ) : inq.status === "in_progress" ? (
-                        <Badge variant="outline" className="text-[10px] font-mono text-sky-600 dark:text-sky-400 bg-sky-500/10 border-sky-500/20">
+                        <Badge variant="outline" className="text-[10px] font-mono text-sky-600 dark:text-sky-400 bg-sky-500/10 border-sky-500/20 shrink-0">
                           In Progress
                         </Badge>
                       ) : (
-                        <Badge variant="outline" className="text-[10px] font-mono text-amber-600 dark:text-amber-400 bg-amber-500/10 border-amber-500/20">
+                        <Badge variant="outline" className="text-[10px] font-mono text-amber-600 dark:text-amber-400 bg-amber-500/10 border-amber-500/20 shrink-0">
                           Pending
                         </Badge>
                       )}
-                    </TableCell>
-                    <TableCell className="text-xs font-mono text-muted-foreground">
-                      {inq.created_at ? inq.created_at.split("T")[0] : "Recent"}
-                    </TableCell>
-                    <TableCell className="text-right">
+                    </div>
+
+                    <div className="space-y-1">
+                      <p className="text-xs font-medium text-foreground">{inq.subject}</p>
+                      <p className="text-[11px] text-muted-foreground line-clamp-2">
+                        {inq.message}
+                      </p>
+                    </div>
+
+                    <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground font-mono pt-0.5">
+                      <span className="truncate max-w-[180px]">{inq.parent_email}</span>
+                      <span className="shrink-0 text-[10px]">{inq.created_at ? inq.created_at.split("T")[0] : "Recent"}</span>
+                    </div>
+
+                    <div className="flex items-center justify-between gap-2 pt-1 border-t border-border/40 text-xs">
+                      <div>
+                        {inq.target_recipient === "superadmin" ? (
+                          <Badge variant="outline" className="text-[9px] font-mono text-sky-600 dark:text-sky-400 bg-sky-500/10 border-sky-500/20">
+                            JaagrMind Desk
+                          </Badge>
+                        ) : (
+                          <Badge variant="outline" className="text-[9px] font-mono text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border-emerald-500/20">
+                            Counselor ({inq.school_name || "Campus"})
+                          </Badge>
+                        )}
+                      </div>
+
                       <Button
                         variant="outline"
                         size="sm"
@@ -345,11 +424,11 @@ export default function AdminCounselingPage() {
                           "Review Note"
                         )}
                       </Button>
-                    </TableCell>
-                  </TableRow>
+                    </div>
+                  </div>
                 ))}
-              </TableBody>
-            </Table>
+              </div>
+            </>
           )}
         </CardContent>
       </Card>

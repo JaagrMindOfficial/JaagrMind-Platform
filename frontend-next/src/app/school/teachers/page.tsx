@@ -173,7 +173,7 @@ export default function TeachersPage() {
             setIsAddOpen(open)
             if (!open) setTimeout(resetForm, 300)
           }}>
-            <DialogTrigger render={<Button size="sm"><Plus className="mr-1.5 h-3.5 w-3.5" /> Grant Educator Access</Button>} />
+            <DialogTrigger render={<Button size="sm" className="w-full sm:w-auto"><Plus className="mr-1.5 h-3.5 w-3.5" /> Grant Educator Access</Button>} />
             <DialogContent className="sm:max-w-md">
               <DialogHeader>
                 <DialogTitle>Grant Educator Portal Access</DialogTitle>
@@ -353,56 +353,105 @@ export default function TeachersPage() {
               Loading teachers...
             </div>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Teacher / Educator</TableHead>
-                  <TableHead>Designation</TableHead>
-                  <TableHead>Contact Phone</TableHead>
-                  <TableHead>Assigned Classroom</TableHead>
-                  <TableHead className="text-right">Joined</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
+            <>
+              {/* Desktop Table View */}
+              <div className="hidden md:block overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Teacher / Educator</TableHead>
+                      <TableHead>Designation</TableHead>
+                      <TableHead>Contact Phone</TableHead>
+                      <TableHead>Assigned Classroom</TableHead>
+                      <TableHead className="text-right">Joined</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filtered.map((t) => (
+                      <TableRow key={t.id}>
+                        <TableCell className="font-medium">
+                          <div>
+                            <p className="font-medium text-foreground">{t.name || "—"}</p>
+                            <p className="text-[11px] text-muted-foreground font-mono">{t.email}</p>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-muted border border-border">
+                            {t.metadata?.designation || "Class Teacher"}
+                          </span>
+                        </TableCell>
+                        <TableCell className="text-xs text-muted-foreground font-mono">
+                          {t.phone || t.metadata?.phone || "—"}
+                        </TableCell>
+                        <TableCell>
+                          {t.metadata?.assigned_grade ? (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-primary/10 text-primary border border-primary/20">
+                              Class {t.metadata.assigned_grade}th - Sec {t.metadata.assigned_section || "A"}
+                            </span>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">General Faculty</span>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-right text-muted-foreground text-sm">
+                          {new Date(t.created_at).toLocaleDateString()}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                    {filtered.length === 0 && (
+                      <TableRow>
+                        <TableCell colSpan={5} className="h-24 text-center text-muted-foreground">
+                          No teachers found.
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+
+              {/* Mobile Card View */}
+              <div className="md:hidden divide-y divide-border/60">
                 {filtered.map((t) => (
-                  <TableRow key={t.id}>
-                    <TableCell className="font-medium">
-                      <div>
-                        <p className="font-medium text-foreground">{t.name || "—"}</p>
-                        <p className="text-[11px] text-muted-foreground font-mono">{t.email}</p>
+                  <div key={t.id} className="p-3.5 space-y-2.5">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="font-semibold text-sm text-foreground truncate">{t.name || "—"}</p>
+                        <p className="text-[11px] text-muted-foreground font-mono truncate">{t.email}</p>
                       </div>
-                    </TableCell>
-                    <TableCell>
-                      <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-muted border border-border">
+                      <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-muted border border-border shrink-0">
                         {t.metadata?.designation || "Class Teacher"}
                       </span>
-                    </TableCell>
-                    <TableCell className="text-xs text-muted-foreground font-mono">
-                      {t.phone || t.metadata?.phone || "—"}
-                    </TableCell>
-                    <TableCell>
-                      {t.metadata?.assigned_grade ? (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-primary/10 text-primary border border-primary/20">
-                          Class {t.metadata.assigned_grade}th - Sec {t.metadata.assigned_section || "A"}
+                    </div>
+
+                    <div className="flex items-center justify-between gap-2 text-xs pt-0.5">
+                      <div>
+                        {t.metadata?.assigned_grade ? (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-primary/10 text-primary border border-primary/20">
+                            Class {t.metadata.assigned_grade}th - Sec {t.metadata.assigned_section || "A"}
+                          </span>
+                        ) : (
+                          <span className="text-[11px] text-muted-foreground">General Faculty</span>
+                        )}
+                      </div>
+                      {(t.phone || t.metadata?.phone) && (
+                        <span className="text-[11px] text-muted-foreground font-mono">
+                          {t.phone || t.metadata?.phone}
                         </span>
-                      ) : (
-                        <span className="text-xs text-muted-foreground">General Faculty</span>
                       )}
-                    </TableCell>
-                    <TableCell className="text-right text-muted-foreground text-sm">
-                      {new Date(t.created_at).toLocaleDateString()}
-                    </TableCell>
-                  </TableRow>
+                    </div>
+
+                    <div className="flex items-center justify-between text-[10px] text-muted-foreground/80 pt-1 border-t border-border/40 font-mono">
+                      <span>Joined</span>
+                      <span>{new Date(t.created_at).toLocaleDateString()}</span>
+                    </div>
+                  </div>
                 ))}
                 {filtered.length === 0 && (
-                  <TableRow>
-                    <TableCell colSpan={5} className="h-24 text-center text-muted-foreground">
-                      No teachers found.
-                    </TableCell>
-                  </TableRow>
+                  <div className="p-8 text-center text-xs text-muted-foreground">
+                    No teachers found.
+                  </div>
                 )}
-              </TableBody>
-            </Table>
+              </div>
+            </>
           )}
         </CardContent>
       </Card>

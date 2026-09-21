@@ -79,11 +79,22 @@ export function ParentGrowthRadar({ pillars, childName }: PillarScoresProps) {
       ) : (
         <div className="py-2 h-56 sm:h-60 w-full relative flex items-center justify-center">
           <ResponsiveContainer width="100%" height="100%">
-            <RadarChart cx="50%" cy="50%" outerRadius="72%" data={radarData}>
+            <RadarChart cx="50%" cy="50%" outerRadius="68%" data={radarData}>
               <PolarGrid stroke="currentColor" className="text-border/50" />
               <PolarAngleAxis
                 dataKey="subject"
-                tick={{ fill: "currentColor", fontSize: 11, fontWeight: 600 }}
+                tickFormatter={(v: string) =>
+                  v === "Study Focus & Flow"
+                    ? "Focus Flow"
+                    : v === "Friends & Belonging"
+                    ? "Belonging"
+                    : v === "Daily Calm & Reset"
+                    ? "Calm Reset"
+                    : v === "Inner Confidence"
+                    ? "Confidence"
+                    : v
+                }
+                tick={{ fill: "currentColor", fontSize: 10, fontWeight: 600 }}
                 className="text-foreground font-sans"
               />
               <Radar

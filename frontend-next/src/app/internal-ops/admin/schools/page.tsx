@@ -556,19 +556,140 @@ export default function AdminSchoolsPage() {
                 </p>
               </div>
             ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Institution Name</TableHead>
-                    <TableHead>Admin Recipient</TableHead>
-                    <TableHead>Dispatched On</TableHead>
-                    <TableHead>Expiration Status</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Direct Onboarding Link</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
+              <>
+                {/* Desktop / Tablet Table View */}
+                <div className="hidden md:block overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Institution Name</TableHead>
+                        <TableHead>Admin Recipient</TableHead>
+                        <TableHead>Dispatched On</TableHead>
+                        <TableHead>Expiration Status</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Direct Onboarding Link</TableHead>
+                        <TableHead className="text-right">Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {invites
+                        .filter(inv =>
+                          !search ||
+                          inv.school_name.toLowerCase().includes(search.toLowerCase()) ||
+                          inv.email.toLowerCase().includes(search.toLowerCase())
+                        )
+                        .map((inv) => {
+                          const isAccepted = Boolean(inv.accepted_at)
+                          const isExpired = !isAccepted && new Date(inv.expires_at).getTime() <= Date.now()
+                          const inviteUrl = `${typeof window !== "undefined" ? window.location.origin : ""}/invite/${inv.token}`
+
+                          return (
+                            <TableRow key={inv.id} className="hover:bg-muted/40 transition-colors">
+                              <TableCell className="font-semibold text-foreground">
+                                <div className="flex items-center gap-2">
+                                  <Building2 className="h-4 w-4 text-muted-foreground shrink-0" />
+                                  <span>{inv.school_name}</span>
+                                </div>
+                              </TableCell>
+                              <TableCell className="text-muted-foreground font-mono text-xs">
+                                {inv.email}
+                              </TableCell>
+                              <TableCell className="text-muted-foreground text-xs font-mono">
+                                {inv.created_at ? new Date(inv.created_at).toLocaleDateString() : "—"}
+                              </TableCell>
+                              <TableCell className="text-xs">
+                                {isAccepted ? (
+                                  <span className="text-muted-foreground font-mono text-[11px]">
+                                    Activated {new Date(inv.accepted_at!).toLocaleDateString()}
+                                  </span>
+                                ) : isExpired ? (
+                                  <span className="text-rose-600 dark:text-rose-400 font-mono text-[11px]">
+                                    Expired on {new Date(inv.expires_at).toLocaleDateString()}
+                                  </span>
+                                ) : (
+                                  <span className="text-amber-600 dark:text-amber-400 font-mono text-[11px]">
+                                    Valid until {new Date(inv.expires_at).toLocaleDateString()}
+                                  </span>
+                                )}
+                              </TableCell>
+                              <TableCell>
+                                {isAccepted ? (
+                                  <Badge variant="outline" className="text-[10px] font-mono text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border-emerald-500/20">
+                                    Accepted & Active
+                                  </Badge>
+                                ) : isExpired ? (
+                                  <Badge variant="outline" className="text-[10px] font-mono text-rose-600 dark:text-rose-400 bg-rose-500/10 border-rose-500/20">
+                                    Expired
+                                  </Badge>
+                                ) : (
+                                  <Badge variant="outline" className="text-[10px] font-mono text-amber-600 dark:text-amber-400 bg-amber-500/10 border-amber-500/20">
+                                    Pending Activation
+                                  </Badge>
+                                )}
+                              </TableCell>
+                              <TableCell>
+                                <div className="flex items-center gap-1.5">
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="h-7 text-xs gap-1.5 cursor-pointer font-mono"
+                                    onClick={() => {
+                                      navigator.clipboard.writeText(inviteUrl)
+                                      setCopiedInviteId(inv.id)
+                                      setTimeout(() => setCopiedInviteId(null), 2000)
+                                    }}
+                                  >
+                                    {copiedInviteId === inv.id ? (
+                                      <CheckCircle2 className="h-3 w-3 text-emerald-500" />
+                                    ) : (
+                                      <Copy className="h-3 w-3 text-muted-foreground" />
+                                    )}
+                                    <span>{copiedInviteId === inv.id ? "Copied" : "Copy Link"}</span>
+                                  </Button>
+                                </div>
+                              </TableCell>
+                              <TableCell className="text-right">
+                                <div className="flex items-center justify-end gap-1">
+                                  {!isAccepted && (
+                                    <>
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        className="h-7 text-xs text-sky-600 hover:text-sky-700 hover:bg-sky-500/10 cursor-pointer"
+                                        onClick={() => handleResendInvite(inv)}
+                                        title="Renew & Re-dispatch Invitation"
+                                      >
+                                        <RefreshCw className="h-3 w-3 mr-1" />
+                                        <span>Renew</span>
+                                      </Button>
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        className="h-7 text-xs text-rose-600 hover:text-rose-700 hover:bg-rose-500/10 cursor-pointer"
+                                        onClick={() => setRevokeTarget(inv)}
+                                        title="Revoke and cancel invitation"
+                                      >
+                                        <Trash2 className="h-3 w-3 mr-1" />
+                                        <span>Revoke</span>
+                                      </Button>
+                                    </>
+                                  )}
+                                  {isAccepted && (
+                                    <span className="text-[11px] text-muted-foreground italic mr-2">
+                                      Completed
+                                    </span>
+                                  )}
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          )
+                        })}
+                    </TableBody>
+                  </Table>
+                </div>
+
+                {/* Mobile Card View */}
+                <div className="md:hidden divide-y divide-border/60">
                   {invites
                     .filter(inv =>
                       !search ||
@@ -581,80 +702,71 @@ export default function AdminSchoolsPage() {
                       const inviteUrl = `${typeof window !== "undefined" ? window.location.origin : ""}/invite/${inv.token}`
 
                       return (
-                        <TableRow key={inv.id} className="hover:bg-muted/40 transition-colors">
-                          <TableCell className="font-semibold text-foreground">
-                            <div className="flex items-center gap-2">
-                              <Building2 className="h-4 w-4 text-muted-foreground shrink-0" />
-                              <span>{inv.school_name}</span>
+                        <div key={inv.id} className="p-4 space-y-3 hover:bg-muted/20 transition-colors">
+                          <div className="flex items-start justify-between gap-2">
+                            <div>
+                              <div className="flex items-center gap-1.5 font-semibold text-sm text-foreground">
+                                <Building2 className="h-4 w-4 text-muted-foreground shrink-0" />
+                                <span>{inv.school_name}</span>
+                              </div>
+                              <div className="text-xs text-muted-foreground font-mono mt-0.5">{inv.email}</div>
                             </div>
-                          </TableCell>
-                          <TableCell className="text-muted-foreground font-mono text-xs">
-                            {inv.email}
-                          </TableCell>
-                          <TableCell className="text-muted-foreground text-xs font-mono">
-                            {inv.created_at ? new Date(inv.created_at).toLocaleDateString() : "—"}
-                          </TableCell>
-                          <TableCell className="text-xs">
-                            {isAccepted ? (
-                              <span className="text-muted-foreground font-mono text-[11px]">
-                                Activated {new Date(inv.accepted_at!).toLocaleDateString()}
-                              </span>
-                            ) : isExpired ? (
-                              <span className="text-rose-600 dark:text-rose-400 font-mono text-[11px]">
-                                Expired on {new Date(inv.expires_at).toLocaleDateString()}
-                              </span>
-                            ) : (
-                              <span className="text-amber-600 dark:text-amber-400 font-mono text-[11px]">
-                                Valid until {new Date(inv.expires_at).toLocaleDateString()}
-                              </span>
-                            )}
-                          </TableCell>
-                          <TableCell>
-                            {isAccepted ? (
-                              <Badge variant="outline" className="text-[10px] font-mono text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border-emerald-500/20">
-                                Accepted & Active
-                              </Badge>
-                            ) : isExpired ? (
-                              <Badge variant="outline" className="text-[10px] font-mono text-rose-600 dark:text-rose-400 bg-rose-500/10 border-rose-500/20">
-                                Expired
-                              </Badge>
-                            ) : (
-                              <Badge variant="outline" className="text-[10px] font-mono text-amber-600 dark:text-amber-400 bg-amber-500/10 border-amber-500/20">
-                                Pending Activation
-                              </Badge>
-                            )}
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex items-center gap-1.5">
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                className="h-7 text-xs gap-1.5 cursor-pointer font-mono"
-                                onClick={() => {
-                                  navigator.clipboard.writeText(inviteUrl)
-                                  setCopiedInviteId(inv.id)
-                                  setTimeout(() => setCopiedInviteId(null), 2000)
-                                }}
-                              >
-                                {copiedInviteId === inv.id ? (
-                                  <CheckCircle2 className="h-3 w-3 text-emerald-500" />
-                                ) : (
-                                  <Copy className="h-3 w-3 text-muted-foreground" />
-                                )}
-                                <span>{copiedInviteId === inv.id ? "Copied" : "Copy Link"}</span>
-                              </Button>
+                            <div>
+                              {isAccepted ? (
+                                <Badge variant="outline" className="text-[10px] font-mono text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border-emerald-500/20">
+                                  Accepted
+                                </Badge>
+                              ) : isExpired ? (
+                                <Badge variant="outline" className="text-[10px] font-mono text-rose-600 dark:text-rose-400 bg-rose-500/10 border-rose-500/20">
+                                  Expired
+                                </Badge>
+                              ) : (
+                                <Badge variant="outline" className="text-[10px] font-mono text-amber-600 dark:text-amber-400 bg-amber-500/10 border-amber-500/20">
+                                  Pending
+                                </Badge>
+                              )}
                             </div>
-                          </TableCell>
-                          <TableCell className="text-right">
-                            <div className="flex items-center justify-end gap-1">
+                          </div>
+
+                          <div className="flex items-center justify-between text-[11px] text-muted-foreground font-mono bg-muted/30 p-2 rounded-lg border border-border/40">
+                            <span>Sent: {inv.created_at ? new Date(inv.created_at).toLocaleDateString() : "—"}</span>
+                            <span>
+                              {isAccepted
+                                ? `Active ${new Date(inv.accepted_at!).toLocaleDateString()}`
+                                : isExpired
+                                ? `Expired ${new Date(inv.expires_at).toLocaleDateString()}`
+                                : `Expires ${new Date(inv.expires_at).toLocaleDateString()}`}
+                            </span>
+                          </div>
+
+                          <div className="flex items-center justify-between pt-1 border-t border-border/30 gap-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-7 text-xs gap-1.5 cursor-pointer font-mono"
+                              onClick={() => {
+                                navigator.clipboard.writeText(inviteUrl)
+                                setCopiedInviteId(inv.id)
+                                setTimeout(() => setCopiedInviteId(null), 2000)
+                              }}
+                            >
+                              {copiedInviteId === inv.id ? (
+                                <CheckCircle2 className="h-3 w-3 text-emerald-500" />
+                              ) : (
+                                <Copy className="h-3 w-3 text-muted-foreground" />
+                              )}
+                              <span>{copiedInviteId === inv.id ? "Copied" : "Copy Link"}</span>
+                            </Button>
+
+                            <div className="flex items-center gap-1">
                               {!isAccepted && (
                                 <>
                                   <Button
                                     variant="ghost"
                                     size="sm"
-                                    className="h-7 text-xs text-sky-600 hover:text-sky-700 hover:bg-sky-500/10 cursor-pointer"
+                                    className="h-7 px-2 text-xs text-sky-600 hover:text-sky-700 hover:bg-sky-500/10 cursor-pointer"
                                     onClick={() => handleResendInvite(inv)}
-                                    title="Renew & Re-dispatch Invitation"
+                                    title="Renew Invitation"
                                   >
                                     <RefreshCw className="h-3 w-3 mr-1" />
                                     <span>Renew</span>
@@ -662,27 +774,22 @@ export default function AdminSchoolsPage() {
                                   <Button
                                     variant="ghost"
                                     size="sm"
-                                    className="h-7 text-xs text-rose-600 hover:text-rose-700 hover:bg-rose-500/10 cursor-pointer"
+                                    className="h-7 px-2 text-xs text-rose-600 hover:text-rose-700 hover:bg-rose-500/10 cursor-pointer"
                                     onClick={() => setRevokeTarget(inv)}
-                                    title="Revoke and cancel invitation"
+                                    title="Revoke Invitation"
                                   >
                                     <Trash2 className="h-3 w-3 mr-1" />
                                     <span>Revoke</span>
                                   </Button>
                                 </>
                               )}
-                              {isAccepted && (
-                                <span className="text-[11px] text-muted-foreground italic mr-2">
-                                  Completed
-                                </span>
-                              )}
                             </div>
-                          </TableCell>
-                        </TableRow>
+                          </div>
+                        </div>
                       )
                     })}
-                </TableBody>
-              </Table>
+                </div>
+              </>
             )
           ) : (
             loading ? (
@@ -690,179 +797,335 @@ export default function AdminSchoolsPage() {
           ) : filtered.length === 0 ? (
             <div className="p-12 text-center text-muted-foreground text-sm">No institutions found.</div>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-[120px]">Code / UUID</TableHead>
-                  <TableHead>
-                    Institution Name
-                    <InfoTooltip content="Super-schools manage independent campus hierarchies. Branches are subordinate facilities." />
-                  </TableHead>
-                  <TableHead>Location</TableHead>
-                  <TableHead>
-                    Contact Details
-                    <InfoTooltip content="Mandatory verified phone line and official email for institutional security." />
-                  </TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
+            <>
+              {/* Desktop / Tablet Table View */}
+              <div className="hidden md:block overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-[120px]">Code / UUID</TableHead>
+                      <TableHead>
+                        Institution Name
+                        <InfoTooltip content="Super-schools manage independent campus hierarchies. Branches are subordinate facilities." />
+                      </TableHead>
+                      <TableHead>Location</TableHead>
+                      <TableHead>
+                        Contact Details
+                        <InfoTooltip content="Mandatory verified phone line and official email for institutional security." />
+                      </TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filtered.map((school) => {
+                      const isBranch = !!school.parent_school_id
+                      const branches = schools.filter(s => s.parent_school_id === school.id)
+                      const parentSchool = isBranch ? schools.find(p => p.id === school.parent_school_id) : null
+
+                      return (
+                        <TableRow key={school.id} className={`hover:bg-muted/40 transition-colors ${isBranch ? "bg-muted/10" : ""}`}>
+                          <TableCell className="font-mono text-xs font-medium">
+                            <div className="space-y-1">
+                              <span className="px-2 py-0.5 rounded bg-muted/70 text-foreground font-semibold inline-block">
+                                {school.school_code}
+                              </span>
+                              <div>
+                                <MinimalUUID uuid={school.id} length={4} />
+                              </div>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="font-medium text-sm text-foreground">{school.name}</span>
+                              {isBranch ? (
+                                <Badge variant="outline" className="text-[10px] py-0 px-1.5 font-normal text-muted-foreground bg-muted/40 flex items-center gap-1">
+                                  <GitBranch className="h-3 w-3 text-muted-foreground" />
+                                  Branch of {parentSchool?.name || "Parent"}
+                                </Badge>
+                              ) : (
+                                branches.length > 0 && (
+                                  <Badge variant="secondary" className="text-[10px] py-0 px-1.5 font-normal bg-primary/10 text-primary border-primary/20">
+                                    {branches.length} {branches.length === 1 ? "Branch" : "Branches"}
+                                  </Badge>
+                                )
+                              )}
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-muted-foreground text-xs">
+                            <div className="flex items-center gap-1.5">
+                              <MapPin className="h-3 w-3 text-muted-foreground/70" />
+                              <span>{school.city || "Not specified"}</span>
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-muted-foreground text-xs">
+                            <div className="space-y-0.5">
+                              <div className="flex items-center gap-1.5 text-foreground font-medium">
+                                <Phone className="h-3 w-3 text-primary/80" />
+                                <span>{school.phone_number || "No phone added"}</span>
+                              </div>
+                              <div className="flex items-center gap-1.5 text-muted-foreground text-[11px]">
+                                <Mail className="h-3 w-3 text-muted-foreground/60" />
+                                <span>{school.contact || "N/A"}</span>
+                              </div>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            {school.is_blocked ? (
+                              <Badge variant="destructive" className="text-[11px] font-normal">
+                                Blocked
+                              </Badge>
+                            ) : (
+                              <Badge variant="default" className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20 text-[11px] font-normal">
+                                Active
+                              </Badge>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-right space-x-1">
+                            {/* Add Branch Button for Non-Branch Schools */}
+                            {!isBranch && (
+                              <Button 
+                                variant="ghost" 
+                                size="icon" 
+                                className="h-8 w-8 text-muted-foreground hover:text-primary"
+                                onClick={() => openAddBranchModal(school)}
+                                title="Add Branch School"
+                              >
+                                <Building2 className="h-3.5 w-3.5" />
+                              </Button>
+                            )}
+
+                            {/* Visit School Portal as Superadmin */}
+                            <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              className="h-8 w-8 text-primary hover:bg-primary/10"
+                              onClick={() => handleImpersonate(school)}
+                              disabled={impersonatingId === school.id}
+                              title="Visit School Portal as Superadmin (Ghost Access)"
+                            >
+                              <ExternalLink className="h-3.5 w-3.5" />
+                            </Button>
+
+                            {/* Send Setup / Password Reset Link */}
+                            <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              className="h-8 w-8 text-muted-foreground hover:text-amber-500"
+                              onClick={() => handleSendResetLink(school)}
+                              title="Send Setup / Password Reset Link"
+                            >
+                              <Key className="h-3.5 w-3.5" />
+                            </Button>
+
+                            <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                              onClick={() => router.push(`/internal-ops/admin/analytics?school_id=${school.id}`)}
+                              title="View Analytics"
+                            >
+                              <BarChart2 className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              className="h-8 w-8 text-muted-foreground hover:text-primary"
+                              onClick={() => openAuditModal(school)}
+                              title="View Institution Audit Trail & Events"
+                            >
+                              <History className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                              onClick={() => openEditModal(school)}
+                              title="Edit School Details"
+                            >
+                              <Edit className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              className="h-8 w-8"
+                              onClick={() => setBlockingSchool(school)}
+                              title={school.is_blocked ? "Unblock School Access" : "Block School Access"}
+                            >
+                              {school.is_blocked ? (
+                                <ShieldCheck className="h-3.5 w-3.5 text-emerald-500 hover:text-emerald-600" />
+                              ) : (
+                                <ShieldBan className="h-3.5 w-3.5 text-rose-500 hover:text-rose-600" />
+                              )}
+                            </Button>
+                            <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              className="h-8 w-8 text-muted-foreground hover:text-rose-600"
+                              onClick={() => setDeletingSchool(school)}
+                              title="Delete School"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      )
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+
+              {/* Mobile Card View */}
+              <div className="md:hidden divide-y divide-border/60">
                 {filtered.map((school) => {
                   const isBranch = !!school.parent_school_id
                   const branches = schools.filter(s => s.parent_school_id === school.id)
                   const parentSchool = isBranch ? schools.find(p => p.id === school.parent_school_id) : null
 
                   return (
-                    <TableRow key={school.id} className={`hover:bg-muted/40 transition-colors ${isBranch ? "bg-muted/10" : ""}`}>
-                      <TableCell className="font-mono text-xs font-medium">
-                        <div className="space-y-1">
-                          <span className="px-2 py-0.5 rounded bg-muted/70 text-foreground font-semibold inline-block">
-                            {school.school_code}
-                          </span>
-                          <div>
-                            <MinimalUUID uuid={school.id} length={4} />
+                    <div key={school.id} className={`p-4 space-y-3 transition-colors ${isBranch ? "bg-muted/10" : "hover:bg-muted/20"}`}>
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-semibold text-sm text-foreground">{school.name}</span>
+                            {isBranch ? (
+                              <Badge variant="outline" className="text-[10px] py-0 px-1.5 font-normal text-muted-foreground bg-muted/40 flex items-center gap-1">
+                                <GitBranch className="h-3 w-3 text-muted-foreground" />
+                                Branch of {parentSchool?.name || "Parent"}
+                              </Badge>
+                            ) : (
+                              branches.length > 0 && (
+                                <Badge variant="secondary" className="text-[10px] py-0 px-1.5 font-normal bg-primary/10 text-primary border-primary/20">
+                                  {branches.length} {branches.length === 1 ? "Branch" : "Branches"}
+                                </Badge>
+                              )
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2 mt-1">
+                            <span className="px-1.5 py-0.5 rounded bg-muted/70 text-foreground font-mono font-semibold text-[11px]">
+                              {school.school_code}
+                            </span>
+                            <span className="text-[10px] text-muted-foreground font-mono">
+                              UUID: {school.id.slice(0, 8)}...
+                            </span>
                           </div>
                         </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="font-medium text-sm text-foreground">{school.name}</span>
-                          {isBranch ? (
-                            <Badge variant="outline" className="text-[10px] py-0 px-1.5 font-normal text-muted-foreground bg-muted/40 flex items-center gap-1">
-                              <GitBranch className="h-3 w-3 text-muted-foreground" />
-                              Branch of {parentSchool?.name || "Parent"}
+                        <div>
+                          {school.is_blocked ? (
+                            <Badge variant="destructive" className="text-[10px] font-normal">
+                              Blocked
                             </Badge>
                           ) : (
-                            branches.length > 0 && (
-                              <Badge variant="secondary" className="text-[10px] py-0 px-1.5 font-normal bg-primary/10 text-primary border-primary/20">
-                                {branches.length} {branches.length === 1 ? "Branch" : "Branches"}
-                              </Badge>
-                            )
+                            <Badge variant="default" className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[10px] font-normal">
+                              Active
+                            </Badge>
                           )}
                         </div>
-                      </TableCell>
-                      <TableCell className="text-muted-foreground text-xs">
-                        <div className="flex items-center gap-1.5">
-                          <MapPin className="h-3 w-3 text-muted-foreground/70" />
-                          <span>{school.city || "Not specified"}</span>
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-muted-foreground text-xs">
-                        <div className="space-y-0.5">
-                          <div className="flex items-center gap-1.5 text-foreground font-medium">
-                            <Phone className="h-3 w-3 text-primary/80" />
-                            <span>{school.phone_number || "No phone added"}</span>
-                          </div>
-                          <div className="flex items-center gap-1.5 text-muted-foreground text-[11px]">
-                            <Mail className="h-3 w-3 text-muted-foreground/60" />
-                            <span>{school.contact || "N/A"}</span>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2 text-xs py-2 px-2.5 rounded-lg bg-muted/30 border border-border/40">
+                        <div>
+                          <span className="text-[10px] text-muted-foreground uppercase font-medium block">Location</span>
+                          <div className="flex items-center gap-1 text-foreground font-medium mt-0.5 truncate">
+                            <MapPin className="h-3 w-3 text-muted-foreground/70 shrink-0" />
+                            <span className="truncate">{school.city || "Not specified"}</span>
                           </div>
                         </div>
-                      </TableCell>
-                      <TableCell>
-                        {school.is_blocked ? (
-                          <Badge variant="destructive" className="text-[11px] font-normal">
-                            Blocked
-                          </Badge>
-                        ) : (
-                          <Badge variant="default" className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20 text-[11px] font-normal">
-                            Active
-                          </Badge>
-                        )}
-                      </TableCell>
-                      <TableCell className="text-right space-x-1">
-                        {/* Add Branch Button for Non-Branch Schools */}
-                        {!isBranch && (
+                        <div>
+                          <span className="text-[10px] text-muted-foreground uppercase font-medium block">Contact</span>
+                          <div className="flex items-center gap-1 text-foreground font-medium mt-0.5 truncate">
+                            <Phone className="h-3 w-3 text-primary/80 shrink-0" />
+                            <span className="truncate">{school.phone_number || "No phone added"}</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-between pt-1 border-t border-border/30 gap-1 flex-wrap">
+                        <div className="flex items-center gap-1 flex-wrap">
+                          {!isBranch && (
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              className="h-7 px-2 text-xs gap-1 cursor-pointer"
+                              onClick={() => openAddBranchModal(school)}
+                              title="Add Branch School"
+                            >
+                              <Building2 className="h-3 w-3" />
+                              <span>Branch</span>
+                            </Button>
+                          )}
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            className="h-7 px-2 text-xs gap-1 text-primary hover:bg-primary/10 cursor-pointer"
+                            onClick={() => handleImpersonate(school)}
+                            disabled={impersonatingId === school.id}
+                            title="Visit School Portal"
+                          >
+                            <ExternalLink className="h-3 w-3" />
+                            <span>Ghost</span>
+                          </Button>
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            className="h-7 px-2 text-xs gap-1 text-muted-foreground cursor-pointer"
+                            onClick={() => handleSendResetLink(school)}
+                            title="Send Setup Link"
+                          >
+                            <Key className="h-3 w-3" />
+                            <span>Reset</span>
+                          </Button>
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            className="h-7 px-2 text-xs gap-1 text-muted-foreground cursor-pointer"
+                            onClick={() => router.push(`/internal-ops/admin/analytics?school_id=${school.id}`)}
+                            title="View Analytics"
+                          >
+                            <BarChart2 className="h-3 w-3" />
+                            <span>Stats</span>
+                          </Button>
+                        </div>
+
+                        <div className="flex items-center gap-0.5 ml-auto">
                           <Button 
                             variant="ghost" 
-                            size="icon" 
-                            className="h-8 w-8 text-muted-foreground hover:text-primary"
-                            onClick={() => openAddBranchModal(school)}
-                            title="Add Branch School"
+                            size="sm" 
+                            className="h-7 w-7 p-0 cursor-pointer text-muted-foreground hover:text-foreground"
+                            onClick={() => openEditModal(school)}
+                            title="Edit School"
                           >
-                            <Building2 className="h-3.5 w-3.5" />
+                            <Edit className="h-3.5 w-3.5" />
                           </Button>
-                        )}
-
-                        {/* Visit School Portal as Superadmin */}
-                        <Button 
-                          variant="ghost" 
-                          size="icon" 
-                          className="h-8 w-8 text-primary hover:bg-primary/10"
-                          onClick={() => handleImpersonate(school)}
-                          disabled={impersonatingId === school.id}
-                          title="Visit School Portal as Superadmin (Ghost Access)"
-                        >
-                          <ExternalLink className="h-3.5 w-3.5" />
-                        </Button>
-
-                        {/* Send Setup / Password Reset Link */}
-                        <Button 
-                          variant="ghost" 
-                          size="icon" 
-                          className="h-8 w-8 text-muted-foreground hover:text-amber-500"
-                          onClick={() => handleSendResetLink(school)}
-                          title="Send Setup / Password Reset Link"
-                        >
-                          <Key className="h-3.5 w-3.5" />
-                        </Button>
-
-                        <Button 
-                          variant="ghost" 
-                          size="icon" 
-                          className="h-8 w-8 text-muted-foreground hover:text-foreground"
-                          onClick={() => router.push(`/internal-ops/admin/analytics?school_id=${school.id}`)}
-                          title="View Analytics"
-                        >
-                          <BarChart2 className="h-3.5 w-3.5" />
-                        </Button>
-                        <Button 
-                          variant="ghost" 
-                          size="icon" 
-                          className="h-8 w-8 text-muted-foreground hover:text-primary"
-                          onClick={() => openAuditModal(school)}
-                          title="View Institution Audit Trail & Events"
-                        >
-                          <History className="h-3.5 w-3.5" />
-                        </Button>
-                        <Button 
-                          variant="ghost" 
-                          size="icon" 
-                          className="h-8 w-8 text-muted-foreground hover:text-foreground"
-                          onClick={() => openEditModal(school)}
-                          title="Edit School Details"
-                        >
-                          <Edit className="h-3.5 w-3.5" />
-                        </Button>
-                        <Button 
-                          variant="ghost" 
-                          size="icon" 
-                          className="h-8 w-8"
-                          onClick={() => setBlockingSchool(school)}
-                          title={school.is_blocked ? "Unblock School Access" : "Block School Access"}
-                        >
-                          {school.is_blocked ? (
-                            <ShieldCheck className="h-3.5 w-3.5 text-emerald-500 hover:text-emerald-600" />
-                          ) : (
-                            <ShieldBan className="h-3.5 w-3.5 text-rose-500 hover:text-rose-600" />
-                          )}
-                        </Button>
-                        <Button 
-                          variant="ghost" 
-                          size="icon" 
-                          className="h-8 w-8 text-muted-foreground hover:text-rose-600"
-                          onClick={() => setDeletingSchool(school)}
-                          title="Delete School"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </Button>
-                      </TableCell>
-                    </TableRow>
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            className="h-7 w-7 p-0 cursor-pointer"
+                            onClick={() => setBlockingSchool(school)}
+                            title={school.is_blocked ? "Unblock School" : "Block School"}
+                          >
+                            {school.is_blocked ? (
+                              <ShieldCheck className="h-3.5 w-3.5 text-emerald-500 hover:text-emerald-600" />
+                            ) : (
+                              <ShieldBan className="h-3.5 w-3.5 text-rose-500 hover:text-rose-600" />
+                            )}
+                          </Button>
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            className="h-7 w-7 p-0 cursor-pointer text-muted-foreground hover:text-rose-600"
+                            onClick={() => setDeletingSchool(school)}
+                            title="Delete School"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
                   )
                 })}
-              </TableBody>
-            </Table>
+              </div>
+            </>
           ) )}
         </CardContent>
       </Card>

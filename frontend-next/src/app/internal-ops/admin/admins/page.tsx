@@ -373,33 +373,56 @@ export default function AdminsPage() {
               Loading admins...
             </div>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Email</TableHead>
-                  <TableHead>Role</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
+            <>
+              {/* Desktop Table View */}
+              <div className="hidden md:block overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Name</TableHead>
+                      <TableHead>Email</TableHead>
+                      <TableHead>Role</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {admins.map((admin) => (
+                      <TableRow key={admin.id}>
+                        <TableCell className="font-medium">{admin.name || "—"}</TableCell>
+                        <TableCell className="text-muted-foreground">{admin.email}</TableCell>
+                        <TableCell>
+                          <Badge variant="secondary" className="font-normal">Super Admin</Badge>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                    {admins.length === 0 && (
+                      <TableRow>
+                        <TableCell colSpan={3} className="h-24 text-center text-muted-foreground">
+                          No admins found.
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+
+              {/* Mobile Card View */}
+              <div className="md:hidden divide-y divide-border/60">
                 {admins.map((admin) => (
-                  <TableRow key={admin.id}>
-                    <TableCell className="font-medium">{admin.name || "—"}</TableCell>
-                    <TableCell className="text-muted-foreground">{admin.email}</TableCell>
-                    <TableCell>
-                      <Badge variant="secondary" className="font-normal">Super Admin</Badge>
-                    </TableCell>
-                  </TableRow>
+                  <div key={admin.id} className="p-3.5 flex items-center justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="font-semibold text-sm text-foreground truncate">{admin.name || "—"}</p>
+                      <p className="text-xs text-muted-foreground font-mono truncate">{admin.email}</p>
+                    </div>
+                    <Badge variant="secondary" className="font-normal text-[11px] shrink-0">Super Admin</Badge>
+                  </div>
                 ))}
                 {admins.length === 0 && (
-                  <TableRow>
-                    <TableCell colSpan={3} className="h-24 text-center text-muted-foreground">
-                      No admins found.
-                    </TableCell>
-                  </TableRow>
+                  <div className="p-8 text-center text-xs text-muted-foreground">
+                    No admins found.
+                  </div>
                 )}
-              </TableBody>
-            </Table>
+              </div>
+            </>
           )}
         </CardContent>
       </Card>
@@ -428,24 +451,65 @@ export default function AdminsPage() {
               </p>
             </div>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Email</TableHead>
-                  <TableHead>Phone</TableHead>
-                  <TableHead>Role</TableHead>
-                  <TableHead>Hours</TableHead>
-                  <TableHead>Status</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
+            <>
+              {/* Desktop Table View */}
+              <div className="hidden md:block overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Name</TableHead>
+                      <TableHead>Email</TableHead>
+                      <TableHead>Phone</TableHead>
+                      <TableHead>Role</TableHead>
+                      <TableHead>Hours</TableHead>
+                      <TableHead>Status</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {counselors.map((c) => (
+                      <TableRow key={c.id}>
+                        <TableCell className="font-medium">{c.name}</TableCell>
+                        <TableCell className="text-muted-foreground text-xs font-mono">{c.email}</TableCell>
+                        <TableCell className="text-muted-foreground text-xs">{c.phone || "—"}</TableCell>
+                        <TableCell>
+                          <Badge
+                            variant="outline"
+                            className={
+                              c.school_id
+                                ? "text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border-emerald-500/20 text-[10px] font-mono"
+                                : "text-sky-600 dark:text-sky-400 bg-sky-500/10 border-sky-500/20 text-[10px] font-mono"
+                            }
+                          >
+                            {c.school_id ? "School" : "Central"}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-xs text-muted-foreground">{c.available_hours || "—"}</TableCell>
+                        <TableCell>
+                          <Badge variant={c.is_active ? "default" : "secondary"} className="text-[10px]">
+                            {c.is_active ? "Active" : "Inactive"}
+                          </Badge>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+
+              {/* Mobile Card View */}
+              <div className="md:hidden divide-y divide-border/60">
                 {counselors.map((c) => (
-                  <TableRow key={c.id}>
-                    <TableCell className="font-medium">{c.name}</TableCell>
-                    <TableCell className="text-muted-foreground text-xs font-mono">{c.email}</TableCell>
-                    <TableCell className="text-muted-foreground text-xs">{c.phone || "—"}</TableCell>
-                    <TableCell>
+                  <div key={c.id} className="p-3.5 space-y-2">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="font-semibold text-sm text-foreground truncate">{c.name}</p>
+                        <p className="text-xs text-muted-foreground font-mono truncate">{c.email}</p>
+                      </div>
+                      <Badge variant={c.is_active ? "default" : "secondary"} className="text-[10px] shrink-0">
+                        {c.is_active ? "Active" : "Inactive"}
+                      </Badge>
+                    </div>
+
+                    <div className="flex items-center justify-between gap-2 text-xs pt-0.5">
                       <Badge
                         variant="outline"
                         className={
@@ -454,19 +518,20 @@ export default function AdminsPage() {
                             : "text-sky-600 dark:text-sky-400 bg-sky-500/10 border-sky-500/20 text-[10px] font-mono"
                         }
                       >
-                        {c.school_id ? "School" : "Central"}
+                        {c.school_id ? "School Counselor" : "Central Counselor"}
                       </Badge>
-                    </TableCell>
-                    <TableCell className="text-xs text-muted-foreground">{c.available_hours || "—"}</TableCell>
-                    <TableCell>
-                      <Badge variant={c.is_active ? "default" : "secondary"} className="text-[10px]">
-                        {c.is_active ? "Active" : "Inactive"}
-                      </Badge>
-                    </TableCell>
-                  </TableRow>
+                      {c.phone && <span className="text-[11px] text-muted-foreground font-mono">{c.phone}</span>}
+                    </div>
+
+                    {c.available_hours && (
+                      <div className="text-[10px] text-muted-foreground font-mono pt-1 border-t border-border/40">
+                        Hours: {c.available_hours}
+                      </div>
+                    )}
+                  </div>
                 ))}
-              </TableBody>
-            </Table>
+              </div>
+            </>
           )}
         </CardContent>
       </Card>

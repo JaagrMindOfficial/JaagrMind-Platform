@@ -259,21 +259,41 @@ function SidebarTrigger({
   const { toggleSidebar } = useSidebar()
 
   return (
-    <Button
-      data-sidebar="trigger"
-      data-slot="sidebar-trigger"
-      variant="ghost"
-      size="icon-sm"
-      className={cn(className)}
-      onClick={(event) => {
-        onClick?.(event)
-        toggleSidebar()
-      }}
-      {...props}
-    >
-      <PanelLeftIcon />
-      <span className="sr-only">Toggle Sidebar</span>
-    </Button>
+    <div className="flex items-center gap-2">
+      <Button
+        data-sidebar="trigger"
+        data-slot="sidebar-trigger"
+        variant="ghost"
+        size="icon-sm"
+        className={cn(className)}
+        onClick={(event) => {
+          onClick?.(event)
+          toggleSidebar()
+        }}
+        {...props}
+      >
+        <PanelLeftIcon />
+        <span className="sr-only">Toggle Sidebar</span>
+      </Button>
+
+      {/* Small JM-only logo on mobile beside the sidebar trigger */}
+      <div 
+        onClick={toggleSidebar} 
+        className="md:hidden flex items-center shrink-0 cursor-pointer"
+        aria-label="JaagrMind"
+      >
+        <img
+          src="/JM-Dark.svg"
+          alt="JaagrMind"
+          className="h-6 w-auto max-w-[26px] object-contain dark:hidden"
+        />
+        <img
+          src="/JM-White.svg"
+          alt="JaagrMind"
+          className="h-6 w-auto max-w-[26px] object-contain hidden dark:block"
+        />
+      </div>
+    </div>
   )
 }
 
@@ -503,18 +523,25 @@ function SidebarMenuButton({
   size = "default",
   tooltip,
   className,
+  onClick,
   ...props
 }: useRender.ComponentProps<"button"> &
   React.ComponentProps<"button"> & {
     isActive?: boolean
     tooltip?: string | React.ComponentProps<typeof TooltipContent>
   } & VariantProps<typeof sidebarMenuButtonVariants>) {
-  const { isMobile, state } = useSidebar()
+  const { isMobile, setOpenMobile, state } = useSidebar()
   const comp = useRender({
     defaultTagName: "button",
     props: mergeProps<"button">(
       {
         className: cn(sidebarMenuButtonVariants({ variant, size }), className),
+        onClick: (e: React.MouseEvent<HTMLButtonElement>) => {
+          if (isMobile) {
+            setOpenMobile(false)
+          }
+          onClick?.(e)
+        },
       },
       props
     ),

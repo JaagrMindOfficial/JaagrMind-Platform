@@ -226,23 +226,23 @@ export default function AdminDashboardPage() {
             Real-time multi-tenant telemetry, school geographic distributions, and student cohorts across India.
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <Link href="/internal-ops/admin/analytics">
             <Button size="sm" variant="outline" className="gap-1.5 text-xs">
               <BarChart3 className="h-3.5 w-3.5" />
-              Platform Analytics
+              <span className="hidden sm:inline">Platform </span>Analytics
             </Button>
           </Link>
           <Link href="/internal-ops/admin/schools">
             <Button size="sm" variant="outline" className="gap-1.5 text-xs">
               <Building2 className="h-3.5 w-3.5" />
-              Manage Schools
+              <span className="hidden sm:inline">Manage </span>Schools
             </Button>
           </Link>
           <Link href="/internal-ops/admin/tickets">
             <Button size="sm" className="gap-1.5 text-xs">
               <LifeBuoy className="h-3.5 w-3.5" />
-              Support Queue ({openTickets})
+              <span className="hidden sm:inline">Support </span>Queue ({openTickets})
             </Button>
           </Link>
         </div>
@@ -468,11 +468,22 @@ export default function AdminDashboardPage() {
                     <>
                       <div className="h-[280px] w-full">
                         <ResponsiveContainer width="100%" height="100%">
-                          <RadarChart cx="50%" cy="50%" outerRadius="75%" data={activeRadarData}>
+                          <RadarChart cx="50%" cy="50%" outerRadius="70%" data={activeRadarData}>
                             <PolarGrid stroke={isDark ? "rgba(148, 163, 184, 0.28)" : "rgba(100, 116, 139, 0.25)"} strokeDasharray="3 3" />
                             <PolarAngleAxis
                               dataKey="subject"
-                              tick={{ fill: isDark ? "#f1f5f9" : "#0f172a", fontSize: 11.5, fontWeight: 600 }}
+                              tickFormatter={(v: string) =>
+                                v === "Attention & Focus Flow"
+                                  ? "Focus Flow"
+                                  : v === "Social Comfort & Belonging"
+                                  ? "Social Ease"
+                                  : v === "Calm & Stress Reset"
+                                  ? "Calm Reset"
+                                  : v === "Inner Grounding & Confidence"
+                                  ? "Grounding"
+                                  : v
+                              }
+                              tick={{ fill: isDark ? "#f1f5f9" : "#0f172a", fontSize: 10, fontWeight: 600 }}
                             />
                             <RechartsTooltip
                               contentStyle={{

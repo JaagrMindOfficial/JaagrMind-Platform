@@ -221,14 +221,14 @@ export function EventsAuditCard({
           </div>
 
           {/* Search box */}
-          <div className="ml-auto relative">
+          <div className="w-full sm:w-auto sm:ml-auto relative">
             <Search className="h-3 w-3 absolute left-2.5 top-2.5 text-muted-foreground" />
             <input
               type="text"
               placeholder="Search audit trail..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="h-8 pl-7 pr-2.5 text-xs rounded-md border border-input bg-background focus:outline-none focus:ring-1 focus:ring-ring w-40 sm:w-48"
+              className="h-8 pl-7 pr-2.5 text-xs rounded-md border border-input bg-background focus:outline-none focus:ring-1 focus:ring-ring w-full sm:w-48"
             />
           </div>
         </div>

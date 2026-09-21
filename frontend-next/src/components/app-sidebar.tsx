@@ -1,5 +1,6 @@
 "use client"
 
+import { useEffect } from "react"
 import {
   LayoutDashboard,
   Building2,
@@ -104,7 +105,14 @@ export function AppSidebar() {
       label = "JaagrMind Care Desk"
     }
   }
-  const { state } = useSidebar()
+  const { state, isMobile, setOpenMobile } = useSidebar()
+
+  // Automatically close mobile sidebar on route change
+  useEffect(() => {
+    if (isMobile) {
+      setOpenMobile(false)
+    }
+  }, [pathname, isMobile, setOpenMobile])
 
   const { setTheme, theme, resolvedTheme } = useTheme()
 
@@ -134,7 +142,12 @@ export function AppSidebar() {
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton 
                     isActive={pathname === item.url}
-                    onClick={() => router.push(item.url)}
+                    onClick={() => {
+                      if (isMobile) {
+                        setOpenMobile(false)
+                      }
+                      router.push(item.url)
+                    }}
                     className="flex items-center gap-3 w-full cursor-pointer"
                   >
                     <item.icon className="h-4 w-4 text-muted-foreground" />
@@ -150,7 +163,12 @@ export function AppSidebar() {
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton 
-              onClick={() => logout()}
+              onClick={() => {
+                if (isMobile) {
+                  setOpenMobile(false)
+                }
+                logout()
+              }}
             >
               <LogOut className="h-4 w-4 text-muted-foreground" />
               <span className="font-medium text-[13px]">Logout</span>

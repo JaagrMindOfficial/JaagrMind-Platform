@@ -18,12 +18,12 @@ export default function SchoolLayout({ children }: { children: React.ReactNode }
               <ImpersonationBanner />
               <div className="h-12 border-b flex items-center justify-between px-4 sticky top-0 z-20 bg-background/80 backdrop-blur-sm">
                 <SidebarTrigger />
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2 sm:gap-3">
                   <RoleSwitcherPill />
                   <ThemeToggle />
                 </div>
               </div>
-              <div className="p-6 lg:p-8 max-w-7xl mx-auto">
+              <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto">
                 {children}
               </div>
             </main>

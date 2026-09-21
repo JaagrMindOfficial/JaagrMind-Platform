@@ -39,7 +39,7 @@ export default function CareDeskLayout({ children }: { children: React.ReactNode
                 </div>
                 <ThemeToggle />
               </div>
-              <div className="p-6 lg:p-8 max-w-7xl mx-auto">
+              <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto">
                 {children}
               </div>
             </main>

@@ -333,7 +333,7 @@ export default function SchoolDashboardPage() {
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {isTeacherView ? (
             <>
               <Link href="/school/students">
@@ -358,18 +358,18 @@ export default function SchoolDashboardPage() {
                 onClick={() => setIsBranchModalOpen(true)}
               >
                 <GitBranch className="h-3.5 w-3.5 text-primary" />
-                Add Satellite Branch
+                <span className="hidden sm:inline">Add </span>Satellite Branch
               </Button>
               <Link href="/school/account">
                 <Button size="sm" variant="outline" className="gap-1.5 text-xs">
                   <Settings className="h-3.5 w-3.5" />
-                  Campus Settings
+                  <span className="hidden sm:inline">Campus </span>Settings
                 </Button>
               </Link>
               <Link href="/school/tests">
                 <Button size="sm" className="gap-1.5 text-xs">
                   <FileText className="h-3.5 w-3.5" />
-                  Active Check-ins
+                  <span className="hidden sm:inline">Active </span>Check-ins
                 </Button>
               </Link>
             </>

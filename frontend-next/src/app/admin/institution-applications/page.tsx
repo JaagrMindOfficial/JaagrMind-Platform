@@ -238,111 +238,236 @@ export default function InstitutionApplicationsPage() {
       {/* Table */}
       <Card className="border-border/60">
         <CardContent className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="text-xs">Institution</TableHead>
-                <TableHead className="text-xs">Location</TableHead>
-                <TableHead className="text-xs">Contact Person</TableHead>
-                <TableHead className="text-xs">Contact Details</TableHead>
-                <TableHead className="text-xs">Est. Students</TableHead>
-                <TableHead className="text-xs">Submitted</TableHead>
-                <TableHead className="text-xs">Status</TableHead>
-                <TableHead className="text-xs text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {loading ? (
-                <TableRow>
-                  <TableCell colSpan={8} className="h-24 text-center text-xs text-muted-foreground">
+            <>
+              {/* Desktop / Tablet Table View */}
+              <div className="hidden md:block overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="text-xs">Institution</TableHead>
+                      <TableHead className="text-xs">Location</TableHead>
+                      <TableHead className="text-xs">Contact Person</TableHead>
+                      <TableHead className="text-xs">Contact Details</TableHead>
+                      <TableHead className="text-xs">Est. Students</TableHead>
+                      <TableHead className="text-xs">Submitted</TableHead>
+                      <TableHead className="text-xs">Status</TableHead>
+                      <TableHead className="text-xs text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {loading ? (
+                      <TableRow>
+                        <TableCell colSpan={8} className="h-24 text-center text-xs text-muted-foreground">
+                          Loading applications...
+                        </TableCell>
+                      </TableRow>
+                    ) : filtered.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={8} className="h-24 text-center text-xs text-muted-foreground">
+                          No institution applications found.
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      filtered.map((app) => (
+                        <TableRow key={app.id}>
+                          <TableCell>
+                            <div className="font-semibold text-xs text-foreground">{app.institute_name}</div>
+                            <Badge variant="secondary" className="text-[10px] mt-0.5 capitalize">
+                              {app.institute_type?.replace(/_/g, " ") || "School"}
+                            </Badge>
+                            {app.message && (
+                              <button
+                                type="button"
+                                onClick={() => setSelectedAppForView(app)}
+                                className="text-[10px] text-muted-foreground hover:text-primary mt-1 max-w-xs block text-left truncate underline underline-offset-2 cursor-pointer"
+                                title="Click to view full message"
+                              >
+                                &quot;{app.message}&quot;
+                              </button>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                              <MapPin className="h-3 w-3 shrink-0" />
+                              {app.city}, {app.state}
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <div className="text-xs font-medium text-foreground">{app.contact_name}</div>
+                            <div className="text-[10px] text-muted-foreground">{app.designation || "Administrator"}</div>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                              <Mail className="h-3 w-3 shrink-0" />
+                              <span className="truncate max-w-[140px]">{app.email}</span>
+                            </div>
+                            <div className="flex items-center gap-1 text-xs text-muted-foreground mt-0.5">
+                              <Phone className="h-3 w-3 shrink-0" />
+                              <span>{app.phone}</span>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-1 text-xs font-medium text-foreground">
+                              <Users className="h-3 w-3 text-muted-foreground" />
+                              {app.estimated_students || 500}
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <div className="text-xs text-foreground font-medium flex items-center gap-1">
+                              <Calendar className="h-3 w-3 text-muted-foreground" />
+                              {app.created_at ? new Date(app.created_at).toLocaleDateString("en-IN", { month: "short", day: "numeric", year: "numeric" }) : "—"}
+                            </div>
+                            <div className="text-[10px] text-muted-foreground flex items-center gap-1 mt-0.5">
+                              <Clock className="h-2.5 w-2.5" />
+                              {app.created_at ? new Date(app.created_at).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" }) : ""}
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            {app.status === "pending" && (
+                              <Badge variant="outline" className="text-[10px] bg-amber-500/10 text-amber-500 border-amber-500/30">
+                                Pending
+                              </Badge>
+                            )}
+                            {app.status === "approved" && (
+                              <Badge variant="outline" className="text-[10px] bg-emerald-500/10 text-emerald-500 border-emerald-500/30">
+                                Approved
+                              </Badge>
+                            )}
+                            {app.status === "rejected" && (
+                              <Badge variant="outline" className="text-[10px] bg-rose-500/10 text-rose-500 border-rose-500/30">
+                                Declined
+                              </Badge>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <div className="flex items-center justify-end gap-1.5">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => setSelectedAppForView(app)}
+                                className="h-8 text-xs text-muted-foreground hover:text-foreground cursor-pointer"
+                                title="View Full Application"
+                              >
+                                <Eye className="h-3.5 w-3.5 mr-1" /> View
+                              </Button>
+                              {app.status === "pending" && (
+                                <>
+                                  <Button
+                                    size="sm"
+                                    onClick={() => handleApprove(app)}
+                                    disabled={actionLoadingId === app.id}
+                                    className="h-8 text-xs bg-emerald-600 hover:bg-emerald-500 text-white cursor-pointer"
+                                  >
+                                    <CheckCircle2 className="h-3.5 w-3.5 mr-1" />
+                                    {actionLoadingId === app.id ? "Provisioning..." : "Approve & Provision"}
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    onClick={() => handleReject(app)}
+                                    disabled={actionLoadingId === app.id}
+                                    className="h-8 text-xs text-muted-foreground hover:text-destructive cursor-pointer"
+                                  >
+                                    <XCircle className="h-3.5 w-3.5 mr-1" /> Decline
+                                  </Button>
+                                </>
+                              )}
+                              {app.status === "approved" && (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => handleApprove(app)}
+                                  disabled={actionLoadingId === app.id}
+                                  className="h-8 text-xs text-emerald-600 dark:text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/10 cursor-pointer"
+                                  title="View School Code & Setup Reset Link"
+                                >
+                                  <Key className="h-3.5 w-3.5 mr-1" />
+                                  {actionLoadingId === app.id ? "Loading..." : "Setup Details"}
+                                </Button>
+                              )}
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+
+              {/* Mobile Card View */}
+              <div className="md:hidden divide-y divide-border/60">
+                {loading ? (
+                  <div className="h-24 flex items-center justify-center text-xs text-muted-foreground">
                     Loading applications...
-                  </TableCell>
-                </TableRow>
-              ) : filtered.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={8} className="h-24 text-center text-xs text-muted-foreground">
+                  </div>
+                ) : filtered.length === 0 ? (
+                  <div className="h-24 flex items-center justify-center text-xs text-muted-foreground">
                     No institution applications found.
-                  </TableCell>
-                </TableRow>
-              ) : (
-                filtered.map((app) => (
-                  <TableRow key={app.id}>
-                    <TableCell>
-                      <div className="font-semibold text-xs text-foreground">{app.institute_name}</div>
-                      <Badge variant="secondary" className="text-[10px] mt-0.5 capitalize">
-                        {app.institute_type?.replace(/_/g, " ") || "School"}
-                      </Badge>
-                      {app.message && (
-                        <button
-                          type="button"
-                          onClick={() => setSelectedAppForView(app)}
-                          className="text-[10px] text-muted-foreground hover:text-primary mt-1 max-w-xs block text-left truncate underline underline-offset-2"
-                          title="Click to view full message"
-                        >
-                          "{app.message}"
-                        </button>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                        <MapPin className="h-3 w-3 shrink-0" />
-                        {app.city}, {app.state}
+                  </div>
+                ) : (
+                  filtered.map((app) => (
+                    <div key={app.id} className="p-4 space-y-3 hover:bg-muted/20 transition-colors">
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <div className="font-semibold text-sm text-foreground">{app.institute_name}</div>
+                          <div className="flex items-center gap-1.5 mt-0.5">
+                            <Badge variant="secondary" className="text-[10px] capitalize">
+                              {app.institute_type?.replace(/_/g, " ") || "School"}
+                            </Badge>
+                            <span className="text-[10px] text-muted-foreground flex items-center gap-1">
+                              <MapPin className="h-3 w-3 shrink-0" />
+                              {app.city}, {app.state}
+                            </span>
+                          </div>
+                        </div>
+                        <div>
+                          {app.status === "pending" && (
+                            <Badge variant="outline" className="text-[10px] bg-amber-500/10 text-amber-500 border-amber-500/30">
+                              Pending
+                            </Badge>
+                          )}
+                          {app.status === "approved" && (
+                            <Badge variant="outline" className="text-[10px] bg-emerald-500/10 text-emerald-500 border-emerald-500/30">
+                              Approved
+                            </Badge>
+                          )}
+                          {app.status === "rejected" && (
+                            <Badge variant="outline" className="text-[10px] bg-rose-500/10 text-rose-500 border-rose-500/30">
+                              Declined
+                            </Badge>
+                          )}
+                        </div>
                       </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="text-xs font-medium text-foreground">{app.contact_name}</div>
-                      <div className="text-[10px] text-muted-foreground">{app.designation || "Administrator"}</div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                        <Mail className="h-3 w-3 shrink-0" />
-                        <span className="truncate max-w-[140px]">{app.email}</span>
+
+                      <div className="grid grid-cols-2 gap-2 text-xs py-2 px-2.5 rounded-lg bg-muted/30 border border-border/40">
+                        <div>
+                          <span className="text-[10px] text-muted-foreground uppercase font-medium block">Contact Person</span>
+                          <span className="font-medium text-foreground block truncate">{app.contact_name}</span>
+                          <span className="text-[10px] text-muted-foreground block truncate">{app.designation || "Administrator"}</span>
+                        </div>
+                        <div>
+                          <span className="text-[10px] text-muted-foreground uppercase font-medium block">Contact Info</span>
+                          <span className="text-[10px] text-muted-foreground block truncate">{app.email}</span>
+                          <span className="text-[10px] text-muted-foreground block truncate">{app.phone}</span>
+                        </div>
                       </div>
-                      <div className="flex items-center gap-1 text-xs text-muted-foreground mt-0.5">
-                        <Phone className="h-3 w-3 shrink-0" />
-                        <span>{app.phone}</span>
+
+                      <div className="flex items-center justify-between text-[11px] text-muted-foreground font-mono">
+                        <span className="flex items-center gap-1">
+                          <Users className="h-3 w-3" />
+                          ~{app.estimated_students || 500} students
+                        </span>
+                        <span>
+                          {app.created_at ? new Date(app.created_at).toLocaleDateString("en-IN", { month: "short", day: "numeric", year: "numeric" }) : "—"}
+                        </span>
                       </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-1 text-xs font-medium text-foreground">
-                        <Users className="h-3 w-3 text-muted-foreground" />
-                        {app.estimated_students || 500}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="text-xs text-foreground font-medium flex items-center gap-1">
-                        <Calendar className="h-3 w-3 text-muted-foreground" />
-                        {app.created_at ? new Date(app.created_at).toLocaleDateString("en-IN", { month: "short", day: "numeric", year: "numeric" }) : "—"}
-                      </div>
-                      <div className="text-[10px] text-muted-foreground flex items-center gap-1 mt-0.5">
-                        <Clock className="h-2.5 w-2.5" />
-                        {app.created_at ? new Date(app.created_at).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" }) : ""}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      {app.status === "pending" && (
-                        <Badge variant="outline" className="text-[10px] bg-amber-500/10 text-amber-500 border-amber-500/30">
-                          Pending
-                        </Badge>
-                      )}
-                      {app.status === "approved" && (
-                        <Badge variant="outline" className="text-[10px] bg-emerald-500/10 text-emerald-500 border-emerald-500/30">
-                          Approved
-                        </Badge>
-                      )}
-                      {app.status === "rejected" && (
-                        <Badge variant="outline" className="text-[10px] bg-rose-500/10 text-rose-500 border-rose-500/30">
-                          Declined
-                        </Badge>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex items-center justify-end gap-1.5">
+
+                      <div className="flex items-center justify-end gap-2 pt-1 border-t border-border/30">
                         <Button
                           size="sm"
                           variant="outline"
                           onClick={() => setSelectedAppForView(app)}
-                          className="h-8 text-xs text-muted-foreground hover:text-foreground"
+                          className="h-8 text-xs text-muted-foreground hover:text-foreground cursor-pointer"
                           title="View Full Application"
                         >
                           <Eye className="h-3.5 w-3.5 mr-1" /> View
@@ -353,17 +478,17 @@ export default function InstitutionApplicationsPage() {
                               size="sm"
                               onClick={() => handleApprove(app)}
                               disabled={actionLoadingId === app.id}
-                              className="h-8 text-xs bg-emerald-600 hover:bg-emerald-500 text-white"
+                              className="h-8 text-xs bg-emerald-600 hover:bg-emerald-500 text-white cursor-pointer"
                             >
                               <CheckCircle2 className="h-3.5 w-3.5 mr-1" />
-                              {actionLoadingId === app.id ? "Provisioning..." : "Approve & Provision"}
+                              {actionLoadingId === app.id ? "Provisioning..." : "Approve"}
                             </Button>
                             <Button
                               size="sm"
                               variant="ghost"
                               onClick={() => handleReject(app)}
                               disabled={actionLoadingId === app.id}
-                              className="h-8 text-xs text-muted-foreground hover:text-destructive"
+                              className="h-8 text-xs text-muted-foreground hover:text-destructive cursor-pointer"
                             >
                               <XCircle className="h-3.5 w-3.5 mr-1" /> Decline
                             </Button>
@@ -375,20 +500,18 @@ export default function InstitutionApplicationsPage() {
                             variant="outline"
                             onClick={() => handleApprove(app)}
                             disabled={actionLoadingId === app.id}
-                            className="h-8 text-xs text-emerald-600 dark:text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/10"
-                            title="View School Code & Setup Reset Link"
+                            className="h-8 text-xs text-emerald-600 dark:text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/10 cursor-pointer"
                           >
                             <Key className="h-3.5 w-3.5 mr-1" />
                             {actionLoadingId === app.id ? "Loading..." : "Setup Details"}
                           </Button>
                         )}
                       </div>
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
+                    </div>
+                  ))
+                )}
+              </div>
+            </>
         </CardContent>
       </Card>
 
@@ -426,7 +549,7 @@ export default function InstitutionApplicationsPage() {
               <div className="flex gap-2">
                 <Input
                   readOnly
-                  value={approvedModal?.resetUrl}
+                  value={approvedModal?.resetUrl ?? ""}
                   className="h-8 text-xs font-mono bg-background"
                 />
                 <Button size="sm" onClick={copyResetUrl} className="h-8 text-xs shrink-0">

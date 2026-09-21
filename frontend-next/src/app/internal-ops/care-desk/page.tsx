@@ -468,145 +468,255 @@ export default function CareDeskPage() {
               No inquiries found matching the current criteria.
             </div>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="text-xs">Case & Subject</TableHead>
-                  <TableHead className="text-xs">Student</TableHead>
-                  <TableHead className="text-xs">Parent / Guardian</TableHead>
-                  <TableHead className="text-xs">Affiliation</TableHead>
-                  <TableHead className="text-xs">Status & Session</TableHead>
-                  <TableHead className="text-xs">Date</TableHead>
-                  <TableHead className="text-xs text-right">Action</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
+            <>
+              {/* Desktop / Tablet Table View */}
+              <div className="hidden md:block overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="text-xs">Case & Subject</TableHead>
+                      <TableHead className="text-xs">Student</TableHead>
+                      <TableHead className="text-xs">Parent / Guardian</TableHead>
+                      <TableHead className="text-xs">Affiliation</TableHead>
+                      <TableHead className="text-xs">Status & Session</TableHead>
+                      <TableHead className="text-xs">Date</TableHead>
+                      <TableHead className="text-xs text-right">Action</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredInquiries.map((inq) => {
+                      const meetingInfo = parseMeetingLink(inq.meeting_link);
+                      return (
+                        <TableRow key={inq.id} className="hover:bg-muted/30">
+                          <TableCell>
+                            <div className="font-semibold text-xs text-foreground">
+                              {inq.subject}
+                            </div>
+                            <div className="text-[10px] font-mono text-muted-foreground">
+                              #{inq.id.slice(0, 8)}
+                            </div>
+                          </TableCell>
+
+                          <TableCell className="text-xs font-medium text-foreground">
+                            <div>{inq.student_name}</div>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleOpenDossier(inq.student_id, inq.student_name, inq.school_name);
+                              }}
+                              className="text-[10px] text-sky-600 dark:text-sky-400 hover:underline flex items-center gap-1 mt-0.5 cursor-pointer"
+                            >
+                              <FolderOpen className="h-3 w-3" />
+                              <span>View Dossier</span>
+                            </button>
+                          </TableCell>
+
+                          <TableCell className="text-xs text-muted-foreground">
+                            <div className="font-medium text-foreground">{inq.parent_name}</div>
+                            <div className="text-[11px]">{inq.parent_email}</div>
+                          </TableCell>
+
+                          <TableCell className="text-xs text-muted-foreground">
+                            <span className="inline-flex items-center gap-1">
+                              <Building2 className="w-3 h-3 text-muted-foreground/70" />
+                              {inq.school_name || "JaagrMind Central"}
+                            </span>
+                          </TableCell>
+
+                          <TableCell>
+                            <div className="space-y-1">
+                              <Badge
+                                variant="outline"
+                                className={`text-[10px] font-mono ${
+                                  inq.status === "resolved"
+                                    ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20"
+                                    : inq.status === "in_progress"
+                                    ? "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20"
+                                    : "bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20"
+                                }`}
+                              >
+                                {inq.status === "resolved"
+                                  ? "Resolved"
+                                  : inq.status === "in_progress"
+                                  ? "In Progress"
+                                  : "Needs Review"}
+                              </Badge>
+
+                              {/* Concurrency / Claim Badge */}
+                              {inq.counselor_name ? (
+                                <div className="text-[10px] text-muted-foreground font-medium flex items-center gap-1">
+                                  <ShieldCheck className="h-3 w-3 text-sky-500 shrink-0" />
+                                  <span className="truncate max-w-[120px]">{inq.counselor_name}</span>
+                                </div>
+                              ) : (
+                                <div className="text-[10px] text-amber-600 dark:text-amber-400 font-medium flex items-center gap-1">
+                                  <Clock className="h-3 w-3 text-amber-500 shrink-0" />
+                                  <span>Open • Unassigned</span>
+                                </div>
+                              )}
+
+                              {meetingInfo && (
+                                <div>
+                                  <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium border ${meetingInfo.badgeClass}`}>
+                                    <Video className="w-2.5 h-2.5" />
+                                    {meetingInfo.label}
+                                  </span>
+                                </div>
+                              )}
+                            </div>
+                          </TableCell>
+
+                          <TableCell className="text-[11px] text-muted-foreground font-mono">
+                            {inq.created_at ? new Date(inq.created_at).toLocaleDateString() : ""}
+                          </TableCell>
+
+                          <TableCell className="text-right">
+                            <div className="flex items-center justify-end gap-1.5">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleOpenDossier(inq.student_id, inq.student_name, inq.school_name)}
+                                className="h-7 px-2 text-xs gap-1 border-border font-medium hover:bg-muted/50 cursor-pointer"
+                                title="Open Student Wellbeing Dossier"
+                              >
+                                <FolderOpen className="h-3 w-3 text-primary" />
+                                <span className="hidden sm:inline">Dossier</span>
+                              </Button>
+
+                              {!inq.counselor_id ? (
+                                <Button
+                                  size="sm"
+                                  disabled={claimingId === inq.id}
+                                  onClick={() => handleClaimCase(inq.id)}
+                                  className="h-7 px-2.5 text-xs bg-amber-600 hover:bg-amber-700 text-white font-medium shadow-xs cursor-pointer gap-1"
+                                >
+                                  {claimingId === inq.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <ShieldCheck className="h-3 w-3" />}
+                                  <span>Claim & Review</span>
+                                </Button>
+                              ) : (
+                                <Button
+                                  size="sm"
+                                  onClick={() => handleOpenCase(inq)}
+                                  className="h-7 px-3 text-xs bg-primary hover:bg-primary/90 text-primary-foreground font-medium shadow-xs cursor-pointer"
+                                >
+                                  Review & Schedule
+                                </Button>
+                              )}
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+
+              {/* Mobile Card View */}
+              <div className="md:hidden divide-y divide-border/60">
                 {filteredInquiries.map((inq) => {
                   const meetingInfo = parseMeetingLink(inq.meeting_link);
                   return (
-                    <TableRow key={inq.id} className="hover:bg-muted/30">
-                      <TableCell>
-                        <div className="font-semibold text-xs text-foreground">
-                          {inq.subject}
+                    <div key={inq.id} className="p-4 space-y-3 hover:bg-muted/20 transition-colors">
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <div className="font-semibold text-xs text-foreground leading-snug">
+                            {inq.subject}
+                          </div>
+                          <div className="text-[10px] font-mono text-muted-foreground mt-0.5">
+                            #{inq.id.slice(0, 8)} &bull; {inq.created_at ? new Date(inq.created_at).toLocaleDateString() : ""}
+                          </div>
                         </div>
-                        <div className="text-[10px] font-mono text-muted-foreground">
-                          #{inq.id.slice(0, 8)}
-                        </div>
-                      </TableCell>
-
-                      <TableCell className="text-xs font-medium text-foreground">
-                        <div>{inq.student_name}</div>
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleOpenDossier(inq.student_id, inq.student_name, inq.school_name);
-                          }}
-                          className="text-[10px] text-sky-600 dark:text-sky-400 hover:underline flex items-center gap-1 mt-0.5 cursor-pointer"
-                        >
-                          <FolderOpen className="h-3 w-3" />
-                          <span>View Dossier</span>
-                        </button>
-                      </TableCell>
-
-                      <TableCell className="text-xs text-muted-foreground">
-                        <div className="font-medium text-foreground">{inq.parent_name}</div>
-                        <div className="text-[11px]">{inq.parent_email}</div>
-                      </TableCell>
-
-                      <TableCell className="text-xs text-muted-foreground">
-                        <span className="inline-flex items-center gap-1">
-                          <Building2 className="w-3 h-3 text-muted-foreground/70" />
-                          {inq.school_name || "JaagrMind Central"}
-                        </span>
-                      </TableCell>
-
-                      <TableCell>
-                        <div className="space-y-1">
-                          <Badge
-                            variant="outline"
-                            className={`text-[10px] font-mono ${
-                              inq.status === "resolved"
-                                ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20"
-                                : inq.status === "in_progress"
-                                ? "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20"
-                                : "bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20"
-                            }`}
-                          >
-                            {inq.status === "resolved"
-                              ? "Resolved"
+                        <Badge
+                          variant="outline"
+                          className={`text-[10px] font-mono shrink-0 ${
+                            inq.status === "resolved"
+                              ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20"
                               : inq.status === "in_progress"
-                              ? "In Progress"
-                              : "Needs Review"}
-                          </Badge>
+                              ? "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20"
+                              : "bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20"
+                          }`}
+                        >
+                          {inq.status === "resolved"
+                            ? "Resolved"
+                            : inq.status === "in_progress"
+                            ? "In Progress"
+                            : "Needs Review"}
+                        </Badge>
+                      </div>
 
-                          {/* Concurrency / Claim Badge */}
+                      <div className="grid grid-cols-2 gap-2 text-xs py-2 px-2.5 rounded-lg bg-muted/30 border border-border/40">
+                        <div>
+                          <span className="text-[10px] text-muted-foreground uppercase font-medium block">Student</span>
+                          <span className="font-medium text-foreground block truncate">{inq.student_name}</span>
+                          <button
+                            type="button"
+                            onClick={() => handleOpenDossier(inq.student_id, inq.student_name, inq.school_name)}
+                            className="text-[10px] text-sky-600 dark:text-sky-400 hover:underline flex items-center gap-1 mt-0.5 cursor-pointer"
+                          >
+                            <FolderOpen className="h-3 w-3" />
+                            <span>Dossier</span>
+                          </button>
+                        </div>
+                        <div>
+                          <span className="text-[10px] text-muted-foreground uppercase font-medium block">Parent</span>
+                          <span className="font-medium text-foreground block truncate">{inq.parent_name}</span>
+                          <span className="text-[10px] text-muted-foreground block truncate">{inq.parent_email}</span>
+                        </div>
+                      </div>
+
+                      <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
+                        <div className="flex items-center gap-2">
+                          <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
+                            <Building2 className="w-3 h-3 text-muted-foreground/70" />
+                            {inq.school_name || "JaagrMind Central"}
+                          </span>
                           {inq.counselor_name ? (
-                            <div className="text-[10px] text-muted-foreground font-medium flex items-center gap-1">
+                            <span className="text-[10px] text-muted-foreground font-medium flex items-center gap-1">
                               <ShieldCheck className="h-3 w-3 text-sky-500 shrink-0" />
-                              <span className="truncate max-w-[120px]">{inq.counselor_name}</span>
-                            </div>
+                              <span className="truncate max-w-[100px]">{inq.counselor_name}</span>
+                            </span>
                           ) : (
-                            <div className="text-[10px] text-amber-600 dark:text-amber-400 font-medium flex items-center gap-1">
+                            <span className="text-[10px] text-amber-600 dark:text-amber-400 font-medium flex items-center gap-1">
                               <Clock className="h-3 w-3 text-amber-500 shrink-0" />
-                              <span>Open • Unassigned</span>
-                            </div>
-                          )}
-
-                          {meetingInfo && (
-                            <div>
-                              <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium border ${meetingInfo.badgeClass}`}>
-                                <Video className="w-2.5 h-2.5" />
-                                {meetingInfo.label}
-                              </span>
-                            </div>
+                              <span>Unassigned</span>
+                            </span>
                           )}
                         </div>
-                      </TableCell>
+                        {meetingInfo && (
+                          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium border ${meetingInfo.badgeClass}`}>
+                            <Video className="w-2.5 h-2.5" />
+                            {meetingInfo.label}
+                          </span>
+                        )}
+                      </div>
 
-                      <TableCell className="text-[11px] text-muted-foreground font-mono">
-                        {inq.created_at ? new Date(inq.created_at).toLocaleDateString() : ""}
-                      </TableCell>
-
-                      <TableCell className="text-right">
-                        <div className="flex items-center justify-end gap-1.5">
+                      <div className="pt-1 flex items-center gap-2">
+                        {!inq.counselor_id ? (
                           <Button
                             size="sm"
-                            variant="outline"
-                            onClick={() => handleOpenDossier(inq.student_id, inq.student_name, inq.school_name)}
-                            className="h-7 px-2 text-xs gap-1 border-border font-medium hover:bg-muted/50 cursor-pointer"
-                            title="Open Student Wellbeing Dossier"
+                            disabled={claimingId === inq.id}
+                            onClick={() => handleClaimCase(inq.id)}
+                            className="w-full h-8 text-xs bg-amber-600 hover:bg-amber-700 text-white font-medium shadow-xs cursor-pointer gap-1.5"
                           >
-                            <FolderOpen className="h-3 w-3 text-primary" />
-                            <span className="hidden sm:inline">Dossier</span>
+                            {claimingId === inq.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ShieldCheck className="h-3.5 w-3.5" />}
+                            <span>Claim & Review Case</span>
                           </Button>
-
-                          {!inq.counselor_id ? (
-                            <Button
-                              size="sm"
-                              disabled={claimingId === inq.id}
-                              onClick={() => handleClaimCase(inq.id)}
-                              className="h-7 px-2.5 text-xs bg-amber-600 hover:bg-amber-700 text-white font-medium shadow-xs cursor-pointer gap-1"
-                            >
-                              {claimingId === inq.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <ShieldCheck className="h-3 w-3" />}
-                              <span>Claim & Review</span>
-                            </Button>
-                          ) : (
-                            <Button
-                              size="sm"
-                              onClick={() => handleOpenCase(inq)}
-                              className="h-7 px-3 text-xs bg-primary hover:bg-primary/90 text-primary-foreground font-medium shadow-xs cursor-pointer"
-                            >
-                              Review & Schedule
-                            </Button>
-                          )}
-                        </div>
-                      </TableCell>
-                    </TableRow>
+                        ) : (
+                          <Button
+                            size="sm"
+                            onClick={() => handleOpenCase(inq)}
+                            className="w-full h-8 text-xs bg-primary hover:bg-primary/90 text-primary-foreground font-medium shadow-xs cursor-pointer"
+                          >
+                            Review & Schedule
+                          </Button>
+                        )}
+                      </div>
+                    </div>
                   );
                 })}
-              </TableBody>
-            </Table>
+              </div>
+            </>
           )}
         </CardContent>
       </Card>

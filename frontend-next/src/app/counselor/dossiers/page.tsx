@@ -389,27 +389,147 @@ export default function CounselorDossiersPage() {
               <p>Adjust your search query or grade filters above.</p>
             </div>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow className="border-border/50 bg-secondary/20">
-                  <TableHead className="text-xs font-bold font-mono uppercase">Student Name</TableHead>
-                  <TableHead className="text-xs font-bold font-mono uppercase">Class & Section</TableHead>
-                  <TableHead className="text-xs font-bold font-mono uppercase">Regulation Profile</TableHead>
-                  <TableHead className="text-xs font-bold font-mono uppercase">Assigned Pathway Track</TableHead>
-                  <TableHead className="text-xs font-bold font-mono uppercase">Regulation Status</TableHead>
-                  <TableHead className="text-xs font-bold font-mono uppercase">Momentum</TableHead>
-                  <TableHead className="text-xs font-bold font-mono uppercase text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
+            <>
+              {/* Desktop Table View */}
+              <div className="hidden md:block overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="border-border/50 bg-secondary/20">
+                      <TableHead className="text-xs font-bold font-mono uppercase">Student Name</TableHead>
+                      <TableHead className="text-xs font-bold font-mono uppercase">Class & Section</TableHead>
+                      <TableHead className="text-xs font-bold font-mono uppercase">Regulation Profile</TableHead>
+                      <TableHead className="text-xs font-bold font-mono uppercase">Assigned Pathway Track</TableHead>
+                      <TableHead className="text-xs font-bold font-mono uppercase">Regulation Status</TableHead>
+                      <TableHead className="text-xs font-bold font-mono uppercase">Momentum</TableHead>
+                      <TableHead className="text-xs font-bold font-mono uppercase text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredStudents.map((s) => {
+                      const isSupport = s.overall_status === "Support Needed" || (s.resilience_score !== undefined && s.resilience_score < 60);
+                      const isEmerging = s.overall_status === "Emerging" || (s.resilience_score !== undefined && s.resilience_score >= 60 && s.resilience_score < 75);
+
+                      return (
+                        <TableRow key={s.id} className="border-border/40 hover:bg-secondary/10">
+                          <TableCell>
+                            <div className="flex items-center gap-2.5">
+                              <div className="h-8 w-8 rounded-full bg-primary/10 border border-primary/20 text-primary font-bold text-xs flex items-center justify-center shrink-0">
+                                {s.name
+                                  .split(" ")
+                                  .map((p) => p[0])
+                                  .slice(0, 2)
+                                  .join("")
+                                  .toUpperCase()}
+                              </div>
+                              <div>
+                                <div className="font-semibold text-xs text-foreground flex items-center gap-1.5">
+                                  <span>{s.name}</span>
+                                  {isSupport && (
+                                    <span className="h-1.5 w-1.5 rounded-full bg-rose-500" title="Priority guidance support required" />
+                                  )}
+                                </div>
+                                <div className="text-[11px] text-muted-foreground font-mono">ID: {s.access_id}</div>
+                              </div>
+                            </div>
+                          </TableCell>
+
+                          <TableCell>
+                            <div className="flex items-center gap-1.5">
+                              <GraduationCap className="h-3.5 w-3.5 text-muted-foreground" />
+                              <span className="text-xs font-medium text-foreground">
+                                Class {s.grade}th · Sec {s.section}
+                              </span>
+                            </div>
+                          </TableCell>
+
+                          <TableCell>
+                            <div>
+                              <div className="font-semibold text-xs text-foreground">
+                                {s.regulation_profile || "All-Round Balance"}
+                              </div>
+                              <div className="text-[10px] text-muted-foreground font-mono">
+                                {s.primary_bucket ? `Primary: ${s.primary_bucket}` : "Symmetric Flow"}
+                              </div>
+                            </div>
+                          </TableCell>
+
+                          <TableCell>
+                            <div className="space-y-0.5">
+                              <Badge variant="outline" className="font-mono text-[10px] font-bold bg-muted/60 text-foreground border-border/80">
+                                {s.pathway_track_id || "TRACK_BALANCE"}
+                              </Badge>
+                              <div className="text-[11px] text-muted-foreground truncate max-w-[200px]" title={s.pathway_track_name}>
+                                {s.pathway_track_name || "General Regulation Flow"}
+                              </div>
+                            </div>
+                          </TableCell>
+
+                          <TableCell>
+                            <div>
+                              {isSupport ? (
+                                <Badge variant="outline" className="text-[10px] font-medium bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20">
+                                  Support Needed
+                                </Badge>
+                              ) : isEmerging ? (
+                                <Badge variant="outline" className="text-[10px] font-medium bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20">
+                                  Emerging
+                                </Badge>
+                              ) : (
+                                <Badge variant="outline" className="text-[10px] font-medium bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20">
+                                  Stable
+                                </Badge>
+                              )}
+                              <div className="text-[10px] font-mono text-muted-foreground mt-0.5">
+                                Attn: {s.attn_stability_score ?? 12}/32 · Calm: {s.load_regulation_score ?? 12}/32
+                              </div>
+                            </div>
+                          </TableCell>
+
+                          <TableCell>
+                            {s.momentum_trend === "improving" ? (
+                              <Badge variant="outline" className="text-[10px] gap-1 text-emerald-600 border-emerald-500/30 bg-emerald-500/10">
+                                <TrendingUp className="h-2.5 w-2.5" /> Improving
+                              </Badge>
+                            ) : s.momentum_trend === "declining" ? (
+                              <Badge variant="outline" className="text-[10px] gap-1 text-rose-600 border-rose-500/30 bg-rose-500/10">
+                                <TrendingDown className="h-2.5 w-2.5" /> Declining
+                              </Badge>
+                            ) : (
+                              <Badge variant="outline" className="text-[10px] gap-1 text-muted-foreground border-border">
+                                <Minus className="h-2.5 w-2.5" /> Stable
+                              </Badge>
+                            )}
+                          </TableCell>
+
+                          <TableCell className="text-right">
+                            <div className="flex items-center justify-end">
+                              <Button
+                                size="sm"
+                                onClick={() => handleOpenDossier(s)}
+                                className="h-7 px-2.5 text-xs gap-1.5 bg-primary hover:bg-primary/90 text-primary-foreground font-medium shadow-xs"
+                              >
+                                <FolderOpen className="h-3 w-3" />
+                                <span>Inspect Dossier</span>
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+
+              {/* Mobile Card View */}
+              <div className="md:hidden divide-y divide-border/60">
                 {filteredStudents.map((s) => {
                   const isSupport = s.overall_status === "Support Needed" || (s.resilience_score !== undefined && s.resilience_score < 60);
                   const isEmerging = s.overall_status === "Emerging" || (s.resilience_score !== undefined && s.resilience_score >= 60 && s.resilience_score < 75);
 
                   return (
-                    <TableRow key={s.id} className="border-border/40 hover:bg-secondary/10">
-                      <TableCell>
-                        <div className="flex items-center gap-2.5">
+                    <div key={s.id} className="p-3.5 space-y-2.5">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex items-center gap-2.5 min-w-0">
                           <div className="h-8 w-8 rounded-full bg-primary/10 border border-primary/20 text-primary font-bold text-xs flex items-center justify-center shrink-0">
                             {s.name
                               .split(" ")
@@ -418,51 +538,28 @@ export default function CounselorDossiersPage() {
                               .join("")
                               .toUpperCase()}
                           </div>
-                          <div>
-                            <div className="font-semibold text-xs text-foreground flex items-center gap-1.5">
-                              <span>{s.name}</span>
+                          <div className="min-w-0">
+                            <div className="font-semibold text-sm text-foreground flex items-center gap-1.5 truncate">
+                              <span className="truncate">{s.name}</span>
                               {isSupport && (
-                                <span className="h-1.5 w-1.5 rounded-full bg-rose-500" title="Priority guidance support required" />
+                                <span className="h-1.5 w-1.5 rounded-full bg-rose-500 shrink-0" title="Priority guidance support required" />
                               )}
                             </div>
                             <div className="text-[11px] text-muted-foreground font-mono">ID: {s.access_id}</div>
                           </div>
                         </div>
-                      </TableCell>
 
-                      <TableCell>
-                        <div className="flex items-center gap-1.5">
-                          <GraduationCap className="h-3.5 w-3.5 text-muted-foreground" />
-                          <span className="text-xs font-medium text-foreground">
-                            Class {s.grade}th · Sec {s.section}
-                          </span>
+                        <span className="text-xs font-medium text-foreground bg-muted/50 px-2 py-0.5 rounded border border-border/60 shrink-0">
+                          Class {s.grade}th · {s.section}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center justify-between gap-2 text-xs pt-0.5">
+                        <div className="min-w-0">
+                          <p className="font-medium text-foreground truncate">{s.regulation_profile || "All-Round Balance"}</p>
+                          <p className="text-[10px] text-muted-foreground font-mono truncate">{s.pathway_track_name || "General Regulation Flow"}</p>
                         </div>
-                      </TableCell>
-
-                      <TableCell>
-                        <div>
-                          <div className="font-semibold text-xs text-foreground">
-                            {s.regulation_profile || "All-Round Balance"}
-                          </div>
-                          <div className="text-[10px] text-muted-foreground font-mono">
-                            {s.primary_bucket ? `Primary: ${s.primary_bucket}` : "Symmetric Flow"}
-                          </div>
-                        </div>
-                      </TableCell>
-
-                      <TableCell>
-                        <div className="space-y-0.5">
-                          <Badge variant="outline" className="font-mono text-[10px] font-bold bg-muted/60 text-foreground border-border/80">
-                            {s.pathway_track_id || "TRACK_BALANCE"}
-                          </Badge>
-                          <div className="text-[11px] text-muted-foreground truncate max-w-[200px]" title={s.pathway_track_name}>
-                            {s.pathway_track_name || "General Regulation Flow"}
-                          </div>
-                        </div>
-                      </TableCell>
-
-                      <TableCell>
-                        <div>
+                        <div className="shrink-0 text-right">
                           {isSupport ? (
                             <Badge variant="outline" className="text-[10px] font-medium bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20">
                               Support Needed
@@ -476,45 +573,39 @@ export default function CounselorDossiersPage() {
                               Stable
                             </Badge>
                           )}
-                          <div className="text-[10px] font-mono text-muted-foreground mt-0.5">
-                            Attn: {s.attn_stability_score ?? 12}/32 · Calm: {s.load_regulation_score ?? 12}/32
-                          </div>
                         </div>
-                      </TableCell>
+                      </div>
 
-                      <TableCell>
-                        {s.momentum_trend === "improving" ? (
-                          <Badge variant="outline" className="text-[10px] gap-1 text-emerald-600 border-emerald-500/30 bg-emerald-500/10">
-                            <TrendingUp className="h-2.5 w-2.5" /> Improving
-                          </Badge>
-                        ) : s.momentum_trend === "declining" ? (
-                          <Badge variant="outline" className="text-[10px] gap-1 text-rose-600 border-rose-500/30 bg-rose-500/10">
-                            <TrendingDown className="h-2.5 w-2.5" /> Declining
-                          </Badge>
-                        ) : (
-                          <Badge variant="outline" className="text-[10px] gap-1 text-muted-foreground border-border">
-                            <Minus className="h-2.5 w-2.5" /> Stable
-                          </Badge>
-                        )}
-                      </TableCell>
-
-                      <TableCell className="text-right">
-                        <div className="flex items-center justify-end">
-                          <Button
-                            size="sm"
-                            onClick={() => handleOpenDossier(s)}
-                            className="h-7 px-2.5 text-xs gap-1.5 bg-primary hover:bg-primary/90 text-primary-foreground font-medium shadow-xs"
-                          >
-                            <FolderOpen className="h-3 w-3" />
-                            <span>Inspect Dossier</span>
-                          </Button>
+                      <div className="flex items-center justify-between gap-2 pt-1 border-t border-border/40 text-xs">
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] font-mono text-muted-foreground">
+                            Attn: {s.attn_stability_score ?? 12} · Calm: {s.load_regulation_score ?? 12}
+                          </span>
+                          {s.momentum_trend === "improving" ? (
+                            <Badge variant="outline" className="text-[9px] gap-0.5 text-emerald-600 border-emerald-500/30 bg-emerald-500/10 px-1 py-0">
+                              <TrendingUp className="h-2 w-2" /> Up
+                            </Badge>
+                          ) : s.momentum_trend === "declining" ? (
+                            <Badge variant="outline" className="text-[9px] gap-0.5 text-rose-600 border-rose-500/30 bg-rose-500/10 px-1 py-0">
+                              <TrendingDown className="h-2 w-2" /> Down
+                            </Badge>
+                          ) : null}
                         </div>
-                      </TableCell>
-                    </TableRow>
+
+                        <Button
+                          size="sm"
+                          onClick={() => handleOpenDossier(s)}
+                          className="h-7 px-2.5 text-xs gap-1.5 bg-primary hover:bg-primary/90 text-primary-foreground font-medium shadow-xs"
+                        >
+                          <FolderOpen className="h-3 w-3" />
+                          <span>Inspect Dossier</span>
+                        </Button>
+                      </div>
+                    </div>
                   );
                 })}
-              </TableBody>
-            </Table>
+              </div>
+            </>
           )}
         </CardContent>
       </Card>

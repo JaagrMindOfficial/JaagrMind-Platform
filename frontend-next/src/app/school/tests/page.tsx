@@ -730,133 +730,244 @@ export default function SchoolTestsPage() {
                 </div>
               </DialogHeader>
 
-              {/* Table Container */}
+              {/* Table / Card Container */}
               <div className="flex-1 overflow-y-auto max-h-[55vh] p-0">
-                <Table>
-                  <TableHeader className="sticky top-0 bg-card z-10 shadow-xs">
-                    <TableRow className="hover:bg-transparent">
-                      <TableHead className="w-[110px] text-xs">Access ID</TableHead>
-                      <TableHead className="text-xs">Student Name</TableHead>
-                      <TableHead className="text-xs">Class / Section</TableHead>
-                      <TableHead className="text-xs">Status</TableHead>
-                      <TableHead className="text-xs">Score / Result</TableHead>
-                      <TableHead className="text-xs">Simultaneous Tests</TableHead>
-                      <TableHead className="text-right text-xs">Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {(() => {
-                      const filteredStatusList = studentStatus.filter((s) => {
-                        if (!tableSearchTerm.trim()) return true
-                        const q = tableSearchTerm.toLowerCase()
-                        return (
-                          s.name.toLowerCase().includes(q) ||
-                          s.accessId.toLowerCase().includes(q) ||
-                          s.class.toLowerCase().includes(q)
-                        )
-                      })
+                {(() => {
+                  const filteredStatusList = studentStatus.filter((s) => {
+                    if (!tableSearchTerm.trim()) return true
+                    const q = tableSearchTerm.toLowerCase()
+                    return (
+                      s.name.toLowerCase().includes(q) ||
+                      s.accessId.toLowerCase().includes(q) ||
+                      s.class.toLowerCase().includes(q)
+                    )
+                  })
 
-                      if (statusLoading) {
-                        return (
-                          <TableRow>
-                            <TableCell colSpan={7} className="text-center py-12 text-xs text-muted-foreground">
-                              <div className="flex flex-col items-center justify-center gap-2">
-                                <RotateCcw className="h-5 w-5 animate-spin text-primary" />
-                                <span>Loading student statuses for {selectedTest.title}...</span>
-                              </div>
-                            </TableCell>
-                          </TableRow>
-                        )
-                      }
+                  if (statusLoading) {
+                    return (
+                      <div className="flex flex-col items-center justify-center py-12 text-xs text-muted-foreground gap-2">
+                        <RotateCcw className="h-5 w-5 animate-spin text-primary" />
+                        <span>Loading student statuses for {selectedTest.title}...</span>
+                      </div>
+                    )
+                  }
 
-                      if (filteredStatusList.length === 0) {
-                        return (
-                          <TableRow>
-                            <TableCell colSpan={7} className="text-center py-12 text-xs text-muted-foreground">
-                              {tableSearchTerm ? "No students match your search query." : "No students found matching current filters."}
-                            </TableCell>
-                          </TableRow>
-                        )
-                      }
+                  if (filteredStatusList.length === 0) {
+                    return (
+                      <div className="text-center py-12 text-xs text-muted-foreground">
+                        {tableSearchTerm ? "No students match your search query." : "No students found matching current filters."}
+                      </div>
+                    )
+                  }
 
-                      return filteredStatusList.map((s) => {
-                        const isDone = s.status === "completed"
-                        const isReassigned = s.status === "reassigned"
-                        const otherTestsCount = s.otherAssignedTests?.length || 0
-                        return (
-                          <TableRow key={s.studentId} className="hover:bg-muted/40 transition-colors">
-                            <TableCell className="font-mono text-xs font-medium">{s.accessId}</TableCell>
-                            <TableCell className="text-xs font-medium">
-                              <button
-                                type="button"
-                                className="hover:underline hover:text-primary text-left"
-                                onClick={() => handleOpenDossierFromStatus(s)}
-                                title="Open Student Holistic Dossier"
-                              >
-                                {s.name}
-                              </button>
-                            </TableCell>
-                            <TableCell className="text-xs text-muted-foreground">
-                              Class {s.class} {s.section ? `(${s.section})` : ""}
-                            </TableCell>
-                            <TableCell>
-                              {isDone ? (
-                                <Badge variant="default" className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[11px] gap-1">
-                                  <CheckCircle2 className="h-3 w-3" /> Completed
-                                </Badge>
-                              ) : isReassigned ? (
-                                <Badge variant="outline" className="bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30 text-[11px] gap-1">
-                                  <RotateCcw className="h-3 w-3" /> Retake Ready
-                                </Badge>
-                              ) : (
-                                <Badge variant="secondary" className="text-[11px] text-muted-foreground">
-                                  Pending
-                                </Badge>
-                              )}
-                            </TableCell>
-                            <TableCell className="text-xs">
-                              {isDone ? (
-                                <div className="flex items-center gap-1.5">
-                                  <span className="font-medium text-foreground">{s.assignedBucket || "Evaluated"}</span>
-                                  {s.totalScore > 0 && (
-                                    <span className="text-muted-foreground font-mono">({s.totalScore} pts)</span>
+                  return (
+                    <>
+                      {/* Desktop Table View */}
+                      <div className="hidden md:block overflow-x-auto">
+                        <Table>
+                          <TableHeader className="sticky top-0 bg-card z-10 shadow-xs">
+                            <TableRow className="hover:bg-transparent">
+                              <TableHead className="w-[110px] text-xs">Access ID</TableHead>
+                              <TableHead className="text-xs">Student Name</TableHead>
+                              <TableHead className="text-xs">Class / Section</TableHead>
+                              <TableHead className="text-xs">Status</TableHead>
+                              <TableHead className="text-xs">Score / Result</TableHead>
+                              <TableHead className="text-xs">Simultaneous Tests</TableHead>
+                              <TableHead className="text-right text-xs">Actions</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {filteredStatusList.map((s) => {
+                              const isDone = s.status === "completed"
+                              const isReassigned = s.status === "reassigned"
+                              const otherTestsCount = s.otherAssignedTests?.length || 0
+                              return (
+                                <TableRow key={s.studentId} className="hover:bg-muted/40 transition-colors">
+                                  <TableCell className="font-mono text-xs font-medium">{s.accessId}</TableCell>
+                                  <TableCell className="text-xs font-medium">
+                                    <button
+                                      type="button"
+                                      className="hover:underline hover:text-primary text-left"
+                                      onClick={() => handleOpenDossierFromStatus(s)}
+                                      title="Open Student Holistic Dossier"
+                                    >
+                                      {s.name}
+                                    </button>
+                                  </TableCell>
+                                  <TableCell className="text-xs text-muted-foreground">
+                                    Class {s.class} {s.section ? `(${s.section})` : ""}
+                                  </TableCell>
+                                  <TableCell>
+                                    {isDone ? (
+                                      <Badge variant="default" className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[11px] gap-1">
+                                        <CheckCircle2 className="h-3 w-3" /> Completed
+                                      </Badge>
+                                    ) : isReassigned ? (
+                                      <Badge variant="outline" className="bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30 text-[11px] gap-1">
+                                        <RotateCcw className="h-3 w-3" /> Retake Ready
+                                      </Badge>
+                                    ) : (
+                                      <Badge variant="secondary" className="text-[11px] text-muted-foreground">
+                                        Pending
+                                      </Badge>
+                                    )}
+                                  </TableCell>
+                                  <TableCell className="text-xs">
+                                    {isDone ? (
+                                      <div className="flex items-center gap-1.5">
+                                        <span className="font-medium text-foreground">{s.assignedBucket || "Evaluated"}</span>
+                                        {s.totalScore > 0 && (
+                                          <span className="text-muted-foreground font-mono">({s.totalScore} pts)</span>
+                                        )}
+                                      </div>
+                                    ) : (
+                                      <span className="text-muted-foreground">—</span>
+                                    )}
+                                  </TableCell>
+                                  <TableCell className="text-xs">
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      className="h-7 px-2 text-xs gap-1.5 border-primary/20 hover:bg-primary/10 hover:border-primary/40 text-foreground group"
+                                      onClick={() => setPeekStudent(s)}
+                                      title="Quick peek at other simultaneously assigned check-ins"
+                                    >
+                                      <Layers className="h-3.5 w-3.5 text-primary group-hover:scale-110 transition-transform" />
+                                      <span>{otherTestsCount} Other{otherTestsCount === 1 ? "" : "s"}</span>
+                                      {otherTestsCount > 0 && (
+                                        <span className="flex items-center gap-0.5 ml-0.5">
+                                          {s.otherAssignedTests?.some(t => t.status === "completed") && (
+                                            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" title="Completed check-ins exist" />
+                                          )}
+                                          {s.otherAssignedTests?.some(t => t.status === "pending") && (
+                                            <span className="h-1.5 w-1.5 rounded-full bg-amber-500" title="Pending check-ins exist" />
+                                          )}
+                                        </span>
+                                      )}
+                                    </Button>
+                                  </TableCell>
+                                  <TableCell className="text-right">
+                                    <div className="flex items-center justify-end gap-1">
+                                      {(isDone || isReassigned) && (
+                                        <Button
+                                          variant="ghost"
+                                          size="sm"
+                                          onClick={() => setHistoryStudent({
+                                            id: s.studentId,
+                                            name: s.name,
+                                            access_id: s.accessId,
+                                            grade: s.class,
+                                            section: s.section,
+                                          })}
+                                          className="text-xs h-7 text-muted-foreground hover:text-foreground"
+                                          title="View student performance history"
+                                        >
+                                          <History className="h-3 w-3 mr-1 text-primary" /> History
+                                        </Button>
+                                      )}
+                                      {isDone ? (
+                                        <Button
+                                          variant="ghost"
+                                          size="sm"
+                                          onClick={() => handleReset(s.studentId)}
+                                          className="text-xs h-7 text-muted-foreground hover:text-destructive"
+                                          title="Archive and allow retake"
+                                        >
+                                          <RotateCcw className="h-3 w-3 mr-1" /> Reset
+                                        </Button>
+                                      ) : (
+                                        <Button
+                                          variant="ghost"
+                                          size="sm"
+                                          className="text-xs h-7 text-muted-foreground hover:text-foreground"
+                                          onClick={() => handleCopyLink(selectedTest, s.accessId)}
+                                          title="Copy direct student access link"
+                                        >
+                                          <LinkIcon className="h-3 w-3 mr-1" /> Link
+                                        </Button>
+                                      )}
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        className="text-xs h-7 text-muted-foreground hover:text-primary"
+                                        onClick={() => handleOpenDossierFromStatus(s)}
+                                        title="Open Longitudinal Student Dossier"
+                                      >
+                                        <FolderOpen className="h-3 w-3 mr-1 text-primary" /> Dossier
+                                      </Button>
+                                    </div>
+                                  </TableCell>
+                                </TableRow>
+                              )
+                            })}
+                          </TableBody>
+                        </Table>
+                      </div>
+
+                      {/* Mobile Card View */}
+                      <div className="md:hidden divide-y divide-border/60">
+                        {filteredStatusList.map((s) => {
+                          const isDone = s.status === "completed"
+                          const isReassigned = s.status === "reassigned"
+                          const otherTestsCount = s.otherAssignedTests?.length || 0
+                          return (
+                            <div key={s.studentId} className="p-3.5 space-y-2.5">
+                              <div className="flex items-start justify-between gap-2">
+                                <div className="min-w-0">
+                                  <button
+                                    type="button"
+                                    className="font-semibold text-sm text-foreground hover:underline hover:text-primary text-left truncate block max-w-[200px]"
+                                    onClick={() => handleOpenDossierFromStatus(s)}
+                                    title="Open Student Holistic Dossier"
+                                  >
+                                    {s.name}
+                                  </button>
+                                  <div className="flex items-center gap-1.5 mt-0.5">
+                                    <span className="font-mono text-xs font-bold text-foreground">ID: {s.accessId}</span>
+                                    <span className="text-xs text-muted-foreground">Class {s.class} {s.section ? `(${s.section})` : ""}</span>
+                                  </div>
+                                </div>
+
+                                <div className="shrink-0">
+                                  {isDone ? (
+                                    <Badge variant="default" className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[10px] gap-1">
+                                      <CheckCircle2 className="h-3 w-3" /> Completed
+                                    </Badge>
+                                  ) : isReassigned ? (
+                                    <Badge variant="outline" className="bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30 text-[10px] gap-1">
+                                      <RotateCcw className="h-3 w-3" /> Retake
+                                    </Badge>
+                                  ) : (
+                                    <Badge variant="secondary" className="text-[10px] text-muted-foreground">
+                                      Pending
+                                    </Badge>
                                   )}
                                 </div>
-                              ) : (
-                                <span className="text-muted-foreground">—</span>
-                              )}
-                            </TableCell>
+                              </div>
 
-                            {/* Simultaneous Other Assigned Tests Quick Peek Button */}
-                            <TableCell className="text-xs">
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                className="h-7 px-2 text-xs gap-1.5 border-primary/20 hover:bg-primary/10 hover:border-primary/40 text-foreground group"
-                                onClick={() => setPeekStudent(s)}
-                                title="Quick peek at other simultaneously assigned check-ins"
-                              >
-                                <Layers className="h-3.5 w-3.5 text-primary group-hover:scale-110 transition-transform" />
-                                <span>{otherTestsCount} Other{otherTestsCount === 1 ? "" : "s"}</span>
-                                {otherTestsCount > 0 && (
-                                  <span className="flex items-center gap-0.5 ml-0.5">
-                                    {s.otherAssignedTests?.some(t => t.status === "completed") && (
-                                      <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" title="Completed check-ins exist" />
-                                    )}
-                                    {s.otherAssignedTests?.some(t => t.status === "pending") && (
-                                      <span className="h-1.5 w-1.5 rounded-full bg-amber-500" title="Pending check-ins exist" />
-                                    )}
-                                  </span>
-                                )}
-                              </Button>
-                            </TableCell>
+                              <div className="flex items-center justify-between gap-2 text-xs pt-0.5">
+                                <div>
+                                  {isDone && (
+                                    <span className="font-medium text-foreground">
+                                      {s.assignedBucket || "Evaluated"} {s.totalScore > 0 ? `(${s.totalScore} pts)` : ""}
+                                    </span>
+                                  )}
+                                </div>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="h-6 px-2 text-[10px] gap-1 border-primary/20 hover:bg-primary/10 text-foreground"
+                                  onClick={() => setPeekStudent(s)}
+                                >
+                                  <Layers className="h-3 w-3 text-primary" />
+                                  <span>{otherTestsCount} Other{otherTestsCount === 1 ? "" : "s"}</span>
+                                </Button>
+                              </div>
 
-                            {/* Actions */}
-                            <TableCell className="text-right">
-                              <div className="flex items-center justify-end gap-1">
+                              <div className="flex items-center justify-end gap-1.5 pt-1 border-t border-border/40 text-xs">
                                 {(isDone || isReassigned) && (
                                   <Button
-                                    variant="ghost"
+                                    variant="outline"
                                     size="sm"
                                     onClick={() => setHistoryStudent({
                                       id: s.studentId,
@@ -865,50 +976,45 @@ export default function SchoolTestsPage() {
                                       grade: s.class,
                                       section: s.section,
                                     })}
-                                    className="text-xs h-7 text-muted-foreground hover:text-foreground"
-                                    title="View student performance history"
+                                    className="text-xs h-7 px-2 text-muted-foreground hover:text-foreground"
                                   >
                                     <History className="h-3 w-3 mr-1 text-primary" /> History
                                   </Button>
                                 )}
                                 {isDone ? (
                                   <Button
-                                    variant="ghost"
+                                    variant="outline"
                                     size="sm"
                                     onClick={() => handleReset(s.studentId)}
-                                    className="text-xs h-7 text-muted-foreground hover:text-destructive"
-                                    title="Archive and allow retake"
+                                    className="text-xs h-7 px-2 text-muted-foreground hover:text-destructive"
                                   >
                                     <RotateCcw className="h-3 w-3 mr-1" /> Reset
                                   </Button>
                                 ) : (
                                   <Button
-                                    variant="ghost"
+                                    variant="outline"
                                     size="sm"
-                                    className="text-xs h-7 text-muted-foreground hover:text-foreground"
+                                    className="text-xs h-7 px-2 text-muted-foreground hover:text-foreground"
                                     onClick={() => handleCopyLink(selectedTest, s.accessId)}
-                                    title="Copy direct student access link"
                                   >
                                     <LinkIcon className="h-3 w-3 mr-1" /> Link
                                   </Button>
                                 )}
                                 <Button
-                                  variant="ghost"
                                   size="sm"
-                                  className="text-xs h-7 text-muted-foreground hover:text-primary"
+                                  className="text-xs h-7 px-2.5 bg-primary text-primary-foreground font-medium"
                                   onClick={() => handleOpenDossierFromStatus(s)}
-                                  title="Open Longitudinal Student Dossier"
                                 >
-                                  <FolderOpen className="h-3 w-3 mr-1 text-primary" /> Dossier
+                                  <FolderOpen className="h-3 w-3 mr-1" /> Dossier
                                 </Button>
                               </div>
-                            </TableCell>
-                          </TableRow>
-                        )
-                      })
-                    })()}
-                  </TableBody>
-                </Table>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </>
+                  )
+                })()}
               </div>
 
               {/* Modal Footer */}

@@ -220,7 +220,7 @@ export function ParentAtmosphereBarometer({ atmosphere, childName }: EmotionalAt
                 <p className="text-[11px] text-muted-foreground">Daily mood indicators will populate as {firstName} logs reflections or check-ins.</p>
               </div>
             ) : (
-              <div className="grid grid-cols-7 gap-2">
+              <div className="grid grid-cols-7 gap-1 sm:gap-2">
                 {atmosphere.daily_pulse.map((dayWell, idx) => {
                   const isSelected = selectedDay === idx;
                   return (
@@ -228,17 +228,17 @@ export function ParentAtmosphereBarometer({ atmosphere, childName }: EmotionalAt
                       key={idx}
                       type="button"
                       onClick={() => setSelectedDay(isSelected ? null : idx)}
-                      className={`p-2.5 rounded-xl border border-border/60 bg-muted/40 hover:bg-muted/70 flex flex-col items-center justify-between text-center min-h-[76px] transition-all hover:-translate-y-0.5 cursor-pointer focus:outline-none ${
+                      className={`p-1.5 sm:p-2.5 rounded-lg sm:rounded-xl border border-border/60 bg-muted/40 hover:bg-muted/70 flex flex-col items-center justify-between text-center min-h-[64px] sm:min-h-[76px] transition-all hover:-translate-y-0.5 cursor-pointer focus:outline-none ${
                         isSelected
                           ? "ring-2 ring-emerald-500 bg-emerald-500/10 border-emerald-500/40"
                           : "hover:border-foreground/20"
                       }`}
                     >
-                      <span className="text-[11px] font-mono font-bold text-muted-foreground">
+                      <span className="text-[9px] sm:text-[11px] font-mono font-bold text-muted-foreground">
                         {dayWell.day}
                       </span>
-                      <div className={`h-3 w-3 rounded-full ${getDayDotColor(dayWell.state)} ring-2 ring-card/80`} />
-                      <span className="text-[11px] font-mono text-foreground font-bold">
+                      <div className={`h-2.5 w-2.5 sm:h-3 sm:w-3 rounded-full ${getDayDotColor(dayWell.state)} ring-2 ring-card/80`} />
+                      <span className="text-[9px] sm:text-[11px] font-mono text-foreground font-bold">
                         {dayWell.score}%
                       </span>
                     </button>

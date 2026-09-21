@@ -64,34 +64,34 @@ export function ParentHeader({
 
   return (
     <header className="sticky top-0 z-40 w-full bg-background/80 backdrop-blur-sm border-b border-border transition-all">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-14 flex items-center justify-between gap-4">
+      <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 h-14 flex items-center justify-between gap-2 sm:gap-4">
         {/* Brand & Child Switcher */}
-        <div className="flex items-center gap-3 sm:gap-4">
-          <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 sm:gap-4 min-w-0">
+          <div className="flex items-center gap-2 shrink-0">
             <img
               src="/DarkColorLogo.svg"
               alt="JaagrMind"
-              className="h-7 w-auto dark:hidden object-contain"
+              className="h-6 sm:h-7 w-auto dark:hidden object-contain"
             />
             <img
               src="/LightColorLogo.svg"
               alt="JaagrMind"
-              className="h-7 w-auto hidden dark:block object-contain"
+              className="h-6 sm:h-7 w-auto hidden dark:block object-contain"
             />
           </div>
 
           {/* Child Switcher Pill */}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 min-w-0">
             <DropdownMenu>
-              <DropdownMenuTrigger className="flex items-center gap-2 px-2.5 py-1 rounded-full bg-muted/50 hover:bg-muted/80 border border-border/70 transition-all text-left shadow-2xs">
-                <div className="h-5 w-5 rounded-full bg-sky-500/10 text-sky-600 dark:text-sky-400 flex items-center justify-center text-[10px] font-bold font-mono">
+              <DropdownMenuTrigger className="flex items-center gap-1.5 sm:gap-2 px-2 sm:px-2.5 py-1 rounded-full bg-muted/50 hover:bg-muted/80 border border-border/70 transition-all text-left shadow-2xs">
+                <div className="h-5 w-5 rounded-full bg-sky-500/10 text-sky-600 dark:text-sky-400 flex items-center justify-center text-[10px] font-bold font-mono shrink-0">
                   {activeChild?.name ? activeChild.name.charAt(0) : "+"}
                 </div>
-                <div className="flex flex-col max-w-[120px] sm:max-w-[160px]">
+                <div className="flex flex-col max-w-[75px] xs:max-w-[110px] sm:max-w-[160px]">
                   <span className="text-xs font-semibold text-foreground truncate leading-tight">
                     {activeChild?.name || "Add Child"}
                   </span>
-                  <span className="text-[9px] text-muted-foreground font-mono truncate leading-tight">
+                  <span className="text-[9px] text-muted-foreground font-mono truncate leading-tight hidden xs:inline">
                     {activeChild?.grade
                       ? activeChild.school_name
                         ? `Class ${activeChild.grade} • ${activeChild.school_name}`
@@ -99,7 +99,7 @@ export function ParentHeader({
                       : "No Student Linked"}
                   </span>
                 </div>
-                <ChevronDown className="h-3 w-3 text-muted-foreground ml-0.5" />
+                <ChevronDown className="h-3 w-3 text-muted-foreground ml-0.5 shrink-0" />
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start" className="w-64 rounded-xl border border-border bg-card p-1.5 shadow-md">
                 <div className="flex items-center justify-between px-2 py-1">
@@ -144,7 +144,7 @@ export function ParentHeader({
         </div>
 
         {/* Right Actions */}
-        <div className="flex items-center gap-2 sm:gap-3">
+        <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
           <RoleSwitcherPill />
 
           {/* Quick Counselor Connect button */}

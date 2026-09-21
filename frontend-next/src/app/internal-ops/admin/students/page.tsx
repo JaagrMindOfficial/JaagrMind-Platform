@@ -226,94 +226,166 @@ export default function AdminStudentsPage() {
               No students enrolled across schools yet.
             </div>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="text-xs w-[170px]">
-                    <div className="flex items-center gap-1">
-                      <span>Roll No.</span>
-                      <InfoTooltip text="School roll identifier. Hover or copy the badge below for the platform UUID." />
-                    </div>
-                  </TableHead>
-                  <TableHead className="text-xs">Student Name</TableHead>
-                  <TableHead className="text-xs">School</TableHead>
-                  <TableHead className="text-xs min-w-[150px]">
-                    <div className="flex items-center gap-1">
-                      <span>Class & Section</span>
-                      <InfoTooltip text="Student cohort. Promotion schedules increment this class automatically." />
-                    </div>
-                  </TableHead>
-                  <TableHead className="text-xs">Contact</TableHead>
-                  <TableHead className="text-right text-xs">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
+            <>
+              {/* Desktop Table View */}
+              <div className="hidden md:block overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="text-xs w-[170px]">
+                        <div className="flex items-center gap-1">
+                          <span>Roll No.</span>
+                          <InfoTooltip text="School roll identifier. Hover or copy the badge below for the platform UUID." />
+                        </div>
+                      </TableHead>
+                      <TableHead className="text-xs">Student Name</TableHead>
+                      <TableHead className="text-xs">School</TableHead>
+                      <TableHead className="text-xs min-w-[150px]">
+                        <div className="flex items-center gap-1">
+                          <span>Class & Section</span>
+                          <InfoTooltip text="Student cohort. Promotion schedules increment this class automatically." />
+                        </div>
+                      </TableHead>
+                      <TableHead className="text-xs">Contact</TableHead>
+                      <TableHead className="text-right text-xs">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filtered.map((student) => (
+                      <TableRow key={student.id}>
+                        <TableCell className="text-xs">
+                          <div className="flex flex-col gap-0.5">
+                            <span className="font-mono font-semibold text-foreground">{student.access_id}</span>
+                            <MinimalUUID id={student.id} label="Student UUID" />
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-xs font-medium">
+                          {student.name}
+                        </TableCell>
+                        <TableCell className="text-xs">
+                          <div className="flex items-center gap-1.5">
+                            <School className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                            <span className="font-medium text-foreground">{student.school_name || "Unknown"}</span>
+                            {student.school_code && (
+                              <Badge variant="outline" className="text-[10px] font-mono px-1.5 py-0 h-4">
+                                {student.school_code}
+                              </Badge>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-xs min-w-[140px]">
+                          <div className="flex items-center">
+                            <span className="font-medium inline-block w-[72px]">Class {student.grade}</span>
+                            {student.section && (
+                              <Badge variant="secondary" className="text-[10px] px-1.5 py-0 font-normal">
+                                Sec {student.section}
+                              </Badge>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-xs text-muted-foreground">
+                          {student.email || student.mobile_number || "—"}
+                        </TableCell>
+                        <TableCell className="text-right space-x-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 hover:bg-muted"
+                            onClick={() => handleOpenEdit(student)}
+                            title="Edit Student"
+                          >
+                            <Edit className="h-3.5 w-3.5 text-muted-foreground" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 hover:bg-rose-500/10 text-muted-foreground hover:text-rose-600"
+                            onClick={() => setDeleteConfirmStudent(student)}
+                            title="Delete Student"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                    {filtered.length === 0 && (
+                      <TableRow>
+                        <TableCell colSpan={6} className="h-24 text-center text-muted-foreground text-xs">
+                          No matching students found for "{search}".
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+
+              {/* Mobile Card View */}
+              <div className="md:hidden divide-y divide-border/60">
                 {filtered.map((student) => (
-                  <TableRow key={student.id}>
-                    <TableCell className="text-xs">
-                      <div className="flex flex-col gap-0.5">
-                        <span className="font-mono font-semibold text-foreground">{student.access_id}</span>
-                        <MinimalUUID id={student.id} label="Student UUID" />
+                  <div key={student.id} className="p-3.5 space-y-2.5">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="font-semibold text-sm text-foreground truncate">{student.name}</p>
+                        <div className="flex items-center gap-1.5 mt-0.5">
+                          <School className="h-3 w-3 text-muted-foreground shrink-0" />
+                          <span className="text-xs text-muted-foreground truncate">{student.school_name || "School"}</span>
+                          {student.school_code && (
+                            <Badge variant="outline" className="text-[9px] font-mono px-1 py-0 h-4 shrink-0">
+                              {student.school_code}
+                            </Badge>
+                          )}
+                        </div>
                       </div>
-                    </TableCell>
-                    <TableCell className="text-xs font-medium">
-                      {student.name}
-                    </TableCell>
-                    <TableCell className="text-xs">
-                      <div className="flex items-center gap-1.5">
-                        <School className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                        <span className="font-medium text-foreground">{student.school_name || "Unknown"}</span>
-                        {student.school_code && (
-                          <Badge variant="outline" className="text-[10px] font-mono px-1.5 py-0 h-4">
-                            {student.school_code}
-                          </Badge>
-                        )}
+
+                      <div className="flex items-center gap-1 shrink-0">
+                        <span className="text-xs font-medium text-foreground bg-muted/50 px-2 py-0.5 rounded border border-border/60">
+                          Class {student.grade}
+                          {student.section ? ` · ${student.section}` : ""}
+                        </span>
                       </div>
-                    </TableCell>
-                    <TableCell className="text-xs min-w-[140px]">
-                      <div className="flex items-center">
-                        <span className="font-medium inline-block w-[72px]">Class {student.grade}</span>
-                        {student.section && (
-                          <Badge variant="secondary" className="text-[10px] px-1.5 py-0 font-normal">
-                            Sec {student.section}
-                          </Badge>
-                        )}
+                    </div>
+
+                    <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground font-mono pt-0.5">
+                      <span className="font-semibold text-foreground">Roll: {student.access_id}</span>
+                      {(student.email || student.mobile_number) && (
+                        <span className="truncate max-w-[180px] text-[11px]">{student.email || student.mobile_number}</span>
+                      )}
+                    </div>
+
+                    <div className="flex items-center justify-between gap-2 pt-1 border-t border-border/40 text-xs">
+                      <MinimalUUID id={student.id} label="UUID" />
+
+                      <div className="flex items-center gap-1">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-7 px-2.5 text-xs gap-1"
+                          onClick={() => handleOpenEdit(student)}
+                          title="Edit Student"
+                        >
+                          <Edit className="h-3 w-3" />
+                          <span>Edit</span>
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-7 px-2 text-xs hover:bg-rose-500/10 text-muted-foreground hover:text-rose-600 border-border"
+                          onClick={() => setDeleteConfirmStudent(student)}
+                          title="Delete Student"
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
                       </div>
-                    </TableCell>
-                    <TableCell className="text-xs text-muted-foreground">
-                      {student.email || student.mobile_number || "—"}
-                    </TableCell>
-                    <TableCell className="text-right space-x-1">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 hover:bg-muted"
-                        onClick={() => handleOpenEdit(student)}
-                        title="Edit Student"
-                      >
-                        <Edit className="h-3.5 w-3.5 text-muted-foreground" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 hover:bg-rose-500/10 text-muted-foreground hover:text-rose-600"
-                        onClick={() => setDeleteConfirmStudent(student)}
-                        title="Delete Student"
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </Button>
-                    </TableCell>
-                  </TableRow>
+                    </div>
+                  </div>
                 ))}
                 {filtered.length === 0 && (
-                  <TableRow>
-                    <TableCell colSpan={6} className="h-24 text-center text-muted-foreground text-xs">
-                      No matching students found for "{search}".
-                    </TableCell>
-                  </TableRow>
+                  <div className="p-8 text-center text-xs text-muted-foreground">
+                    No matching students found for "{search}".
+                  </div>
                 )}
-              </TableBody>
-            </Table>
+              </div>
+            </>
           )}
         </CardContent>
       </Card>

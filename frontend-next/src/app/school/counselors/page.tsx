@@ -772,116 +772,203 @@ export default function SchoolCounselorsPage() {
                 </p>
               </div>
             ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow className="border-border/50 bg-secondary/20">
-                    <TableHead className="text-xs font-bold font-mono uppercase">Student & Subject</TableHead>
-                    <TableHead className="text-xs font-bold font-mono uppercase">Parent Details</TableHead>
-                    <TableHead className="text-xs font-bold font-mono uppercase">Addressed To</TableHead>
-                    <TableHead className="text-xs font-bold font-mono uppercase">Status</TableHead>
-                    <TableHead className="text-xs font-bold font-mono uppercase">Logged Date</TableHead>
-                    <TableHead className="text-xs font-bold font-mono uppercase text-right">Case Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredInquiries.map((inq) => (
-                    <TableRow key={inq.id} className="border-border/40 hover:bg-secondary/10">
-                      <TableCell>
-                        <div className="space-y-1">
-                          <div className="flex items-center gap-2">
-                            <span className="font-semibold text-xs text-foreground">
-                              {inq.student_name}
-                            </span>
+              <>
+                {/* Desktop Table View */}
+                <div className="hidden md:block overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="border-border/50 bg-secondary/20">
+                      <TableHead className="text-xs font-bold font-mono uppercase">Student & Subject</TableHead>
+                      <TableHead className="text-xs font-bold font-mono uppercase">Parent Details</TableHead>
+                      <TableHead className="text-xs font-bold font-mono uppercase">Addressed To</TableHead>
+                      <TableHead className="text-xs font-bold font-mono uppercase">Status</TableHead>
+                      <TableHead className="text-xs font-bold font-mono uppercase">Logged Date</TableHead>
+                      <TableHead className="text-xs font-bold font-mono uppercase text-right">Case Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredInquiries.map((inq) => (
+                      <TableRow key={inq.id} className="border-border/40 hover:bg-secondary/10">
+                        <TableCell>
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-2">
+                              <span className="font-semibold text-xs text-foreground">
+                                {inq.student_name}
+                              </span>
+                            </div>
+                            <div className="text-xs font-medium text-foreground/90">
+                              {inq.subject}
+                            </div>
+                            <p className="text-[11px] text-muted-foreground line-clamp-1 max-w-sm">
+                              &quot;{inq.message}&quot;
+                            </p>
                           </div>
-                          <div className="text-xs font-medium text-foreground/90">
-                            {inq.subject}
-                          </div>
-                          <p className="text-[11px] text-muted-foreground line-clamp-1 max-w-sm">
-                            &quot;{inq.message}&quot;
-                          </p>
-                        </div>
-                      </TableCell>
+                        </TableCell>
 
-                      <TableCell>
-                        <div className="space-y-0.5 text-xs text-muted-foreground font-mono">
-                          <div className="font-medium text-foreground/90">{inq.parent_name}</div>
-                          <div className="flex items-center gap-1.5 text-[11px]">
-                            <Mail className="h-3 w-3 text-muted-foreground" />
-                            <span>{inq.parent_email}</span>
+                        <TableCell>
+                          <div className="space-y-0.5 text-xs text-muted-foreground font-mono">
+                            <div className="font-medium text-foreground/90">{inq.parent_name}</div>
+                            <div className="flex items-center gap-1.5 text-[11px]">
+                              <Mail className="h-3 w-3 text-muted-foreground" />
+                              <span>{inq.parent_email}</span>
+                            </div>
                           </div>
-                        </div>
-                      </TableCell>
+                        </TableCell>
 
-                      <TableCell>
-                        <div className="space-y-0.5">
-                          <div className="text-xs font-semibold text-foreground">
-                            {inq.counselor_name || "Campus Wellness Desk"}
+                        <TableCell>
+                          <div className="space-y-0.5">
+                            <div className="text-xs font-semibold text-foreground">
+                              {inq.counselor_name || "Campus Wellness Desk"}
+                            </div>
+                            <Badge variant="outline" className="text-[9px] font-mono text-muted-foreground">
+                              {inq.counselor_type === "school_counselor" ? "Institutional Staff" : "Platform Desk"}
+                            </Badge>
                           </div>
-                          <Badge variant="outline" className="text-[9px] font-mono text-muted-foreground">
-                            {inq.counselor_type === "school_counselor" ? "Institutional Staff" : "Platform Desk"}
-                          </Badge>
-                        </div>
-                      </TableCell>
+                        </TableCell>
 
-                      <TableCell>
+                        <TableCell>
+                          {inq.status === "pending" ? (
+                            <Badge
+                              variant="outline"
+                              className="text-[10px] font-medium bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20 flex items-center gap-1 w-fit"
+                            >
+                              <AlertCircle className="h-3 w-3" /> Pending Review
+                            </Badge>
+                          ) : inq.status === "in_progress" ? (
+                            <Badge
+                              variant="outline"
+                              className="text-[10px] font-medium bg-sky-500/10 text-sky-600 dark:text-sky-400 border-sky-500/20 flex items-center gap-1 w-fit"
+                            >
+                              <Clock className="h-3 w-3" /> In Progress
+                            </Badge>
+                          ) : (
+                            <Badge
+                              variant="outline"
+                              className="text-[10px] font-medium bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20 flex items-center gap-1 w-fit"
+                            >
+                              <CheckCircle2 className="h-3 w-3" /> Resolved
+                            </Badge>
+                          )}
+                        </TableCell>
+
+                        <TableCell className="text-xs font-mono text-muted-foreground">
+                          {new Date(inq.created_at).toLocaleDateString()}
+                          <div className="text-[10px] text-muted-foreground/70">
+                            {new Date(inq.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                          </div>
+                        </TableCell>
+
+                        <TableCell className="text-right">
+                          <div className="flex items-center justify-end gap-1.5">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleInspectStudent(inq.student_id, inq.student_name)}
+                              className="h-7 px-2 text-[11px] gap-1 text-muted-foreground hover:text-foreground"
+                              title="Open Student Dossier"
+                            >
+                              <FolderOpen className="h-3 w-3 text-sky-500" />
+                              <span className="hidden sm:inline">Dossier</span>
+                            </Button>
+
+                            <Button
+                              size="sm"
+                              onClick={() => handleOpenCase(inq)}
+                              className="h-7 px-2.5 text-xs gap-1.5 bg-primary text-primary-foreground font-medium"
+                            >
+                              <MessageSquare className="h-3 w-3" />
+                              <span>Manage Case</span>
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+
+              {/* Mobile Card View */}
+              <div className="md:hidden divide-y divide-border/60">
+                {filteredInquiries.map((inq) => (
+                  <div key={inq.id} className="p-3.5 space-y-2.5">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="font-semibold text-sm text-foreground truncate">{inq.student_name}</p>
+                        <p className="text-xs font-medium text-foreground/90 mt-0.5">{inq.subject}</p>
+                      </div>
+                      <div>
                         {inq.status === "pending" ? (
                           <Badge
                             variant="outline"
-                            className="text-[10px] font-medium bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20 flex items-center gap-1 w-fit"
+                            className="text-[10px] font-medium bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20 flex items-center gap-1 shrink-0"
                           >
-                            <AlertCircle className="h-3 w-3" /> Pending Review
+                            <AlertCircle className="h-3 w-3" /> Pending
                           </Badge>
                         ) : inq.status === "in_progress" ? (
                           <Badge
                             variant="outline"
-                            className="text-[10px] font-medium bg-sky-500/10 text-sky-600 dark:text-sky-400 border-sky-500/20 flex items-center gap-1 w-fit"
+                            className="text-[10px] font-medium bg-sky-500/10 text-sky-600 dark:text-sky-400 border-sky-500/20 flex items-center gap-1 shrink-0"
                           >
                             <Clock className="h-3 w-3" /> In Progress
                           </Badge>
                         ) : (
                           <Badge
                             variant="outline"
-                            className="text-[10px] font-medium bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20 flex items-center gap-1 w-fit"
+                            className="text-[10px] font-medium bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20 flex items-center gap-1 shrink-0"
                           >
                             <CheckCircle2 className="h-3 w-3" /> Resolved
                           </Badge>
                         )}
-                      </TableCell>
+                      </div>
+                    </div>
 
-                      <TableCell className="text-xs font-mono text-muted-foreground">
-                        {new Date(inq.created_at).toLocaleDateString()}
-                        <div className="text-[10px] text-muted-foreground/70">
-                          {new Date(inq.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                        </div>
-                      </TableCell>
+                    <p className="text-[11px] text-muted-foreground line-clamp-2">
+                      &quot;{inq.message}&quot;
+                    </p>
 
-                      <TableCell className="text-right">
-                        <div className="flex items-center justify-end gap-1.5">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleInspectStudent(inq.student_id, inq.student_name)}
-                            className="h-7 px-2 text-[11px] gap-1 text-muted-foreground hover:text-foreground"
-                            title="Open Student Dossier"
-                          >
-                            <FolderOpen className="h-3 w-3 text-sky-500" />
-                            <span className="hidden sm:inline">Dossier</span>
-                          </Button>
+                    <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground font-mono pt-0.5">
+                      <div className="flex items-center gap-1 truncate">
+                        <span className="text-foreground font-medium">{inq.parent_name}</span>
+                        <span>•</span>
+                        <span className="truncate">{inq.parent_email}</span>
+                      </div>
+                      <span className="shrink-0 text-[10px]">{new Date(inq.created_at).toLocaleDateString()}</span>
+                    </div>
 
-                          <Button
-                            size="sm"
-                            onClick={() => handleOpenCase(inq)}
-                            className="h-7 px-2.5 text-xs gap-1.5 bg-primary text-primary-foreground font-medium"
-                          >
-                            <MessageSquare className="h-3 w-3" />
-                            <span>Manage Case</span>
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                    <div className="flex items-center justify-between gap-2 pt-1 border-t border-border/40">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-xs font-medium text-foreground">{inq.counselor_name || "Campus Desk"}</span>
+                        <Badge variant="outline" className="text-[9px] font-mono text-muted-foreground">
+                          {inq.counselor_type === "school_counselor" ? "Staff" : "Platform"}
+                        </Badge>
+                      </div>
+
+                      <div className="flex items-center gap-1.5">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleInspectStudent(inq.student_id, inq.student_name)}
+                          className="h-7 px-2 text-[11px] gap-1 text-muted-foreground hover:text-foreground"
+                          title="Open Student Dossier"
+                        >
+                          <FolderOpen className="h-3 w-3 text-sky-500" />
+                          <span>Dossier</span>
+                        </Button>
+
+                        <Button
+                          size="sm"
+                          onClick={() => handleOpenCase(inq)}
+                          className="h-7 px-2.5 text-xs gap-1.5 bg-primary text-primary-foreground font-medium"
+                        >
+                          <MessageSquare className="h-3 w-3" />
+                          <span>Manage</span>
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </>
             )}
           </CardContent>
         </Card>
@@ -929,122 +1016,224 @@ export default function SchoolCounselorsPage() {
                 </p>
               </div>
             ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow className="border-border/50 bg-secondary/20">
-                    <TableHead className="text-xs font-bold font-mono uppercase">Counselor Profile</TableHead>
-                    <TableHead className="text-xs font-bold font-mono uppercase">Role & Campus</TableHead>
-                    <TableHead className="text-xs font-bold font-mono uppercase">Direct Contact</TableHead>
-                    <TableHead className="text-xs font-bold font-mono uppercase">Available Hours</TableHead>
-                    <TableHead className="text-xs font-bold font-mono uppercase">Portal Status</TableHead>
-                    <TableHead className="text-xs font-bold font-mono uppercase text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredCounselors.map((c) => (
-                    <TableRow key={c.id} className="border-border/40 hover:bg-secondary/10">
-                      <TableCell>
-                        <div className="flex items-center gap-2.5">
-                          <div className="h-8 w-8 rounded-full bg-sky-500/10 border border-sky-500/20 text-sky-600 dark:text-sky-400 font-bold text-xs flex items-center justify-center shrink-0">
-                            {c.name
-                              .split(" ")
-                              .map((part) => part[0])
-                              .slice(0, 2)
-                              .join("")
-                              .toUpperCase()}
-                          </div>
-                          <div>
-                            <div className="font-semibold text-xs text-foreground">{c.name}</div>
-                            <div className="text-[11px] text-muted-foreground font-mono">{c.email}</div>
-                          </div>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="space-y-1">
-                          <div className="text-xs font-medium text-foreground">{c.role}</div>
-                          <Badge variant="outline" className="text-[10px] font-mono text-muted-foreground bg-muted/30">
-                            <Building2 className="h-2.5 w-2.5 mr-1 text-muted-foreground" />
-                            {c.branch_name || "Main Campus"}
-                          </Badge>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="space-y-0.5 text-xs text-muted-foreground font-mono">
-                          {c.phone ? (
-                            <div className="flex items-center gap-1.5 text-foreground/90">
-                              <Phone className="h-3 w-3 text-sky-500" />
-                              <span>{c.phone}</span>
-                            </div>
-                          ) : (
-                            <span className="text-[11px] text-muted-foreground/70 italic">No phone logged</span>
-                          )}
-                          <div className="flex items-center gap-1.5 text-[11px]">
-                            <Mail className="h-3 w-3 text-muted-foreground" />
-                            <span>{c.email}</span>
-                          </div>
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-xs font-mono text-muted-foreground">
-                        <div className="flex items-center gap-1">
-                          <Clock className="h-3 w-3 text-muted-foreground" />
-                          <span>{c.available_hours || "Mon-Fri, 9:00 AM - 3:30 PM"}</span>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        {c.is_active ? (
-                          <Badge
-                            variant="outline"
-                            className="text-[10px] font-medium bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20 flex items-center gap-1 w-fit"
-                          >
-                            <UserCheck className="h-3 w-3" /> Active & Visible
-                          </Badge>
-                        ) : (
-                          <Badge
-                            variant="outline"
-                            className="text-[10px] font-medium bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20 flex items-center gap-1 w-fit"
-                          >
-                            <UserX className="h-3 w-3" /> On Leave (Desk Fallback)
-                          </Badge>
-                        )}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex items-center justify-end gap-1.5">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleProvisionAccess(c)}
-                            disabled={accessLoading}
-                            className="h-7 px-2 text-xs gap-1 border-sky-500/30 text-sky-600 dark:text-sky-400 hover:bg-sky-500/10 font-medium"
-                            title="Provision Counselor Portal login credentials"
-                          >
-                            <KeyRound className="h-3 w-3" />
-                            <span>Portal Access</span>
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleOpenEdit(c)}
-                            className="h-7 px-2 text-xs gap-1 border-primary/30 text-primary hover:bg-primary/5 font-medium"
-                            title="Edit counselor details"
-                          >
-                            <Pencil className="h-3 w-3" />
-                            <span>Edit</span>
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleDeleteCounselor(c.id, c.name)}
-                            className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-                            title="Remove counselor"
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </Button>
-                        </div>
-                      </TableCell>
+              <>
+                {/* Desktop Table View */}
+                <div className="hidden md:block overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="border-border/50 bg-secondary/20">
+                      <TableHead className="text-xs font-bold font-mono uppercase">Counselor Profile</TableHead>
+                      <TableHead className="text-xs font-bold font-mono uppercase">Role & Campus</TableHead>
+                      <TableHead className="text-xs font-bold font-mono uppercase">Direct Contact</TableHead>
+                      <TableHead className="text-xs font-bold font-mono uppercase">Available Hours</TableHead>
+                      <TableHead className="text-xs font-bold font-mono uppercase">Portal Status</TableHead>
+                      <TableHead className="text-xs font-bold font-mono uppercase text-right">Actions</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredCounselors.map((c) => (
+                      <TableRow key={c.id} className="border-border/40 hover:bg-secondary/10">
+                        <TableCell>
+                          <div className="flex items-center gap-2.5">
+                            <div className="h-8 w-8 rounded-full bg-sky-500/10 border border-sky-500/20 text-sky-600 dark:text-sky-400 font-bold text-xs flex items-center justify-center shrink-0">
+                              {c.name
+                                .split(" ")
+                                .map((part) => part[0])
+                                .slice(0, 2)
+                                .join("")
+                                .toUpperCase()}
+                            </div>
+                            <div>
+                              <div className="font-semibold text-xs text-foreground">{c.name}</div>
+                              <div className="text-[11px] text-muted-foreground font-mono">{c.email}</div>
+                            </div>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="space-y-1">
+                            <div className="text-xs font-medium text-foreground">{c.role}</div>
+                            <Badge variant="outline" className="text-[10px] font-mono text-muted-foreground bg-muted/30">
+                              <Building2 className="h-2.5 w-2.5 mr-1 text-muted-foreground" />
+                              {c.branch_name || "Main Campus"}
+                            </Badge>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="space-y-0.5 text-xs text-muted-foreground font-mono">
+                            {c.phone ? (
+                              <div className="flex items-center gap-1.5 text-foreground/90">
+                                <Phone className="h-3 w-3 text-sky-500" />
+                                <span>{c.phone}</span>
+                              </div>
+                            ) : (
+                              <span className="text-[11px] text-muted-foreground/70 italic">No phone logged</span>
+                            )}
+                            <div className="flex items-center gap-1.5 text-[11px]">
+                              <Mail className="h-3 w-3 text-muted-foreground" />
+                              <span>{c.email}</span>
+                            </div>
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-xs font-mono text-muted-foreground">
+                          <div className="flex items-center gap-1">
+                            <Clock className="h-3 w-3 text-muted-foreground" />
+                            <span>{c.available_hours || "Mon-Fri, 9:00 AM - 3:30 PM"}</span>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          {c.is_active ? (
+                            <Badge
+                              variant="outline"
+                              className="text-[10px] font-medium bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20 flex items-center gap-1 w-fit"
+                            >
+                              <UserCheck className="h-3 w-3" /> Active & Visible
+                            </Badge>
+                          ) : (
+                            <Badge
+                              variant="outline"
+                              className="text-[10px] font-medium bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20 flex items-center gap-1 w-fit"
+                            >
+                              <UserX className="h-3 w-3" /> On Leave (Desk Fallback)
+                            </Badge>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex items-center justify-end gap-1.5">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleProvisionAccess(c)}
+                              disabled={accessLoading}
+                              className="h-7 px-2 text-xs gap-1 border-sky-500/30 text-sky-600 dark:text-sky-400 hover:bg-sky-500/10 font-medium"
+                              title="Provision Counselor Portal login credentials"
+                            >
+                              <KeyRound className="h-3 w-3" />
+                              <span>Portal Access</span>
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleOpenEdit(c)}
+                              className="h-7 px-2 text-xs gap-1 border-primary/30 text-primary hover:bg-primary/5 font-medium"
+                              title="Edit counselor details"
+                            >
+                              <Pencil className="h-3 w-3" />
+                              <span>Edit</span>
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleDeleteCounselor(c.id, c.name)}
+                              className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                              title="Remove counselor"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+
+              {/* Mobile Card View */}
+              <div className="md:hidden divide-y divide-border/60">
+                {filteredCounselors.map((c) => (
+                  <div key={c.id} className="p-3.5 space-y-2.5">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <div className="h-8 w-8 rounded-full bg-sky-500/10 border border-sky-500/20 text-sky-600 dark:text-sky-400 font-bold text-xs flex items-center justify-center shrink-0">
+                          {c.name
+                            .split(" ")
+                            .map((part) => part[0])
+                            .slice(0, 2)
+                            .join("")
+                            .toUpperCase()}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="font-semibold text-sm text-foreground truncate">{c.name}</p>
+                          <p className="text-[11px] text-muted-foreground font-mono truncate">{c.email}</p>
+                        </div>
+                      </div>
+
+                      {c.is_active ? (
+                        <Badge
+                          variant="outline"
+                          className="text-[10px] font-medium bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20 shrink-0"
+                        >
+                          Active
+                        </Badge>
+                      ) : (
+                        <Badge
+                          variant="outline"
+                          className="text-[10px] font-medium bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20 shrink-0"
+                        >
+                          On Leave
+                        </Badge>
+                      )}
+                    </div>
+
+                    <div className="flex items-center justify-between gap-2 text-xs">
+                      <div className="space-y-0.5">
+                        <span className="font-medium text-foreground">{c.role}</span>
+                        <div className="flex items-center gap-1 text-[11px] text-muted-foreground">
+                          <Building2 className="h-3 w-3 text-muted-foreground/70" />
+                          <span>{c.branch_name || "Main Campus"}</span>
+                        </div>
+                      </div>
+
+                      {c.phone && (
+                        <div className="flex items-center gap-1 text-[11px] text-muted-foreground font-mono">
+                          <Phone className="h-3 w-3 text-sky-500" />
+                          <span>{c.phone}</span>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="flex items-center justify-between gap-2 pt-1 border-t border-border/40 text-xs">
+                      <div className="flex items-center gap-1 text-[10px] text-muted-foreground font-mono">
+                        <Clock className="h-3 w-3" />
+                        <span className="truncate max-w-[130px]">{c.available_hours || "Mon-Fri"}</span>
+                      </div>
+
+                      <div className="flex items-center gap-1.5">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleProvisionAccess(c)}
+                          disabled={accessLoading}
+                          className="h-7 px-2 text-xs gap-1 border-sky-500/30 text-sky-600 dark:text-sky-400 hover:bg-sky-500/10 font-medium"
+                          title="Provision Counselor Portal login credentials"
+                        >
+                          <KeyRound className="h-3 w-3" />
+                          <span>Access</span>
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleOpenEdit(c)}
+                          className="h-7 px-2 text-xs gap-1 border-primary/30 text-primary hover:bg-primary/5 font-medium"
+                          title="Edit counselor details"
+                        >
+                          <Pencil className="h-3 w-3" />
+                          <span>Edit</span>
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleDeleteCounselor(c.id, c.name)}
+                          className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                          title="Remove counselor"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </>
             )}
           </CardContent>
         </Card>

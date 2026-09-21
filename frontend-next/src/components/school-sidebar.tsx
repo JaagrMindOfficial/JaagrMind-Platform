@@ -1,5 +1,6 @@
 "use client"
 
+import { useEffect } from "react"
 import {
   LayoutDashboard,
   Users,
@@ -85,11 +86,18 @@ const items = [
 export function SchoolSidebar() {
   const pathname = usePathname()
   const router = useRouter()
-  const { open } = useSidebar()
   const { user, hasRole, logout } = useAuth()
 
   const isSchoolAdmin = hasRole("school_admin")
   const isTeacherOnly = hasRole("teacher") && !isSchoolAdmin
+  const { open, isMobile, setOpenMobile } = useSidebar()
+
+  // Automatically close mobile sidebar on route change
+  useEffect(() => {
+    if (isMobile) {
+      setOpenMobile(false)
+    }
+  }, [pathname, isMobile, setOpenMobile])
 
   const displayedItems = isTeacherOnly
     ? [
@@ -147,7 +155,12 @@ export function SchoolSidebar() {
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton 
                     isActive={pathname === item.url}
-                    onClick={() => router.push(item.url)}
+                    onClick={() => {
+                      if (isMobile) {
+                        setOpenMobile(false)
+                      }
+                      router.push(item.url)
+                    }}
                     className="flex items-center gap-3 w-full cursor-pointer"
                   >
                     <item.icon className="h-4 w-4 text-muted-foreground" />
@@ -163,7 +176,12 @@ export function SchoolSidebar() {
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton 
-              onClick={() => logout()}
+              onClick={() => {
+                if (isMobile) {
+                  setOpenMobile(false)
+                }
+                logout()
+              }}
             >
               <LogOut className="h-4 w-4 text-muted-foreground" />
               <span className="font-medium text-[13px]">Logout</span>

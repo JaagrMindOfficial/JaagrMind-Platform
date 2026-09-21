@@ -969,149 +969,286 @@ export default function SchoolStudentsPage() {
               <p>Try clearing your search filters or click "Add Student" to create a record.</p>
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow className="hover:bg-transparent bg-muted/20">
-                    <TableHead className="w-[40px]">
-                      <button
-                        type="button"
-                        onClick={handleSelectAll}
-                        className="flex items-center text-muted-foreground hover:text-foreground"
-                        title={selectedIds.length === filtered.length ? "Deselect all" : "Select all"}
-                      >
-                        {selectedIds.length > 0 && selectedIds.length === filtered.length ? (
-                          <CheckSquare className="h-4 w-4 text-primary" />
-                        ) : (
-                          <Square className="h-4 w-4" />
-                        )}
-                      </button>
-                    </TableHead>
-                    <TableHead className="text-xs w-[140px]">
-                      Roll No. / UUID
-                      <InfoTooltip content="School-assigned identifier (Access ID) used by students for login. System UUID is underneath for secure indexing." />
-                    </TableHead>
-                    <TableHead className="text-xs">Student Name</TableHead>
-                    <TableHead className="text-xs min-w-[150px]">
-                      Class & Section
-                      <InfoTooltip content="Current academic grade and section cohort. Promoted via Promote Class roll-overs." />
-                    </TableHead>
-                    <TableHead className="text-xs">Contact Info</TableHead>
-                    <TableHead className="text-xs text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filtered.map((student) => {
-                    const isSelected = selectedIds.includes(student.id)
-                    return (
-                      <TableRow
-                        key={student.id}
-                        className={`text-xs transition-colors ${
-                          isSelected ? "bg-primary/5 hover:bg-primary/10" : ""
-                        }`}
-                      >
-                        <TableCell>
-                          <button
-                            type="button"
-                            onClick={() => handleToggleSelect(student.id)}
-                            className="flex items-center text-muted-foreground hover:text-foreground"
-                          >
-                            {isSelected ? (
-                              <CheckSquare className="h-4 w-4 text-primary" />
-                            ) : (
-                              <Square className="h-4 w-4" />
-                            )}
-                          </button>
-                        </TableCell>
-                        <TableCell className="font-mono font-medium text-foreground">
-                          <div className="flex flex-col space-y-0.5">
-                            <div className="flex items-center gap-1.5">
-                              <span className="font-bold text-foreground">
-                                Roll {student.roll_number || student.access_id}
-                              </span>
-                              {student.roll_number && student.access_id !== student.roll_number && (
-                                <Badge variant="outline" className="text-[10px] px-1.5 py-0 font-mono text-muted-foreground">
-                                  {student.access_id}
-                                </Badge>
+            <>
+              {/* Desktop Table View */}
+              <div className="hidden md:block overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="hover:bg-transparent bg-muted/20">
+                      <TableHead className="w-[40px]">
+                        <button
+                          type="button"
+                          onClick={handleSelectAll}
+                          className="flex items-center text-muted-foreground hover:text-foreground"
+                          title={selectedIds.length === filtered.length ? "Deselect all" : "Select all"}
+                        >
+                          {selectedIds.length > 0 && selectedIds.length === filtered.length ? (
+                            <CheckSquare className="h-4 w-4 text-primary" />
+                          ) : (
+                            <Square className="h-4 w-4" />
+                          )}
+                        </button>
+                      </TableHead>
+                      <TableHead className="text-xs w-[140px]">
+                        Roll No. / UUID
+                        <InfoTooltip content="School-assigned identifier (Access ID) used by students for login. System UUID is underneath for secure indexing." />
+                      </TableHead>
+                      <TableHead className="text-xs">Student Name</TableHead>
+                      <TableHead className="text-xs min-w-[150px]">
+                        Class & Section
+                        <InfoTooltip content="Current academic grade and section cohort. Promoted via Promote Class roll-overs." />
+                      </TableHead>
+                      <TableHead className="text-xs">Contact Info</TableHead>
+                      <TableHead className="text-xs text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filtered.map((student) => {
+                      const isSelected = selectedIds.includes(student.id)
+                      return (
+                        <TableRow
+                          key={student.id}
+                          className={`text-xs transition-colors ${
+                            isSelected ? "bg-primary/5 hover:bg-primary/10" : ""
+                          }`}
+                        >
+                          <TableCell>
+                            <button
+                              type="button"
+                              onClick={() => handleToggleSelect(student.id)}
+                              className="flex items-center text-muted-foreground hover:text-foreground"
+                            >
+                              {isSelected ? (
+                                <CheckSquare className="h-4 w-4 text-primary" />
+                              ) : (
+                                <Square className="h-4 w-4" />
                               )}
+                            </button>
+                          </TableCell>
+                          <TableCell className="font-mono font-medium text-foreground">
+                            <div className="flex flex-col space-y-0.5">
+                              <div className="flex items-center gap-1.5">
+                                <span className="font-bold text-foreground">
+                                  Roll {student.roll_number || student.access_id}
+                                </span>
+                                {student.roll_number && student.access_id !== student.roll_number && (
+                                  <Badge variant="outline" className="text-[10px] px-1.5 py-0 font-mono text-muted-foreground">
+                                    {student.access_id}
+                                  </Badge>
+                                )}
+                              </div>
+                              <MinimalUUID uuid={student.id} length={4} />
                             </div>
-                            <MinimalUUID uuid={student.id} length={4} />
-                          </div>
-                        </TableCell>
-                        <TableCell className="font-medium text-foreground">
-                          {student.name}
-                        </TableCell>
-                        <TableCell className="min-w-[150px]">
-                          <div className="flex items-center gap-1.5 flex-wrap">
-                            <span className="font-medium inline-block">Class {student.grade}</span>
-                            {student.section ? (
-                              <Badge variant="secondary" className="text-[10px] px-1.5 py-0 font-normal">
-                                Sec {student.section}
-                              </Badge>
-                            ) : null}
-                            {student.stream ? (
-                              <Badge variant="outline" className="text-[10px] px-1.5 py-0 font-normal border-primary/30 text-primary bg-primary/5">
-                                {student.stream}
-                              </Badge>
-                            ) : null}
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-muted-foreground">
-                          {student.email || student.mobile_number || "—"}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <div className="flex items-center justify-end gap-1">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-7 px-2 text-xs text-primary hover:text-primary hover:bg-primary/10 font-medium"
-                              onClick={() => handleOpenDossier(student)}
-                              title="Inspect Longitudinal Behavioral Dossier & Cognitive Diagnostics"
-                            >
-                              <FolderOpen className="h-3.5 w-3.5 mr-1" />
-                              Dossier
-                            </Button>
+                          </TableCell>
+                          <TableCell className="font-medium text-foreground">
+                            {student.name}
+                          </TableCell>
+                          <TableCell className="min-w-[150px]">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span className="font-medium inline-block">Class {student.grade}</span>
+                              {student.section ? (
+                                <Badge variant="secondary" className="text-[10px] px-1.5 py-0 font-normal">
+                                  Sec {student.section}
+                                </Badge>
+                              ) : null}
+                              {student.stream ? (
+                                <Badge variant="outline" className="text-[10px] px-1.5 py-0 font-normal border-primary/30 text-primary bg-primary/5">
+                                  {student.stream}
+                                </Badge>
+                              ) : null}
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-muted-foreground">
+                            {student.email || student.mobile_number || "—"}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <div className="flex items-center justify-end gap-1">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-7 px-2 text-xs text-primary hover:text-primary hover:bg-primary/10 font-medium"
+                                onClick={() => handleOpenDossier(student)}
+                                title="Inspect Longitudinal Behavioral Dossier & Cognitive Diagnostics"
+                              >
+                                <FolderOpen className="h-3.5 w-3.5 mr-1" />
+                                Dossier
+                              </Button>
 
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground"
-                              onClick={() => setHistoryStudent(student)}
-                              title="View performance & attempt trajectory"
-                            >
-                              <History className="h-3.5 w-3.5 mr-1 text-primary" />
-                              History
-                            </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground"
+                                onClick={() => setHistoryStudent(student)}
+                                title="View performance & attempt trajectory"
+                              >
+                                <History className="h-3.5 w-3.5 mr-1 text-primary" />
+                                History
+                              </Button>
 
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-7 w-7 text-muted-foreground hover:text-foreground"
-                              onClick={() => handleOpenEdit(student)}
-                              title="Edit Student"
-                            >
-                              <Edit className="h-3.5 w-3.5" />
-                            </Button>
-
-                            {!isTeacherOnly && (
                               <Button
                                 variant="ghost"
                                 size="icon"
-                                className="h-7 w-7 text-muted-foreground hover:text-destructive"
-                                onClick={() => setDeleteConfirmStudent(student)}
-                                title="Delete Student"
+                                className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                                onClick={() => handleOpenEdit(student)}
+                                title="Edit Student"
                               >
-                                <Trash2 className="h-3.5 w-3.5" />
+                                <Edit className="h-3.5 w-3.5" />
                               </Button>
+
+                              {!isTeacherOnly && (
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                                  onClick={() => setDeleteConfirmStudent(student)}
+                                  title="Delete Student"
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </Button>
+                              )}
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      )
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+
+              {/* Mobile Card View */}
+              <div className="md:hidden">
+                {/* Mobile Select All Bar */}
+                <div className="flex items-center justify-between px-3.5 py-2.5 bg-muted/20 border-b border-border/50 text-xs">
+                  <button
+                    type="button"
+                    onClick={handleSelectAll}
+                    className="flex items-center gap-2 text-muted-foreground hover:text-foreground font-medium"
+                  >
+                    {selectedIds.length > 0 && selectedIds.length === filtered.length ? (
+                      <CheckSquare className="h-4 w-4 text-primary" />
+                    ) : (
+                      <Square className="h-4 w-4" />
+                    )}
+                    <span>Select All ({filtered.length})</span>
+                  </button>
+                  {selectedIds.length > 0 && (
+                    <span className="text-[11px] font-mono text-primary font-semibold">
+                      {selectedIds.length} selected
+                    </span>
+                  )}
+                </div>
+
+                <div className="divide-y divide-border/60">
+                  {filtered.map((student) => {
+                    const isSelected = selectedIds.includes(student.id)
+                    return (
+                      <div
+                        key={student.id}
+                        className={`p-3.5 space-y-2.5 transition-colors ${
+                          isSelected ? "bg-primary/5" : ""
+                        }`}
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex items-start gap-2.5 min-w-0">
+                            <button
+                              type="button"
+                              onClick={() => handleToggleSelect(student.id)}
+                              className="flex items-center text-muted-foreground hover:text-foreground shrink-0 mt-0.5"
+                            >
+                              {isSelected ? (
+                                <CheckSquare className="h-4 w-4 text-primary" />
+                              ) : (
+                                <Square className="h-4 w-4" />
+                              )}
+                            </button>
+                            <div className="min-w-0">
+                              <p className="font-semibold text-sm text-foreground truncate">{student.name}</p>
+                              <div className="flex items-center gap-1.5 mt-0.5">
+                                <span className="font-mono text-xs font-bold text-foreground">
+                                  Roll {student.roll_number || student.access_id}
+                                </span>
+                                {student.roll_number && student.access_id !== student.roll_number && (
+                                  <Badge variant="outline" className="text-[9px] px-1 py-0 font-mono text-muted-foreground">
+                                    {student.access_id}
+                                  </Badge>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-1 flex-wrap justify-end shrink-0">
+                            <span className="font-medium text-xs">Class {student.grade}</span>
+                            {student.section && (
+                              <Badge variant="secondary" className="text-[10px] px-1 py-0 font-normal">
+                                {student.section}
+                              </Badge>
+                            )}
+                            {student.stream && (
+                              <Badge variant="outline" className="text-[9px] px-1 py-0 font-normal border-primary/30 text-primary bg-primary/5">
+                                {student.stream}
+                              </Badge>
                             )}
                           </div>
-                        </TableCell>
-                      </TableRow>
+                        </div>
+
+                        <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground font-mono">
+                          <MinimalUUID uuid={student.id} length={4} />
+                          {(student.email || student.mobile_number) && (
+                            <span className="truncate max-w-[180px] text-[11px]">{student.email || student.mobile_number}</span>
+                          )}
+                        </div>
+
+                        <div className="flex items-center justify-end gap-1.5 pt-1 border-t border-border/40">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-7 px-2 text-xs text-primary hover:text-primary hover:bg-primary/10 font-medium"
+                            onClick={() => handleOpenDossier(student)}
+                            title="Inspect Longitudinal Behavioral Dossier & Cognitive Diagnostics"
+                          >
+                            <FolderOpen className="h-3.5 w-3.5 mr-1" />
+                            Dossier
+                          </Button>
+
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground"
+                            onClick={() => setHistoryStudent(student)}
+                            title="View performance & attempt trajectory"
+                          >
+                            <History className="h-3.5 w-3.5 mr-1 text-primary" />
+                            History
+                          </Button>
+
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                            onClick={() => handleOpenEdit(student)}
+                            title="Edit Student"
+                          >
+                            <Edit className="h-3.5 w-3.5" />
+                          </Button>
+
+                          {!isTeacherOnly && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                              onClick={() => setDeleteConfirmStudent(student)}
+                              title="Delete Student"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          )}
+                        </div>
+                      </div>
                     )
                   })}
-                </TableBody>
-              </Table>
-            </div>
+                </div>
+              </div>
+            </>
           )}
         </CardContent>
       </Card>

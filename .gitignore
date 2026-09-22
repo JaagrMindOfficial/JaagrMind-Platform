@@ -73,3 +73,4 @@ backend-go/seed-workflow
 backend-go/bin/.agents
 graphify-out
 DECISIONS.md
+schema.md

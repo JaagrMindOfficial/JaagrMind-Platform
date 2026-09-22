@@ -3,10 +3,12 @@ package repository
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/jaagrmind/platform-api/internal/core/domain"
 )
@@ -224,6 +226,35 @@ func (r *postgresUser) AddRole(ctx context.Context, userID, role, entityID strin
 		ON CONFLICT DO NOTHING
 	`, userID, role, entID)
 	return err
+}
+
+func (r *postgresUser) RemoveRole(ctx context.Context, userID, role, entityID string) error {
+	if entityID != "" {
+		_, err := r.db.Exec(ctx, `
+			DELETE FROM user_roles 
+			WHERE user_id = $1::uuid AND role = $2 AND (entity_id = $3::uuid OR entity_id IS NULL)
+		`, userID, role, entityID)
+		return err
+	}
+	_, err := r.db.Exec(ctx, `
+		DELETE FROM user_roles 
+		WHERE user_id = $1::uuid AND role = $2
+	`, userID, role)
+	return err
+}
+
+func (r *postgresUser) IsCounselorActive(ctx context.Context, email string) (bool, bool, error) {
+	var isActive bool
+	err := r.db.QueryRow(ctx, `
+		SELECT is_active FROM school_counselors WHERE LOWER(email) = LOWER($1) LIMIT 1
+	`, strings.TrimSpace(email)).Scan(&isActive)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return false, false, nil
+		}
+		return false, false, err
+	}
+	return true, isActive, nil
 }
 
 func (r *postgresUser) GetUsersByRole(ctx context.Context, role string) ([]domain.User, error) {

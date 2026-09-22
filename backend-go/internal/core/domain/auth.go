@@ -96,6 +96,8 @@ type UserRepository interface {
 	CreateUser(ctx context.Context, email, name, passwordHash string) (*User, error)
 	CreateIndependentUser(ctx context.Context, email, name, passwordHash, phone string, metadata map[string]any) (*User, error)
 	AddRole(ctx context.Context, userID, role, entityID string) error
+	RemoveRole(ctx context.Context, userID, role, entityID string) error
+	IsCounselorActive(ctx context.Context, email string) (bool, bool, error)
 	GetUsersByRole(ctx context.Context, role string) ([]User, error)
 	GetUsersByRoleAndEntity(ctx context.Context, role, entityID string) ([]User, error)
 	UpdatePassword(ctx context.Context, userID, passwordHash string) error

@@ -49,6 +49,8 @@ func SetupAdminAPIRoutes(app fiber.Router, schoolRepo domain.SchoolRepository, s
 	// Platform & School Counselor Management
 	app.Get("/counselors", handler.GetAdminCounselors)
 	app.Post("/counselors", handler.OnboardAdminCounselor)
+	app.Put("/counselors/:id", handler.UpdateAdminCounselor)
+	app.Delete("/counselors/:id", handler.DeleteAdminCounselor)
 
 	// Account
 	app.Get("/account", handler.GetAdminAccount)
@@ -1201,7 +1203,7 @@ func (h *AdminAPIHandler) OnboardAdminCounselor(c fiber.Ctx) error {
 	}
 
 	// 2. Create or update user login account
-	tempPassword := "counselor123"
+	tempPassword := generateSecureTempPassword()
 	hash, err := h.authSvc.HashPassword(tempPassword)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to hash password"})
@@ -1280,6 +1282,109 @@ func (h *AdminAPIHandler) OnboardAdminCounselor(c fiber.Ctx) error {
 		"name":          req.Name,
 		"temp_password": tempPassword,
 		"portal_url":    portalURL,
+	})
+}
+
+type AdminUpdateCounselorRequest struct {
+	Name           string `json:"name"`
+	Email          string `json:"email"`
+	Phone          string `json:"phone"`
+	Role           string `json:"role"`
+	BranchName     string `json:"branch_name"`
+	AvailableHours string `json:"available_hours"`
+	SchoolID       string `json:"school_id"`
+	BranchID       string `json:"branch_id"`
+	IsActive       *bool  `json:"is_active"`
+}
+
+func (h *AdminAPIHandler) UpdateAdminCounselor(c fiber.Ctx) error {
+	id := c.Params("id")
+	if id == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Counselor ID is required"})
+	}
+
+	var req AdminUpdateCounselorRequest
+	if err := c.Bind().Body(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid request body"})
+	}
+
+	existing, err := h.parentRepo.GetCounselorByID(c.Context(), id)
+	if err != nil || existing == nil {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "Counselor not found"})
+	}
+
+	if req.Name != "" {
+		existing.Name = strings.TrimSpace(req.Name)
+	}
+	if req.Email != "" {
+		existing.Email = strings.ToLower(strings.TrimSpace(req.Email))
+	}
+	if req.Phone != "" {
+		existing.Phone = strings.TrimSpace(req.Phone)
+	}
+	if req.Role != "" {
+		existing.Role = strings.TrimSpace(req.Role)
+	}
+	if req.BranchName != "" {
+		existing.BranchName = strings.TrimSpace(req.BranchName)
+	}
+	if req.AvailableHours != "" {
+		existing.AvailableHours = strings.TrimSpace(req.AvailableHours)
+	}
+	if req.SchoolID != "" {
+		existing.SchoolID = req.SchoolID
+	}
+	if req.BranchID != "" {
+		existing.BranchID = req.BranchID
+	}
+	if req.IsActive != nil {
+		existing.IsActive = *req.IsActive
+	}
+
+	updated, err := h.parentRepo.AdminUpdateCounselor(c.Context(), id, *existing)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to update counselor: " + err.Error()})
+	}
+
+	statusMsg := "Counselor updated successfully"
+	if req.IsActive != nil {
+		if *req.IsActive {
+			statusMsg = "Counselor activated successfully"
+		} else {
+			statusMsg = "Counselor deactivated successfully"
+		}
+	}
+
+	return c.JSON(fiber.Map{
+		"success":   true,
+		"message":   statusMsg,
+		"counselor": updated,
+	})
+}
+
+func (h *AdminAPIHandler) DeleteAdminCounselor(c fiber.Ctx) error {
+	id := c.Params("id")
+	if id == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Counselor ID is required"})
+	}
+
+	existing, err := h.parentRepo.GetCounselorByID(c.Context(), id)
+	if err != nil || existing == nil {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "Counselor not found"})
+	}
+
+	if err := h.parentRepo.AdminDeleteCounselor(c.Context(), id); err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to delete counselor: " + err.Error()})
+	}
+
+	// Revoke counselor role from user_roles
+	if user, uErr := h.userRepo.GetUserByEmail(c.Context(), existing.Email); uErr == nil && user != nil {
+		_ = h.userRepo.RemoveRole(c.Context(), user.ID, domain.RoleCounselor, "")
+	}
+
+	return c.JSON(fiber.Map{
+		"success": true,
+		"message": "Counselor removed successfully and access revoked",
 	})
 }
 

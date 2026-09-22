@@ -239,9 +239,12 @@ type ParentRepository interface {
 	// Counselor management for School Admin & Super Admin
 	GetAllCounselors(ctx context.Context) ([]SchoolCounselor, error)
 	GetCounselorsBySchool(ctx context.Context, schoolID string) ([]SchoolCounselor, error)
+	GetCounselorByID(ctx context.Context, counselorID string) (*SchoolCounselor, error)
 	AddSchoolCounselor(ctx context.Context, counselor SchoolCounselor) (*SchoolCounselor, error)
 	UpdateSchoolCounselor(ctx context.Context, counselorID, schoolID string, counselor SchoolCounselor) (*SchoolCounselor, error)
 	DeleteSchoolCounselor(ctx context.Context, counselorID, schoolID string) error
+	AdminUpdateCounselor(ctx context.Context, counselorID string, counselor SchoolCounselor) (*SchoolCounselor, error)
+	AdminDeleteCounselor(ctx context.Context, counselorID string) error
 
 	// Parent Inquiries for Super Admin & School Counselors
 	GetParentInquiriesForSuperAdmin(ctx context.Context) ([]ParentInquiry, error)

@@ -38,8 +38,50 @@ func (s *authService) Login(ctx context.Context, req domain.LoginRequest) (*doma
 	}
 
 	var roleStrings []string
+	hasCounselorRole := false
 	for _, r := range user.Roles {
-		roleStrings = append(roleStrings, r.Role)
+		if r.Role == domain.RoleCounselor {
+			hasCounselorRole = true
+		} else {
+			roleStrings = append(roleStrings, r.Role)
+		}
+	}
+
+	if hasCounselorRole {
+		exists, isActive, cErr := s.repo.IsCounselorActive(ctx, user.Email)
+		if cErr == nil && exists {
+			if isActive {
+				roleStrings = append(roleStrings, domain.RoleCounselor)
+			} else {
+				// Counselor account is explicitly marked inactive / blocked
+				if len(roleStrings) == 0 {
+					return nil, errors.New("Counselor account has been deactivated. Please contact your school or platform administrator.")
+				}
+			}
+		} else if !exists && !user.IsInternal {
+			// Directory record deleted for campus counselor
+			if len(roleStrings) == 0 {
+				return nil, errors.New("Counselor account has been removed. Please contact your school or platform administrator.")
+			}
+		} else {
+			roleStrings = append(roleStrings, domain.RoleCounselor)
+		}
+	}
+
+	// Filter user.Roles in response to match validated roles
+	var activeRoles []domain.UserRole
+	for _, r := range user.Roles {
+		for _, rs := range roleStrings {
+			if r.Role == rs {
+				activeRoles = append(activeRoles, r)
+				break
+			}
+		}
+	}
+	user.Roles = activeRoles
+
+	if len(roleStrings) == 0 {
+		return nil, errors.New("Account has no active roles or has been deactivated. Please contact your administrator.")
 	}
 
 	token, err := s.GenerateToken(domain.TokenPayload{

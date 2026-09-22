@@ -1183,6 +1183,59 @@ func (r *postgresParent) DeleteSchoolCounselor(ctx context.Context, counselorID,
 	return err
 }
 
+func (r *postgresParent) GetCounselorByID(ctx context.Context, counselorID string) (*domain.SchoolCounselor, error) {
+	var sc domain.SchoolCounselor
+	var branchID string
+	err := r.db.QueryRow(ctx, `
+		SELECT id, COALESCE(school_id::text, ''), COALESCE(branch_id::text, ''), name, email, COALESCE(phone, ''),
+		       role, COALESCE(branch_name, ''), COALESCE(available_hours, ''), is_active, created_at::text
+		FROM school_counselors
+		WHERE id = $1::uuid
+	`, counselorID).Scan(
+		&sc.ID, &sc.SchoolID, &branchID, &sc.Name, &sc.Email, &sc.Phone,
+		&sc.Role, &sc.BranchName, &sc.AvailableHours, &sc.IsActive, &sc.CreatedAt,
+	)
+	if err != nil {
+		return nil, err
+	}
+	sc.BranchID = branchID
+	return &sc, nil
+}
+
+func (r *postgresParent) AdminUpdateCounselor(ctx context.Context, counselorID string, c domain.SchoolCounselor) (*domain.SchoolCounselor, error) {
+	var updated domain.SchoolCounselor
+	var branchID string
+	err := r.db.QueryRow(ctx, `
+		UPDATE school_counselors 
+		SET name = $2,
+		    email = $3,
+		    phone = $4,
+		    role = $5,
+		    branch_name = $6,
+		    available_hours = $7,
+		    is_active = $8,
+		    branch_id = NULLIF($9, '')::uuid,
+		    school_id = NULLIF($10, '')::uuid,
+		    updated_at = NOW()
+		WHERE id = $1::uuid
+		RETURNING id, COALESCE(school_id::text, ''), COALESCE(branch_id::text, ''), name, email, COALESCE(phone, ''),
+		          role, COALESCE(branch_name, ''), COALESCE(available_hours, ''), is_active, created_at::text
+	`, counselorID, c.Name, c.Email, c.Phone, c.Role, c.BranchName, c.AvailableHours, c.IsActive, c.BranchID, c.SchoolID).Scan(
+		&updated.ID, &updated.SchoolID, &branchID, &updated.Name, &updated.Email, &updated.Phone,
+		&updated.Role, &updated.BranchName, &updated.AvailableHours, &updated.IsActive, &updated.CreatedAt,
+	)
+	if err != nil {
+		return nil, err
+	}
+	updated.BranchID = branchID
+	return &updated, nil
+}
+
+func (r *postgresParent) AdminDeleteCounselor(ctx context.Context, counselorID string) error {
+	_, err := r.db.Exec(ctx, `DELETE FROM school_counselors WHERE id = $1::uuid`, counselorID)
+	return err
+}
+
 func (r *postgresParent) GetParentInquiriesForSuperAdmin(ctx context.Context) ([]domain.ParentInquiry, error) {
 	rows, err := r.db.Query(ctx, `
 		SELECT p.id, p.parent_id, p.student_id, p.student_name,

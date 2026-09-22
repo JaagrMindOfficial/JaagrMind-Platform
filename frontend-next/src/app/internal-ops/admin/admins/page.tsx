@@ -13,7 +13,7 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
-import { Plus, UserPlus, Copy, Check, Loader2, HeartHandshake, Building2, Mail, Phone, User, AlertCircle, AlertTriangle } from "lucide-react"
+import { Plus, UserPlus, Copy, Check, Loader2, HeartHandshake, Building2, Mail, Phone, User, AlertCircle, AlertTriangle, Pencil, Trash2, ShieldAlert, ShieldCheck } from "lucide-react"
 import { api } from "@/lib/api"
 import {
   Dialog,
@@ -63,6 +63,94 @@ export default function AdminsPage() {
   const [onboardResult, setOnboardResult] = useState<{ temp_password: string; portal_url: string; email: string; name: string } | null>(null)
   const [onboardError, setOnboardError] = useState("")
   const [copied, setCopied] = useState(false)
+
+  // Counselor edit state
+  const [isEditOpen, setIsEditOpen] = useState(false)
+  const [editingCounselor, setEditingCounselor] = useState<Counselor | null>(null)
+  const [editName, setEditName] = useState("")
+  const [editPhone, setEditPhone] = useState("")
+  const [editRole, setEditRole] = useState("")
+  const [editAvailableHours, setEditAvailableHours] = useState("")
+  const [editIsActive, setEditIsActive] = useState(true)
+  const [editSaving, setEditSaving] = useState(false)
+  const [editError, setEditError] = useState("")
+  const [editSuccess, setEditSuccess] = useState("")
+
+  // Counselor delete state
+  const [isDeleteOpen, setIsDeleteOpen] = useState(false)
+  const [deletingCounselor, setDeletingCounselor] = useState<Counselor | null>(null)
+  const [deleteSaving, setDeleteSaving] = useState(false)
+  const [deleteError, setDeleteError] = useState("")
+
+  const openEdit = (c: Counselor) => {
+    setEditingCounselor(c)
+    setEditName(c.name)
+    setEditPhone(c.phone || "")
+    setEditRole(c.role || "")
+    setEditAvailableHours(c.available_hours || "")
+    setEditIsActive(c.is_active)
+    setEditError("")
+    setEditSuccess("")
+    setIsEditOpen(true)
+  }
+
+  const handleSaveEdit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!editingCounselor) return
+    setEditSaving(true)
+    setEditError("")
+    try {
+      await api.put(`/api/admin/counselors/${editingCounselor.id}`, {
+        name: editName.trim(),
+        phone: editPhone.trim(),
+        role: editRole.trim(),
+        available_hours: editAvailableHours.trim(),
+        is_active: editIsActive,
+      })
+      setEditSuccess("Counselor updated successfully.")
+      fetchCounselors()
+      setTimeout(() => {
+        setIsEditOpen(false)
+        setEditingCounselor(null)
+        setEditSuccess("")
+      }, 750)
+    } catch (err: any) {
+      setEditError(err.message || err.error || "Failed to update counselor")
+    } finally {
+      setEditSaving(false)
+    }
+  }
+
+  const handleToggleStatus = async (c: Counselor) => {
+    try {
+      await api.put(`/api/admin/counselors/${c.id}`, { is_active: !c.is_active })
+      fetchCounselors()
+    } catch (err: any) {
+      console.error("Failed to toggle counselor status", err)
+    }
+  }
+
+  const openDelete = (c: Counselor) => {
+    setDeletingCounselor(c)
+    setDeleteError("")
+    setIsDeleteOpen(true)
+  }
+
+  const handleConfirmDelete = async () => {
+    if (!deletingCounselor) return
+    setDeleteSaving(true)
+    setDeleteError("")
+    try {
+      await api.delete(`/api/admin/counselors/${deletingCounselor.id}`)
+      setIsDeleteOpen(false)
+      setDeletingCounselor(null)
+      fetchCounselors()
+    } catch (err: any) {
+      setDeleteError(err.message || err.error || "Failed to remove counselor")
+    } finally {
+      setDeleteSaving(false)
+    }
+  }
 
   useEffect(() => {
     fetchAdmins()
@@ -463,6 +551,7 @@ export default function AdminsPage() {
                       <TableHead>Role</TableHead>
                       <TableHead>Hours</TableHead>
                       <TableHead>Status</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -489,6 +578,49 @@ export default function AdminsPage() {
                             {c.is_active ? "Active" : "Inactive"}
                           </Badge>
                         </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex items-center justify-end gap-1.5">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground"
+                              onClick={() => openEdit(c)}
+                              title="Edit Counselor Details"
+                            >
+                              <Pencil className="h-3.5 w-3.5 mr-1" /> Edit
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className={`h-7 px-2 text-xs ${
+                                c.is_active
+                                  ? "text-amber-600 dark:text-amber-400 hover:bg-amber-500/10"
+                                  : "text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10"
+                              }`}
+                              onClick={() => handleToggleStatus(c)}
+                              title={c.is_active ? "Deactivate / Block counselor access" : "Activate counselor access"}
+                            >
+                              {c.is_active ? (
+                                <>
+                                  <ShieldAlert className="h-3.5 w-3.5 mr-1" /> Deactivate
+                                </>
+                              ) : (
+                                <>
+                                  <ShieldCheck className="h-3.5 w-3.5 mr-1" /> Activate
+                                </>
+                              )}
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-7 px-2 text-xs text-destructive hover:bg-destructive/10"
+                              onClick={() => openDelete(c)}
+                              title="Delete Counselor & Revoke Access"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
+                        </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -498,7 +630,7 @@ export default function AdminsPage() {
               {/* Mobile Card View */}
               <div className="md:hidden divide-y divide-border/60">
                 {counselors.map((c) => (
-                  <div key={c.id} className="p-3.5 space-y-2">
+                  <div key={c.id} className="p-3.5 space-y-2.5">
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0">
                         <p className="font-semibold text-sm text-foreground truncate">{c.name}</p>
@@ -528,6 +660,35 @@ export default function AdminsPage() {
                         Hours: {c.available_hours}
                       </div>
                     )}
+
+                    <div className="flex items-center justify-end gap-2 pt-2 border-t border-border/40">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-7 px-2 text-xs"
+                        onClick={() => openEdit(c)}
+                      >
+                        <Pencil className="h-3.5 w-3.5 mr-1" /> Edit
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className={`h-7 px-2 text-xs ${
+                          c.is_active ? "text-amber-600 border-amber-500/30" : "text-emerald-600 border-emerald-500/30"
+                        }`}
+                        onClick={() => handleToggleStatus(c)}
+                      >
+                        {c.is_active ? "Deactivate" : "Activate"}
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-7 px-2 text-xs text-destructive border-destructive/30 hover:bg-destructive/10"
+                        onClick={() => openDelete(c)}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -535,6 +696,126 @@ export default function AdminsPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Edit Counselor Dialog */}
+      <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Edit Counselor Details</DialogTitle>
+            <DialogDescription>
+              Update contact information, hours, or toggle platform account access.
+            </DialogDescription>
+          </DialogHeader>
+
+          {editingCounselor && (
+            <form onSubmit={handleSaveEdit} className="space-y-4 py-2">
+              {editError && (
+                <div className="p-3 bg-destructive/10 text-destructive border border-destructive/20 rounded-lg text-xs flex items-start gap-2">
+                  <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
+                  <span>{editError}</span>
+                </div>
+              )}
+              {editSuccess && (
+                <div className="p-3 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/20 rounded-lg text-xs">
+                  {editSuccess}
+                </div>
+              )}
+
+              <div className="space-y-2">
+                <label className="text-xs font-semibold">Full Name</label>
+                <Input value={editName} onChange={(e) => setEditName(e.target.value)} required />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-xs font-semibold">Email Address (Read-only)</label>
+                <Input value={editingCounselor.email} disabled className="bg-muted font-mono text-xs" />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-xs font-semibold">Phone</label>
+                <Input value={editPhone} onChange={(e) => setEditPhone(e.target.value)} placeholder="+91 98765 43210" />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-xs font-semibold">Role Title</label>
+                <Input value={editRole} onChange={(e) => setEditRole(e.target.value)} />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-xs font-semibold">Available Hours</label>
+                <Input value={editAvailableHours} onChange={(e) => setEditAvailableHours(e.target.value)} placeholder="Mon-Fri, 9:00 AM - 3:30 PM" />
+              </div>
+
+              <div className="flex items-center justify-between p-3 rounded-lg bg-muted/40 border border-border/60">
+                <div>
+                  <p className="text-xs font-semibold">Account Status</p>
+                  <p className="text-[11px] text-muted-foreground">
+                    {editIsActive ? "Active: Can sign in and receive student inquiries" : "Inactive: Login access suspended"}
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  variant={editIsActive ? "default" : "secondary"}
+                  size="sm"
+                  className="text-xs h-7"
+                  onClick={() => setEditIsActive(!editIsActive)}
+                >
+                  {editIsActive ? "Active" : "Inactive"}
+                </Button>
+              </div>
+
+              <DialogFooter className="pt-2">
+                <Button type="button" variant="outline" onClick={() => setIsEditOpen(false)}>
+                  Cancel
+                </Button>
+                <Button type="submit" disabled={editSaving}>
+                  {editSaving ? "Saving..." : "Save Changes"}
+                </Button>
+              </DialogFooter>
+            </form>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Counselor Confirmation Dialog */}
+      <Dialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-destructive flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5" /> Remove Counselor
+            </DialogTitle>
+            <DialogDescription>
+              Are you sure you want to remove <strong>{deletingCounselor?.name}</strong>?
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="py-2 text-xs text-muted-foreground space-y-2">
+            <p>
+              This will remove the counselor from the directory and revoke their login privileges across the Counselor Portal.
+            </p>
+            {deleteError && (
+              <div className="p-3 bg-destructive/10 text-destructive border border-destructive/20 rounded-lg text-xs flex items-start gap-2">
+                <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
+                <span>{deleteError}</span>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button type="button" variant="outline" onClick={() => setIsDeleteOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              disabled={deleteSaving}
+              onClick={handleConfirmDelete}
+            >
+              {deleteSaving ? "Removing..." : "Confirm & Revoke Access"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

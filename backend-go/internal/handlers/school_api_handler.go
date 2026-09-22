@@ -1913,11 +1913,21 @@ func (h *SchoolAPIHandler) DeleteSchoolCounselor(c fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Counselor ID is required"})
 	}
 
+	existing, _ := h.parentRepo.GetCounselorByID(c.Context(), counselorID)
+
 	err := h.parentRepo.DeleteSchoolCounselor(c.Context(), counselorID, schoolID)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 	}
-	return c.JSON(fiber.Map{"success": true, "message": "Counselor removed successfully"})
+
+	// Revoke counselor role for this school
+	if existing != nil && existing.Email != "" {
+		if u, uErr := h.userRepo.GetUserByEmail(c.Context(), existing.Email); uErr == nil && u != nil {
+			_ = h.userRepo.RemoveRole(c.Context(), u.ID, domain.RoleCounselor, schoolID)
+		}
+	}
+
+	return c.JSON(fiber.Map{"success": true, "message": "Counselor removed successfully and access revoked"})
 }
 
 func (h *SchoolAPIHandler) UpdateSchoolCounselor(c fiber.Ctx) error {

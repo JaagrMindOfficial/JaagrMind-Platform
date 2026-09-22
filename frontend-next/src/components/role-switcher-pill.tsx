@@ -143,11 +143,10 @@ export function RoleSwitcherPill() {
           <button
             type="button"
             onClick={handleSchoolAdminClick}
-            className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium transition-all duration-150 cursor-pointer ${
-              activeRole === "school_admin"
+            className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium transition-all duration-150 cursor-pointer ${activeRole === "school_admin"
                 ? "bg-background text-foreground shadow-xs font-semibold"
                 : "text-muted-foreground hover:text-foreground hover:bg-background/40"
-            }`}
+              }`}
             title="School Administrator Portal"
           >
             <ShieldCheck className="h-3.5 w-3.5 shrink-0 text-primary" />
@@ -160,11 +159,10 @@ export function RoleSwitcherPill() {
           <button
             type="button"
             onClick={handleTeacherClick}
-            className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium transition-all duration-150 cursor-pointer ${
-              activeRole === "teacher"
+            className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium transition-all duration-150 cursor-pointer ${activeRole === "teacher"
                 ? "bg-background text-foreground shadow-xs font-semibold"
                 : "text-muted-foreground hover:text-foreground hover:bg-background/40"
-            }`}
+              }`}
             title="Classroom Teacher Portal"
           >
             <GraduationCap className="h-3.5 w-3.5 shrink-0 text-blue-500" />
@@ -177,11 +175,10 @@ export function RoleSwitcherPill() {
           <button
             type="button"
             onClick={handleCounselorClick}
-            className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium transition-all duration-150 cursor-pointer ${
-              activeRole === "counselor"
+            className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium transition-all duration-150 cursor-pointer ${activeRole === "counselor"
                 ? "bg-background text-foreground shadow-xs font-semibold"
                 : "text-muted-foreground hover:text-foreground hover:bg-background/40"
-            }`}
+              }`}
             title="School Counselor Desk"
           >
             <HeartHandshake className="h-3.5 w-3.5 shrink-0 text-amber-500" />
@@ -193,13 +190,12 @@ export function RoleSwitcherPill() {
         <button
           type="button"
           onClick={handleParentClick}
-          className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium transition-all duration-150 cursor-pointer ${
-            activeRole === "parent"
+          className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium transition-all duration-150 cursor-pointer ${activeRole === "parent"
               ? "bg-background text-foreground shadow-xs font-semibold"
               : isParent
-              ? "text-muted-foreground hover:text-foreground hover:bg-background/40"
-              : "text-muted-foreground hover:text-primary hover:bg-primary/10 border border-dashed border-primary/30"
-          }`}
+                ? "text-muted-foreground hover:text-foreground hover:bg-background/40"
+                : "text-muted-foreground hover:text-primary hover:bg-primary/10 border border-dashed border-primary/30"
+            }`}
           title={isParent ? "Parent & Guardian Portal" : "Click to view guide and enable Parent Portal"}
         >
           <Users className="h-3.5 w-3.5 shrink-0 text-emerald-500" />
@@ -354,7 +350,7 @@ export function RoleSwitcherPill() {
                 </div>
                 <div className="flex items-start gap-2">
                   <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0 mt-0.5" />
-                  <span><strong>Growth Radar:</strong> View 6-dimensional developmental cognitive insights.</span>
+                  <span><strong>Growth Radar:</strong> View multi-dimensional developmental cognitive insights.</span>
                 </div>
                 <div className="flex items-start gap-2">
                   <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0 mt-0.5" />

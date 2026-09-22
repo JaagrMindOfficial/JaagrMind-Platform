@@ -36,6 +36,7 @@ import {
   Pencil,
   Building2,
   ShieldCheck,
+  ShieldAlert,
   AlertCircle,
   UserCheck,
   UserX,
@@ -452,20 +453,51 @@ export default function SchoolCounselorsPage() {
   const [isAccessModalOpen, setIsAccessModalOpen] = useState(false);
   const [accessLoading, setAccessLoading] = useState(false);
   const [accessCopied, setAccessCopied] = useState(false);
+  const [counselorToReset, setCounselorToReset] = useState<SchoolCounselor | null>(null);
+  const [isResetConfirmOpen, setIsResetConfirmOpen] = useState(false);
 
-  const handleProvisionAccess = async (c: SchoolCounselor) => {
+  const handleToggleBlockCounselor = async (c: SchoolCounselor) => {
+    try {
+      const newStatus = !c.is_active;
+      await api.put(`/api/school/counselors/${c.id}`, {
+        name: c.name,
+        email: c.email,
+        phone: c.phone || "",
+        branch_id: c.branch_id || null,
+        branch_name: c.branch_name || "Main Campus",
+        role: c.role || "School Wellness Counselor",
+        available_hours: c.available_hours || "Mon-Fri, 9:00 AM - 3:30 PM",
+        is_active: newStatus,
+      });
+      fetchCounselors();
+    } catch (err: any) {
+      console.error("Failed to toggle counselor status:", err);
+      alert(err.message || "Failed to update counselor status");
+    }
+  };
+
+  const handleOpenResetConfirm = (c: SchoolCounselor) => {
+    setCounselorToReset(c);
+    setIsResetConfirmOpen(true);
+  };
+
+  const handleExecuteResetPassword = async () => {
+    if (!counselorToReset) return;
     setAccessLoading(true);
     try {
-      const res = await fetch(`${apiBase}/api/school/counselors/${c.id}/provision-access`, {
-        method: "POST",
-        headers: getAuthHeaders(),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed to provision access");
+      const data = await api.post<{
+        message: string;
+        email: string;
+        name: string;
+        temp_password: string;
+        portal_url: string;
+      }>(`/api/school/counselors/${counselorToReset.id}/provision-access`, {});
+      setIsResetConfirmOpen(false);
       setAccessResult(data);
       setIsAccessModalOpen(true);
     } catch (err: any) {
-      alert(err.message || "Failed to provision counselor access");
+      console.error("Failed to reset counselor password:", err);
+      alert(err.message || "Failed to reset counselor password");
     } finally {
       setAccessLoading(false);
     }
@@ -1086,14 +1118,14 @@ export default function SchoolCounselorsPage() {
                               variant="outline"
                               className="text-[10px] font-medium bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20 flex items-center gap-1 w-fit"
                             >
-                              <UserCheck className="h-3 w-3" /> Active & Visible
+                              <UserCheck className="h-3 w-3" /> Active on Duty
                             </Badge>
                           ) : (
                             <Badge
                               variant="outline"
-                              className="text-[10px] font-medium bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20 flex items-center gap-1 w-fit"
+                              className="text-[10px] font-medium bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20 flex items-center gap-1 w-fit"
                             >
-                              <UserX className="h-3 w-3" /> On Leave (Desk Fallback)
+                              <UserX className="h-3 w-3" /> Blocked / Inactive
                             </Badge>
                           )}
                         </TableCell>
@@ -1102,13 +1134,36 @@ export default function SchoolCounselorsPage() {
                             <Button
                               variant="outline"
                               size="sm"
-                              onClick={() => handleProvisionAccess(c)}
+                              onClick={() => handleToggleBlockCounselor(c)}
+                              className={`h-7 px-2 text-xs gap-1 font-medium ${
+                                c.is_active
+                                  ? "border-rose-500/30 text-rose-600 dark:text-rose-400 hover:bg-rose-500/10"
+                                  : "border-emerald-500/30 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10"
+                              }`}
+                              title={c.is_active ? "Block counselor access" : "Activate counselor access"}
+                            >
+                              {c.is_active ? (
+                                <>
+                                  <ShieldAlert className="h-3 w-3" />
+                                  <span>Block</span>
+                                </>
+                              ) : (
+                                <>
+                                  <ShieldCheck className="h-3 w-3" />
+                                  <span>Activate</span>
+                                </>
+                              )}
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleOpenResetConfirm(c)}
                               disabled={accessLoading}
                               className="h-7 px-2 text-xs gap-1 border-sky-500/30 text-sky-600 dark:text-sky-400 hover:bg-sky-500/10 font-medium"
-                              title="Provision Counselor Portal login credentials"
+                              title="Provision or reset portal login credentials"
                             >
                               <KeyRound className="h-3 w-3" />
-                              <span>Portal Access</span>
+                              <span>Reset Password</span>
                             </Button>
                             <Button
                               variant="outline"
@@ -1162,14 +1217,14 @@ export default function SchoolCounselorsPage() {
                           variant="outline"
                           className="text-[10px] font-medium bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20 shrink-0"
                         >
-                          Active
+                          Active on Duty
                         </Badge>
                       ) : (
                         <Badge
                           variant="outline"
-                          className="text-[10px] font-medium bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20 shrink-0"
+                          className="text-[10px] font-medium bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20 shrink-0"
                         >
-                          On Leave
+                          Blocked / Inactive
                         </Badge>
                       )}
                     </div>
@@ -1197,17 +1252,40 @@ export default function SchoolCounselorsPage() {
                         <span className="truncate max-w-[130px]">{c.available_hours || "Mon-Fri"}</span>
                       </div>
 
-                      <div className="flex items-center gap-1.5">
+                      <div className="flex items-center gap-1.5 flex-wrap justify-end">
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => handleProvisionAccess(c)}
+                          onClick={() => handleToggleBlockCounselor(c)}
+                          className={`h-7 px-2 text-xs gap-1 font-medium ${
+                            c.is_active
+                              ? "border-rose-500/30 text-rose-600 dark:text-rose-400 hover:bg-rose-500/10"
+                              : "border-emerald-500/30 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10"
+                          }`}
+                          title={c.is_active ? "Block counselor access" : "Activate counselor access"}
+                        >
+                          {c.is_active ? (
+                            <>
+                              <ShieldAlert className="h-3 w-3" />
+                              <span>Block</span>
+                            </>
+                          ) : (
+                            <>
+                              <ShieldCheck className="h-3 w-3" />
+                              <span>Activate</span>
+                            </>
+                          )}
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleOpenResetConfirm(c)}
                           disabled={accessLoading}
                           className="h-7 px-2 text-xs gap-1 border-sky-500/30 text-sky-600 dark:text-sky-400 hover:bg-sky-500/10 font-medium"
-                          title="Provision Counselor Portal login credentials"
+                          title="Provision or reset portal login credentials"
                         >
                           <KeyRound className="h-3 w-3" />
-                          <span>Access</span>
+                          <span>Reset</span>
                         </Button>
                         <Button
                           variant="outline"
@@ -1730,6 +1808,84 @@ export default function SchoolCounselorsPage() {
       </Dialog>
 
       {/* ========================================================================= */}
+      {/* RESET PASSWORD CONFIRMATION MODAL                                         */}
+      {/* ========================================================================= */}
+      <Dialog open={isResetConfirmOpen} onOpenChange={setIsResetConfirmOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-base">
+              <KeyRound className="h-4 w-4 text-amber-500" />
+              <span>Reset Counselor Password</span>
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              Generate a brand new temporary password for this counselor account.
+            </DialogDescription>
+          </DialogHeader>
+
+          {counselorToReset && (
+            <div className="space-y-4 py-1 text-xs">
+              <div className="p-3 bg-muted/40 border border-border/70 rounded-xl space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground font-mono">Counselor:</span>
+                  <span className="font-semibold text-foreground">{counselorToReset.name}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground font-mono">Account Email:</span>
+                  <span className="font-mono text-foreground font-medium">{counselorToReset.email}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground font-mono">Campus Role:</span>
+                  <span className="text-foreground">{counselorToReset.role || "Wellness Counselor"}</span>
+                </div>
+              </div>
+
+              <div className="p-3 rounded-xl border border-amber-500/30 bg-amber-500/10 text-xs text-amber-800 dark:text-amber-300 space-y-1">
+                <div className="flex items-center gap-1.5 font-semibold">
+                  <AlertCircle className="h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
+                  Security Notice
+                </div>
+                <p className="text-[11px] leading-relaxed">
+                  Resetting credentials will immediately invalidate any previous password. A fresh temporary password will be generated, displayed to you once to copy, and sent directly to <strong>{counselorToReset.email}</strong>.
+                </p>
+              </div>
+
+              <DialogFooter className="gap-2 sm:gap-0 pt-1">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setIsResetConfirmOpen(false)}
+                  disabled={accessLoading}
+                  className="text-xs"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={handleExecuteResetPassword}
+                  disabled={accessLoading}
+                  className="text-xs gap-1.5 bg-amber-600 hover:bg-amber-700 text-white font-medium"
+                >
+                  {accessLoading ? (
+                    <>
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      <span>Generating Password...</span>
+                    </>
+                  ) : (
+                    <>
+                      <KeyRound className="h-3.5 w-3.5" />
+                      <span>Confirm & Reset Password</span>
+                    </>
+                  )}
+                </Button>
+              </DialogFooter>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* ========================================================================= */}
       {/* COUNSELOR PORTAL CREDENTIALS MODAL                                        */}
       {/* ========================================================================= */}
       <Dialog open={isAccessModalOpen} onOpenChange={setIsAccessModalOpen}>
@@ -1784,9 +1940,9 @@ export default function SchoolCounselorsPage() {
               </div>
 
               <div className="p-3 rounded-xl border border-sky-500/20 bg-sky-500/5 text-[11px] text-muted-foreground space-y-1">
-                <p className="font-medium text-foreground">Instructions for School Admin:</p>
+                <p className="font-medium text-foreground">Why a new password was generated:</p>
                 <p>
-                  Share these credentials with the counselor. They can log in from the main sign-in page and will be automatically directed to their Counselor Desk.
+                  For security, passwords in JaagrMind are hashed and cannot be read back in plain text. Whenever you provision or reset credentials, the system generates a fresh temporary password, securely hashes it in the database, and updates the counselor account.
                 </p>
               </div>
 

@@ -11,6 +11,7 @@ import (
 // EmailService defines our interface for sending transactional emails across the platform
 type EmailService interface {
 	SendSchoolInviteEmail(toEmail, schoolName, inviteToken string) error
+	SendSchoolProvisionedEmail(toEmail, schoolName, adminName, tempPassword, loginURL string) error
 	SendInstitutionWelcomeEmail(toEmail, instituteName, contactName string) error
 	SendInstitutionApprovalEmail(toEmail, instituteName, contactName, resetToken string) error
 	SendParentWelcomeEmail(toEmail, parentName string) error
@@ -506,6 +507,52 @@ func (s *resendEmailService) SendTestEmail(toEmail, subject, content string) err
 	_, err := s.client.Emails.Send(params)
 	if err != nil {
 		fmt.Printf("[RESEND-ERROR] Failed to send test email to %s: %v\n", toEmail, err)
+		return err
+	}
+	return nil
+}
+
+func (s *resendEmailService) SendSchoolProvisionedEmail(toEmail, schoolName, adminName, tempPassword, loginURL string) error {
+	if loginURL == "" {
+		baseURL := getBaseFrontendURL()
+		loginURL = fmt.Sprintf("%s/login", baseURL)
+	}
+
+	htmlBody := fmt.Sprintf(`
+		<div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; color: #1e293b; background-color: #ffffff; border-radius: 8px; border: 1px solid #e2e8f0;">
+			<div style="margin-bottom: 24px;">
+				<h2 style="color: #0f172a; margin: 0 0 8px 0; font-size: 20px; font-weight: 700;">Welcome to JaagrMind: School Portal Access</h2>
+				<p style="color: #64748b; font-size: 14px; margin: 0;">%s</p>
+			</div>
+			<p style="font-size: 14px; line-height: 1.6;">Hello %s,</p>
+			<p style="font-size: 14px; line-height: 1.6;">
+				Your institution profile for <strong>%s</strong> has been provisioned on the JaagrMind school platform. You can now access your campus dashboard to configure wellness programs, review student insights, and manage faculty desks.
+			</p>
+			<div style="margin: 20px 0; padding: 16px; background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; font-size: 13px; line-height: 1.6;">
+				<div><strong>Institution:</strong> %s</div>
+				<div><strong>Login Email:</strong> %s</div>
+				<div><strong>Temporary Password:</strong> <code style="background-color: #e2e8f0; padding: 2px 6px; border-radius: 4px; font-size: 13px;">%s</code></div>
+			</div>
+			<div style="margin: 28px 0;">
+				<a href="%s" style="background-color: #0284c7; color: #ffffff; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-size: 14px; font-weight: 600; display: inline-block;">Log In to School Portal</a>
+			</div>
+			<p style="font-size: 12px; color: #64748b;">Direct Sign-In URL: <a href="%s" style="color: #0284c7;">%s</a></p>
+			<div style="margin-top: 32px; padding-top: 16px; border-top: 1px solid #e2e8f0; font-size: 12px; color: #94a3b8;">
+				For security, please change your temporary password after your initial sign-in. If you have questions, reach out to your JaagrMind partner manager.
+			</div>
+		</div>
+	`, schoolName, adminName, schoolName, schoolName, toEmail, tempPassword, loginURL, loginURL, loginURL)
+
+	params := &resend.SendEmailRequest{
+		From:    s.from,
+		To:      []string{toEmail},
+		Subject: fmt.Sprintf("Welcome to JaagrMind: %s Administrator Access", schoolName),
+		Html:    htmlBody,
+	}
+
+	_, err := s.client.Emails.Send(params)
+	if err != nil {
+		fmt.Printf("[RESEND-ERROR] Failed to send school provisioned email to %s: %v\n", toEmail, err)
 		return err
 	}
 	return nil

@@ -12,6 +12,7 @@ import { BrandSidePanel } from "@/components/brand-side-panel";
 import { api } from "@/lib/api";
 import { useAuth } from "@/context/auth-context";
 import { getActiveSessionDetails } from "@/lib/session-utils";
+import { INDIAN_STATES_AND_UTS } from "@/lib/constants";
 import {
   Building2,
   Users,
@@ -471,13 +472,21 @@ function SignupContent() {
                               required
                               className="h-9 text-xs rounded-lg"
                             />
-                            <Input
-                              placeholder="State / Region"
+                            <select
+                              className="flex h-9 w-full rounded-lg border border-input bg-transparent px-2.5 py-1 text-xs shadow-2xs focus-visible:ring-1 focus-visible:ring-active-mint"
                               value={instituteForm.state}
                               onChange={(e) => setInstituteForm({ ...instituteForm, state: e.target.value })}
                               required
-                              className="h-9 text-xs rounded-lg"
-                            />
+                            >
+                              <option value="" disabled className="bg-popover text-popover-foreground">
+                                Select State / Region *
+                              </option>
+                              {INDIAN_STATES_AND_UTS.map((st) => (
+                                <option key={st} value={st} className="bg-popover text-popover-foreground">
+                                  {st}
+                                </option>
+                              ))}
+                            </select>
                           </div>
                         </div>
 

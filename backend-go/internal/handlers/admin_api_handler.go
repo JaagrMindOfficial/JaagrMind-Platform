@@ -65,6 +65,7 @@ func SetupAdminAPIRoutes(app fiber.Router, schoolRepo domain.SchoolRepository, s
 	// Schools
 	app.Get("/schools", handler.GetSchools)
 	app.Post("/schools", handler.CreateSchool)
+	app.Post("/schools/provision", handler.ProvisionSchool)
 	app.Put("/schools/:id", handler.UpdateSchool)
 	app.Delete("/schools/:id", handler.DeleteSchool)
 	app.Patch("/schools/:id/block", handler.ToggleBlockSchool)
@@ -361,6 +362,174 @@ func (h *AdminAPIHandler) GetSchools(c fiber.Ctx) error {
 		schools = []domain.School{}
 	}
 	return c.JSON(schools)
+}
+
+type ProvisionSchoolPayload struct {
+	Name        string `json:"name"`
+	SchoolCode  string `json:"school_code"`
+	City        string `json:"city"`
+	State       string `json:"state"`
+	AdminName   string `json:"admin_name"`
+	Designation string `json:"designation"`
+	AdminEmail  string `json:"admin_email"`
+	PhoneNumber string `json:"phone_number"`
+	Password    string `json:"password"`
+	SendEmail   bool   `json:"send_email"`
+}
+
+func (h *AdminAPIHandler) ProvisionSchool(c fiber.Ctx) error {
+	var req ProvisionSchoolPayload
+	if err := c.Bind().Body(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid request payload"})
+	}
+
+	req.Name = strings.TrimSpace(req.Name)
+	req.AdminEmail = strings.ToLower(strings.TrimSpace(req.AdminEmail))
+	req.City = strings.TrimSpace(req.City)
+	req.State = strings.TrimSpace(req.State)
+	req.AdminName = strings.TrimSpace(req.AdminName)
+	req.PhoneNumber = strings.TrimSpace(req.PhoneNumber)
+	req.SchoolCode = strings.ToUpper(strings.TrimSpace(req.SchoolCode))
+
+	if req.Name == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "School name is required"})
+	}
+	if req.AdminEmail == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Administrator email is required"})
+	}
+
+	if req.AdminName == "" {
+		req.AdminName = req.Name + " Administrator"
+	}
+	if req.Designation == "" {
+		req.Designation = "Principal / Administrator"
+	}
+
+	// 1. Determine Unique School Code
+	schoolCode := req.SchoolCode
+	if schoolCode == "" {
+		baseCode := strings.ToUpper(strings.ReplaceAll(req.Name, " ", ""))
+		if len(baseCode) > 5 {
+			baseCode = baseCode[:5]
+		}
+		schoolCode = fmt.Sprintf("%s%d", baseCode, time.Now().Unix()%1000)
+	}
+
+	// Check if school code already exists
+	if existing, _ := h.schoolRepo.GetByCode(c.Context(), schoolCode); existing != nil {
+		schoolCode = fmt.Sprintf("%s%d", schoolCode, time.Now().Unix()%1000)
+	}
+
+	// 2. Format Location
+	location := req.City
+	if req.State != "" {
+		if location != "" && !strings.Contains(strings.ToLower(location), strings.ToLower(req.State)) {
+			location = fmt.Sprintf("%s, %s", location, req.State)
+		} else if location == "" {
+			location = req.State
+		}
+	}
+	if location == "" {
+		location = "India"
+	}
+
+	// 3. Create School
+	school, err := h.schoolRepo.Create(c.Context(), domain.CreateSchoolRequest{
+		Name:        req.Name,
+		SchoolCode:  schoolCode,
+		City:        location,
+		Contact:     req.AdminEmail,
+		PhoneNumber: req.PhoneNumber,
+	})
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to create school institution: " + err.Error()})
+	}
+
+	// 4. Determine Password
+	tempPassword := strings.TrimSpace(req.Password)
+	if tempPassword == "" {
+		tempPassword = generateSecureTempPassword()
+	}
+
+	hash, err := h.authSvc.HashPassword(tempPassword)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to hash password"})
+	}
+
+	// 5. Create or Associate School Admin User
+	metadata := map[string]any{
+		"designation": req.Designation,
+		"source":      "superadmin_provision",
+		"school_id":   school.ID,
+		"state":       req.State,
+	}
+
+	existingUser, _ := h.userRepo.GetUserByEmail(c.Context(), req.AdminEmail)
+	var adminUser *domain.User
+	if existingUser != nil {
+		adminUser = existingUser
+		_ = h.userRepo.UpdatePassword(c.Context(), existingUser.ID, hash)
+		if req.AdminName != "" && existingUser.Name == "" {
+			_ = h.userRepo.UpdateUser(c.Context(), existingUser.ID, req.AdminName, req.AdminEmail)
+		}
+	} else {
+		newUser, createErr := h.userRepo.CreateIndependentUser(c.Context(), req.AdminEmail, req.AdminName, hash, req.PhoneNumber, metadata)
+		if createErr != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to create administrator account: " + createErr.Error()})
+		}
+		adminUser = newUser
+	}
+
+	// 6. Assign RoleSchoolAdmin scoped to this school
+	_ = h.userRepo.AddRole(c.Context(), adminUser.ID, domain.RoleSchoolAdmin, school.ID)
+
+	// 7. Handle Email Notification (Default is false)
+	baseURL := utils.GetFrontendBaseURL()
+	loginURL := fmt.Sprintf("%s/login", baseURL)
+	if req.SendEmail && h.emailSvc != nil {
+		go func(toEmail, sName, aName, pwd, lURL string) {
+			_ = h.emailSvc.SendSchoolProvisionedEmail(toEmail, sName, aName, pwd, lURL)
+		}(req.AdminEmail, school.Name, req.AdminName, tempPassword, loginURL)
+	}
+
+	// 8. Log Audit Event
+	if h.eventRepo != nil {
+		_, _ = h.eventRepo.Create(c.Context(), domain.CreateEventRequest{
+			SchoolID:  &school.ID,
+			EventType: "school_provisioned",
+			Action:    "provision",
+			Title:     "School Institution Provisioned",
+			Description: fmt.Sprintf("Institution '%s' (%s) provisioned by superadmin. Email dispatched: %v", school.Name, school.SchoolCode, req.SendEmail),
+			ActorRole: "superadmin",
+			Metadata: map[string]interface{}{
+				"admin_email":  req.AdminEmail,
+				"admin_name":   req.AdminName,
+				"school_code":  school.SchoolCode,
+				"designation":  req.Designation,
+				"state":        req.State,
+				"city":         req.City,
+				"send_email":   req.SendEmail,
+			},
+		})
+	}
+
+	return c.Status(fiber.StatusCreated).JSON(fiber.Map{
+		"success":       true,
+		"message":       fmt.Sprintf("Institution '%s' provisioned successfully", school.Name),
+		"school":        school,
+		"school_id":     school.ID,
+		"school_name":   school.Name,
+		"school_code":   school.SchoolCode,
+		"admin_name":    req.AdminName,
+		"admin_email":   req.AdminEmail,
+		"admin_phone":   req.PhoneNumber,
+		"designation":   req.Designation,
+		"state":         req.State,
+		"city":          req.City,
+		"temp_password": tempPassword,
+		"email_sent":    req.SendEmail,
+		"login_url":     loginURL,
+	})
 }
 
 func (h *AdminAPIHandler) CreateSchool(c fiber.Ctx) error {

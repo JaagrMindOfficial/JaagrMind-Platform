@@ -22,6 +22,7 @@ import { CreateBranchDialog } from "@/components/create-branch-dialog"
 import { api } from "@/lib/api"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
+import { INDIAN_STATES_AND_UTS, SCHOOL_DESIGNATIONS } from "@/lib/constants"
 
 interface School {
   id: string
@@ -99,6 +100,129 @@ export default function AdminSchoolsPage() {
       pwd += all.charAt(Math.floor(Math.random() * all.length))
     }
     setInviteData((prev) => ({ ...prev, temp_password: pwd }))
+  }
+
+  // Provision School state
+  const [isProvisionOpen, setIsProvisionOpen] = useState(false)
+  const [provisionForm, setProvisionForm] = useState({
+    name: "",
+    school_code: "",
+    city: "",
+    state: "Delhi (NCT)",
+    admin_name: "",
+    designation: "Principal / Head of School",
+    admin_email: "",
+    phone_number: "",
+    password: "",
+    send_email: false,
+  })
+  const [provisionSubmitting, setProvisionSubmitting] = useState(false)
+  const [provisionSuccessModal, setProvisionSuccessModal] = useState<{
+    school_id: string
+    school_name: string
+    school_code: string
+    admin_name: string
+    admin_email: string
+    admin_phone: string
+    temp_password: string
+    email_sent: boolean
+    login_url: string
+  } | null>(null)
+  const [provisionCopied, setProvisionCopied] = useState(false)
+
+  const generateProvisionPassword = () => {
+    const upper = "ABCDEFGHJKLMNPQRSTUVWXYZ"
+    const lower = "abcdefghjkmnpqrstuvwxyz"
+    const digits = "23456789"
+    const special = "!@#$%"
+    const all = upper + lower + digits + special
+    let pwd = "JM-"
+    for (let i = 0; i < 8; i++) {
+      pwd += all.charAt(Math.floor(Math.random() * all.length))
+    }
+    setProvisionForm((prev) => ({ ...prev, password: pwd }))
+  }
+
+  const handleProvisionSchoolNameChange = (name: string) => {
+    setProvisionForm((prev) => {
+      const prevCodeClean = prev.name ? prev.name.replace(/[^a-zA-Z]/g, "").slice(0, 5).toUpperCase() : ""
+      const shouldAutoUpdateCode = !prev.school_code || prev.school_code.startsWith(prevCodeClean)
+      
+      let newCode = prev.school_code
+      if (shouldAutoUpdateCode && name.trim()) {
+        const clean = name.replace(/[^a-zA-Z]/g, "").slice(0, 5).toUpperCase()
+        newCode = clean ? `${clean}${Math.floor(100 + Math.random() * 900)}` : ""
+      }
+      return {
+        ...prev,
+        name,
+        school_code: shouldAutoUpdateCode ? newCode : prev.school_code,
+      }
+    })
+  }
+
+  const handleOpenProvision = () => {
+    const upper = "ABCDEFGHJKLMNPQRSTUVWXYZ"
+    const lower = "abcdefghjkmnpqrstuvwxyz"
+    const digits = "23456789"
+    const special = "!@#$%"
+    const all = upper + lower + digits + special
+    let pwd = "JM-"
+    for (let i = 0; i < 8; i++) {
+      pwd += all.charAt(Math.floor(Math.random() * all.length))
+    }
+    setProvisionForm({
+      name: "",
+      school_code: "",
+      city: "",
+      state: "Delhi (NCT)",
+      admin_name: "",
+      designation: "Principal / Head of School",
+      admin_email: "",
+      phone_number: "",
+      password: pwd,
+      send_email: false,
+    })
+    setIsProvisionOpen(true)
+  }
+
+  const handleProvisionSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setProvisionSubmitting(true)
+    try {
+      const res = await api.post("/api/admin/schools/provision", provisionForm)
+      setIsProvisionOpen(false)
+      setProvisionSuccessModal({
+        school_id: res.school_id || res.school?.id,
+        school_name: res.school_name || provisionForm.name,
+        school_code: res.school_code || provisionForm.school_code,
+        admin_name: res.admin_name || provisionForm.admin_name,
+        admin_email: res.admin_email || provisionForm.admin_email,
+        admin_phone: res.admin_phone || provisionForm.phone_number,
+        temp_password: res.temp_password || provisionForm.password,
+        email_sent: !!res.email_sent,
+        login_url: res.login_url || `${window.location.origin}/login`,
+      })
+      fetchSchools()
+    } catch (err: any) {
+      setErrorMessage(err.message || "Failed to provision school institution")
+    } finally {
+      setProvisionSubmitting(false)
+    }
+  }
+
+  const copyProvisionCredentials = () => {
+    if (!provisionSuccessModal) return
+    const text = `JaagrMind School Portal Access Details:
+Institution: ${provisionSuccessModal.school_name}
+School Code: ${provisionSuccessModal.school_code}
+Administrator: ${provisionSuccessModal.admin_name}
+Login Email: ${provisionSuccessModal.admin_email}
+Temporary Password: ${provisionSuccessModal.temp_password}
+Portal Sign-In: ${provisionSuccessModal.login_url}`
+    navigator.clipboard.writeText(text)
+    setProvisionCopied(true)
+    setTimeout(() => setProvisionCopied(false), 2000)
   }
 
   // Edit modal state
@@ -372,8 +496,18 @@ export default function AdminSchoolsPage() {
           <p className="text-sm text-muted-foreground mt-1">Manage registered campuses, branch hierarchies, mandated contacts, and school credentials.</p>
         </div>
         
-        <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
-          <DialogTrigger render={<Button size="sm"><Plus className="mr-1.5 h-3.5 w-3.5" /> Invite School</Button>} />
+        <div className="flex items-center gap-2">
+          <Button
+            size="sm"
+            onClick={handleOpenProvision}
+            className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold shadow-xs cursor-pointer"
+          >
+            <Building2 className="mr-1.5 h-3.5 w-3.5" />
+            <span>Provision School</span>
+          </Button>
+
+          <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
+            <DialogTrigger render={<Button size="sm" variant="outline"><Plus className="mr-1.5 h-3.5 w-3.5" /> Invite School</Button>} />
           <DialogContent className="sm:max-w-md">
             <DialogHeader>
               <DialogTitle>Invite New School</DialogTitle>
@@ -423,6 +557,7 @@ export default function AdminSchoolsPage() {
             </form>
           </DialogContent>
         </Dialog>
+        </div>
       </div>
 
       {/* Pending Inbound Applications Banner */}
@@ -1513,6 +1648,342 @@ export default function AdminSchoolsPage() {
               {revoking ? "Revoking..." : "Yes, Revoke Invitation"}
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ========================================================================= */}
+      {/* PROVISION SCHOOL DIRECTLY DIALOG                                          */}
+      {/* ========================================================================= */}
+      <Dialog open={isProvisionOpen} onOpenChange={setIsProvisionOpen}>
+        <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-base">
+              <Building2 className="h-4 w-4 text-primary" />
+              <span>Provision School Institution</span>
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              Instantly create a campus profile and school administrator account for trial setups or concierge onboarding.
+            </DialogDescription>
+          </DialogHeader>
+
+          <form onSubmit={handleProvisionSubmit} className="space-y-4 py-1 text-xs">
+            {/* Section 1: Institution Details */}
+            <div className="space-y-2.5 p-3 rounded-xl bg-muted/40 border border-border/70">
+              <div className="flex items-center gap-1.5 font-semibold text-foreground text-xs">
+                <SchoolIcon className="h-3.5 w-3.5 text-primary" />
+                <span>Institution Profile</span>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-medium text-foreground">
+                  School Name <span className="text-destructive">*</span>
+                </label>
+                <Input
+                  required
+                  value={provisionForm.name}
+                  onChange={(e) => handleProvisionSchoolNameChange(e.target.value)}
+                  placeholder="e.g. Delhi Public School, Vasant Kunj"
+                  className="h-8 text-xs"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <div className="space-y-1.5">
+                  <label className="text-[11px] font-medium text-foreground">
+                    State / Region <span className="text-destructive">*</span>
+                  </label>
+                  <select
+                    required
+                    value={provisionForm.state}
+                    onChange={(e) => setProvisionForm({ ...provisionForm, state: e.target.value })}
+                    className="flex h-8 w-full rounded-md border border-input bg-background px-2.5 py-1 text-xs shadow-2xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring font-medium"
+                  >
+                    <option value="" disabled>Select State / Region</option>
+                    {INDIAN_STATES_AND_UTS.map((st) => (
+                      <option key={st} value={st}>{st}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-[11px] font-medium text-foreground">
+                    City <span className="text-destructive">*</span>
+                  </label>
+                  <Input
+                    required
+                    value={provisionForm.city}
+                    onChange={(e) => setProvisionForm({ ...provisionForm, city: e.target.value })}
+                    placeholder="e.g. New Delhi"
+                    className="h-8 text-xs"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-medium text-foreground flex items-center justify-between">
+                  <span>School Code (Unique Portal Identifier)</span>
+                  <span className="text-[10px] text-muted-foreground font-mono">Used for student logins</span>
+                </label>
+                <Input
+                  value={provisionForm.school_code}
+                  onChange={(e) => setProvisionForm({ ...provisionForm, school_code: e.target.value.toUpperCase() })}
+                  placeholder="e.g. DPSVK"
+                  className="h-8 text-xs font-mono uppercase"
+                />
+              </div>
+            </div>
+
+            {/* Section 2: Administrator Profile */}
+            <div className="space-y-2.5 p-3 rounded-xl bg-muted/40 border border-border/70">
+              <div className="flex items-center gap-1.5 font-semibold text-foreground text-xs">
+                <Key className="h-3.5 w-3.5 text-primary" />
+                <span>School Administrator Credentials</span>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <div className="space-y-1.5">
+                  <label className="text-[11px] font-medium text-foreground">
+                    Admin Contact Name <span className="text-destructive">*</span>
+                  </label>
+                  <Input
+                    required
+                    value={provisionForm.admin_name}
+                    onChange={(e) => setProvisionForm({ ...provisionForm, admin_name: e.target.value })}
+                    placeholder="e.g. Dr. Sunita Sharma"
+                    className="h-8 text-xs"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-[11px] font-medium text-foreground">
+                    Designation / Title
+                  </label>
+                  <select
+                    value={provisionForm.designation}
+                    onChange={(e) => setProvisionForm({ ...provisionForm, designation: e.target.value })}
+                    className="flex h-8 w-full rounded-md border border-input bg-background px-2.5 py-1 text-xs shadow-2xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring font-medium"
+                  >
+                    {SCHOOL_DESIGNATIONS.map((d) => (
+                      <option key={d} value={d}>{d}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <div className="space-y-1.5">
+                  <label className="text-[11px] font-medium text-foreground">
+                    Admin Email Address <span className="text-destructive">*</span>
+                  </label>
+                  <Input
+                    required
+                    type="email"
+                    value={provisionForm.admin_email}
+                    onChange={(e) => setProvisionForm({ ...provisionForm, admin_email: e.target.value })}
+                    placeholder="principal@school.edu"
+                    className="h-8 text-xs"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-[11px] font-medium text-foreground">
+                    Contact Phone Number
+                  </label>
+                  <Input
+                    value={provisionForm.phone_number}
+                    onChange={(e) => setProvisionForm({ ...provisionForm, phone_number: e.target.value })}
+                    placeholder="+91 98765 43210"
+                    className="h-8 text-xs"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-medium text-foreground flex items-center justify-between">
+                  <span>Initial Admin Password <span className="text-destructive">*</span></span>
+                  <button
+                    type="button"
+                    onClick={generateProvisionPassword}
+                    className="text-[10px] text-sky-600 dark:text-sky-400 hover:underline flex items-center gap-1 font-mono cursor-pointer"
+                  >
+                    <RefreshCw className="h-2.5 w-2.5" />
+                    <span>Generate New</span>
+                  </button>
+                </label>
+                <Input
+                  required
+                  value={provisionForm.password}
+                  onChange={(e) => setProvisionForm({ ...provisionForm, password: e.target.value })}
+                  placeholder="Initial Password"
+                  className="h-8 text-xs font-mono"
+                />
+              </div>
+            </div>
+
+            {/* Section 3: Notification Delivery Option (Default: false) */}
+            <div className="p-3 rounded-xl border border-sky-500/20 bg-sky-500/5 space-y-2">
+              <label className="flex items-start gap-2.5 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={provisionForm.send_email}
+                  onChange={(e) => setProvisionForm({ ...provisionForm, send_email: e.target.checked })}
+                  className="h-4 w-4 mt-0.5 rounded border-gray-300 text-primary focus:ring-primary"
+                />
+                <div className="space-y-0.5">
+                  <span className="font-semibold text-xs text-foreground block">
+                    Send Welcome & Login Email to School Administrator
+                  </span>
+                  <span className="text-[11px] text-muted-foreground block leading-relaxed">
+                    Default is off. Leave unchecked to provision the school silently so you can set up classes, tests, or counselors before notifying the school.
+                  </span>
+                </div>
+              </label>
+            </div>
+
+            <DialogFooter className="gap-2 sm:gap-0 pt-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setIsProvisionOpen(false)}
+                disabled={provisionSubmitting}
+                className="text-xs"
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                size="sm"
+                disabled={provisionSubmitting || !provisionForm.name || !provisionForm.admin_email}
+                className="text-xs bg-primary hover:bg-primary/90 text-primary-foreground font-semibold"
+              >
+                {provisionSubmitting ? (
+                  <>
+                    <RefreshCw className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                    <span>Provisioning Institution...</span>
+                  </>
+                ) : (
+                  <>
+                    <Building2 className="mr-1.5 h-3.5 w-3.5" />
+                    <span>Provision School</span>
+                  </>
+                )}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* ========================================================================= */}
+      {/* PROVISION SUCCESS MODAL                                                   */}
+      {/* ========================================================================= */}
+      <Dialog open={!!provisionSuccessModal} onOpenChange={(open) => !open && setProvisionSuccessModal(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-base">
+              <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+              <span>Institution Provisioned Successfully</span>
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              The school profile and administrator account are active and ready for configuration.
+            </DialogDescription>
+          </DialogHeader>
+
+          {provisionSuccessModal && (
+            <div className="space-y-4 py-1 text-xs">
+              <div className="p-3.5 bg-muted/40 border border-border/70 rounded-xl space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground font-mono">School:</span>
+                  <span className="font-semibold text-foreground">{provisionSuccessModal.school_name}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground font-mono">School Code:</span>
+                  <span className="font-mono text-primary font-bold bg-primary/10 px-2 py-0.5 rounded border border-primary/20">
+                    {provisionSuccessModal.school_code}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground font-mono">Administrator:</span>
+                  <span className="font-medium text-foreground">{provisionSuccessModal.admin_name}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground font-mono">Login Email:</span>
+                  <span className="font-mono text-foreground">{provisionSuccessModal.admin_email}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground font-mono">Temporary Password:</span>
+                  <span className="font-mono text-emerald-600 dark:text-emerald-400 font-bold bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
+                    {provisionSuccessModal.temp_password}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground font-mono">Email Status:</span>
+                  <span className="text-[11px] font-medium">
+                    {provisionSuccessModal.email_sent ? (
+                      <span className="text-emerald-600 dark:text-emerald-400">Welcome email dispatched</span>
+                    ) : (
+                      <span className="text-amber-600 dark:text-amber-400">Silent setup (No email sent)</span>
+                    )}
+                  </span>
+                </div>
+              </div>
+
+              <div className="p-3 rounded-xl border border-amber-500/30 bg-amber-500/10 text-xs text-amber-800 dark:text-amber-300 space-y-1">
+                <div className="flex items-center gap-1.5 font-semibold">
+                  <AlertCircle className="h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
+                  Administrator Credentials
+                </div>
+                <p className="text-[11px] leading-relaxed">
+                  Please copy and securely record these credentials now. You can also impersonate this school immediately to configure branches, assign counselors, or import students.
+                </p>
+              </div>
+
+              <DialogFooter className="gap-2 sm:gap-0 pt-1">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={copyProvisionCredentials}
+                  className="text-xs gap-1.5"
+                >
+                  {provisionCopied ? (
+                    <>
+                      <Check className="h-3.5 w-3.5 text-emerald-600" />
+                      <span>Copied!</span>
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="h-3.5 w-3.5" />
+                      <span>Copy Credentials</span>
+                    </>
+                  )}
+                </Button>
+
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={() => {
+                    const schoolObj = schools.find((s) => s.id === provisionSuccessModal.school_id) || {
+                      id: provisionSuccessModal.school_id,
+                      name: provisionSuccessModal.school_name,
+                      school_code: provisionSuccessModal.school_code,
+                      city: "",
+                      contact: provisionSuccessModal.admin_email,
+                      is_active: true,
+                      is_blocked: false,
+                      created_at: new Date().toISOString(),
+                    }
+                    setProvisionSuccessModal(null)
+                    handleImpersonate(schoolObj)
+                  }}
+                  className="text-xs gap-1.5 bg-primary hover:bg-primary/90 text-primary-foreground font-semibold"
+                >
+                  <ExternalLink className="h-3.5 w-3.5" />
+                  <span>Enter School Portal</span>
+                </Button>
+              </DialogFooter>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
 

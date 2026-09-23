@@ -104,6 +104,9 @@ func SetupAdminAPIRoutes(app fiber.Router, schoolRepo domain.SchoolRepository, s
 	app.Post("/institution-applications/:id/approve", handler.ApproveInstitutionApplication)
 	app.Post("/institution-applications/:id/reject", handler.RejectInstitutionApplication)
 
+	// Utilities
+	app.Get("/schools/generate-code", handler.GenerateSchoolCodePreview)
+
 	// Platform & School Events Audit Trail
 	app.Get("/events", handler.GetAdminEvents)
 }
@@ -154,11 +157,7 @@ func (h *AdminAPIHandler) ApproveInstitutionApplication(c fiber.Ctx) error {
 	}
 
 	// 1. Generate unique school code
-	baseCode := strings.ToUpper(strings.ReplaceAll(app.InstituteName, " ", ""))
-	if len(baseCode) > 6 {
-		baseCode = baseCode[:6]
-	}
-	code := fmt.Sprintf("%s%d", baseCode, time.Now().Unix()%1000)
+	code := utils.GenerateSchoolCode(c.Context(), h.schoolRepo, app.InstituteName, app.City)
 
 	// 2. Create School record
 	createdSchool, err := h.schoolRepo.Create(c.Context(), domain.CreateSchoolRequest{
@@ -233,6 +232,20 @@ func (h *AdminAPIHandler) RejectInstitutionApplication(c fiber.Ctx) error {
 	return c.JSON(fiber.Map{"success": true, "message": "Application has been declined"})
 }
 
+
+func (h *AdminAPIHandler) GenerateSchoolCodePreview(c fiber.Ctx) error {
+	name := strings.TrimSpace(c.Query("name"))
+	city := strings.TrimSpace(c.Query("city"))
+	if name == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "School name is required"})
+	}
+	code := utils.GenerateSchoolCode(c.Context(), h.schoolRepo, name, city)
+	preview := utils.GenerateSchoolCodePreview(name, city)
+	return c.JSON(fiber.Map{
+		"code":    code,
+		"preview": preview,
+	})
+}
 
 func (h *AdminAPIHandler) GetStudents(c fiber.Ctx) error {
 	students, err := h.studentRepo.GetAll(c.Context())
@@ -408,16 +421,12 @@ func (h *AdminAPIHandler) ProvisionSchool(c fiber.Ctx) error {
 	// 1. Determine Unique School Code
 	schoolCode := req.SchoolCode
 	if schoolCode == "" {
-		baseCode := strings.ToUpper(strings.ReplaceAll(req.Name, " ", ""))
-		if len(baseCode) > 5 {
-			baseCode = baseCode[:5]
+		schoolCode = utils.GenerateSchoolCode(c.Context(), h.schoolRepo, req.Name, req.City)
+	} else {
+		// Admin provided a manual code — verify uniqueness
+		if existing, _ := h.schoolRepo.GetByCode(c.Context(), schoolCode); existing != nil {
+			return c.Status(fiber.StatusConflict).JSON(fiber.Map{"error": fmt.Sprintf("School code '%s' is already taken. Please choose a different code.", schoolCode)})
 		}
-		schoolCode = fmt.Sprintf("%s%d", baseCode, time.Now().Unix()%1000)
-	}
-
-	// Check if school code already exists
-	if existing, _ := h.schoolRepo.GetByCode(c.Context(), schoolCode); existing != nil {
-		schoolCode = fmt.Sprintf("%s%d", schoolCode, time.Now().Unix()%1000)
 	}
 
 	// 2. Format Location

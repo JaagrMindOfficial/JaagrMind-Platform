@@ -868,13 +868,7 @@ func (h *SchoolAPIHandler) CreateSchoolBranch(c fiber.Ctx) error {
 	}
 
 	if req.SchoolCode == "" {
-		cleanCity := strings.ToUpper(req.City)
-		cleanCity = strings.ReplaceAll(cleanCity, " ", "")
-		cleanCity = strings.ReplaceAll(cleanCity, ",", "")
-		if len(cleanCity) > 4 {
-			cleanCity = cleanCity[:4]
-		}
-		req.SchoolCode = fmt.Sprintf("%s-%s", parentSchool.SchoolCode, cleanCity)
+		req.SchoolCode = utils.GenerateSchoolCode(c.Context(), h.schoolRepo, req.Name, req.City)
 	}
 
 	branch, err := h.schoolRepo.Create(c.Context(), domain.CreateSchoolRequest{

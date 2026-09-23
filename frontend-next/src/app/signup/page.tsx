@@ -12,7 +12,7 @@ import { BrandSidePanel } from "@/components/brand-side-panel";
 import { api } from "@/lib/api";
 import { useAuth } from "@/context/auth-context";
 import { getActiveSessionDetails } from "@/lib/session-utils";
-import { INDIAN_STATES_AND_UTS } from "@/lib/constants";
+import { INDIAN_STATES_AND_UTS, generateSchoolCodePreview } from "@/lib/constants";
 import {
   Building2,
   Users,
@@ -392,6 +392,15 @@ function SignupContent() {
                           <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-muted text-muted-foreground border inline-block mt-1">
                             Ref ID: {instituteAppId.slice(0, 10)}...
                           </span>
+                        )}
+                        {instituteForm.institute_name && instituteForm.city && (
+                          <div className="mt-2 px-3 py-1.5 rounded-lg bg-amber-500/5 border border-amber-500/20 inline-block">
+                            <span className="text-[10px] text-muted-foreground">Projected School Code: </span>
+                            <span className="text-xs font-mono font-bold text-amber-600 dark:text-amber-400">
+                              {generateSchoolCodePreview(instituteForm.institute_name, instituteForm.city)}
+                            </span>
+                            <p className="text-[9px] text-muted-foreground mt-0.5 leading-tight">Final code confirmed upon approval</p>
+                          </div>
                         )}
                       </div>
                       <div className="pt-2 flex items-center justify-center gap-2">

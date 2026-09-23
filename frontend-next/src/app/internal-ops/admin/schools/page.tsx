@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef, useCallback } from "react"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
@@ -22,7 +22,7 @@ import { CreateBranchDialog } from "@/components/create-branch-dialog"
 import { api } from "@/lib/api"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
-import { INDIAN_STATES_AND_UTS, SCHOOL_DESIGNATIONS } from "@/lib/constants"
+import { INDIAN_STATES_AND_UTS, SCHOOL_DESIGNATIONS, generateSchoolCodePreview } from "@/lib/constants"
 
 interface School {
   id: string
@@ -143,19 +143,73 @@ export default function AdminSchoolsPage() {
     setProvisionForm((prev) => ({ ...prev, password: pwd }))
   }
 
+  // Server validation — fired on blur, not on every keystroke
+  const lastAutoCode = useRef<string>("")
+
+  const fetchUniqueCode = useCallback(async (name: string, city: string) => {
+    if (!name.trim()) return
+    try {
+      const res = await api.get(`/api/admin/schools/generate-code?name=${encodeURIComponent(name)}&city=${encodeURIComponent(city)}`)
+      if (res?.code) {
+        lastAutoCode.current = res.code
+        setProvisionForm((prev) => {
+          const preview = generateSchoolCodePreview(prev.name, prev.city)
+          if (prev.school_code === preview || prev.school_code === lastAutoCode.current || prev.school_code === "") {
+            return { ...prev, school_code: res.code }
+          }
+          return prev
+        })
+      }
+    } catch {
+      // Silently fall back to client-side preview
+    }
+  }, [])
+
   const handleProvisionSchoolNameChange = (name: string) => {
     setProvisionForm((prev) => {
-      const prevCodeClean = prev.name ? prev.name.replace(/[^a-zA-Z]/g, "").slice(0, 5).toUpperCase() : ""
-      const shouldAutoUpdateCode = !prev.school_code || prev.school_code.startsWith(prevCodeClean)
-      
+      const prevPreview = generateSchoolCodePreview(prev.name, prev.city)
+      const shouldAutoUpdateCode = !prev.school_code || prev.school_code === prevPreview || prev.school_code === lastAutoCode.current
+
       let newCode = prev.school_code
       if (shouldAutoUpdateCode && name.trim()) {
-        const clean = name.replace(/[^a-zA-Z]/g, "").slice(0, 5).toUpperCase()
-        newCode = clean ? `${clean}${Math.floor(100 + Math.random() * 900)}` : ""
+        newCode = generateSchoolCodePreview(name, prev.city)
+        lastAutoCode.current = newCode
       }
+
       return {
         ...prev,
         name,
+        school_code: shouldAutoUpdateCode ? newCode : prev.school_code,
+      }
+    })
+  }
+
+  // Fires server validation when user leaves the name or city field
+  const handleProvisionNameOrCityBlur = () => {
+    setProvisionForm((prev) => {
+      const preview = generateSchoolCodePreview(prev.name, prev.city)
+      const shouldFetch = !prev.school_code || prev.school_code === preview || prev.school_code === lastAutoCode.current
+      if (shouldFetch && prev.name.trim()) {
+        fetchUniqueCode(prev.name, prev.city)
+      }
+      return prev
+    })
+  }
+
+  const handleProvisionCityChange = (city: string) => {
+    setProvisionForm((prev) => {
+      const prevPreview = generateSchoolCodePreview(prev.name, prev.city)
+      const shouldAutoUpdateCode = !prev.school_code || prev.school_code === prevPreview || prev.school_code === lastAutoCode.current
+
+      let newCode = prev.school_code
+      if (shouldAutoUpdateCode && prev.name.trim()) {
+        newCode = generateSchoolCodePreview(prev.name, city)
+        lastAutoCode.current = newCode
+      }
+
+      return {
+        ...prev,
+        city,
         school_code: shouldAutoUpdateCode ? newCode : prev.school_code,
       }
     })
@@ -1682,6 +1736,7 @@ Portal Sign-In: ${provisionSuccessModal.login_url}`
                   required
                   value={provisionForm.name}
                   onChange={(e) => handleProvisionSchoolNameChange(e.target.value)}
+                  onBlur={handleProvisionNameOrCityBlur}
                   placeholder="e.g. Delhi Public School, Vasant Kunj"
                   className="h-8 text-xs"
                 />
@@ -1712,7 +1767,8 @@ Portal Sign-In: ${provisionSuccessModal.login_url}`
                   <Input
                     required
                     value={provisionForm.city}
-                    onChange={(e) => setProvisionForm({ ...provisionForm, city: e.target.value })}
+                    onChange={(e) => handleProvisionCityChange(e.target.value)}
+                    onBlur={handleProvisionNameOrCityBlur}
                     placeholder="e.g. New Delhi"
                     className="h-8 text-xs"
                   />

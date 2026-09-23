@@ -13,7 +13,7 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { useRouter } from "next/navigation"
-import { Search, Plus, Check, Copy, Lock, AlertCircle } from "lucide-react"
+import { Search, Plus, Check, Copy, Lock, AlertCircle, Edit2, Trash2 } from "lucide-react"
 import { api } from "@/lib/api"
 import {
   Dialog,
@@ -62,6 +62,66 @@ export default function TeachersPage() {
   const [addResult, setAddResult] = useState<{ temp_password: string; assigned_grade?: string; assigned_section?: string; designation?: string } | null>(null)
   const [copied, setCopied] = useState(false)
   const [error, setError] = useState("")
+
+  // Edit teacher state
+  const [editingTeacher, setEditingTeacher] = useState<Teacher | null>(null)
+  const [editName, setEditName] = useState("")
+  const [editPhone, setEditPhone] = useState("")
+  const [editDesignation, setEditDesignation] = useState("Class Teacher")
+  const [editAssignedGrade, setEditAssignedGrade] = useState("10")
+  const [editAssignedSection, setEditAssignedSection] = useState("A")
+  const [editSaving, setEditSaving] = useState(false)
+  const [editError, setEditError] = useState("")
+
+  // Delete teacher state
+  const [deletingTeacher, setDeletingTeacher] = useState<Teacher | null>(null)
+  const [deleteLoading, setDeleteLoading] = useState(false)
+
+  const openEditModal = (t: Teacher) => {
+    setEditingTeacher(t)
+    setEditName(t.name || "")
+    setEditPhone(t.phone || t.metadata?.phone || "")
+    setEditDesignation(t.metadata?.designation || "Class Teacher")
+    setEditAssignedGrade(t.metadata?.assigned_grade || "10")
+    setEditAssignedSection(t.metadata?.assigned_section || "A")
+    setEditError("")
+  }
+
+  const handleEditTeacher = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!editingTeacher) return
+    setEditSaving(true)
+    setEditError("")
+    try {
+      await api.put(`/api/school/teachers/${editingTeacher.id}`, {
+        name: editName,
+        phone: editPhone,
+        designation: editDesignation,
+        assigned_grade: editAssignedGrade,
+        assigned_section: editAssignedSection,
+      })
+      setEditingTeacher(null)
+      fetchTeachers()
+    } catch (err: any) {
+      setEditError(err.message || "Failed to update teacher")
+    } finally {
+      setEditSaving(false)
+    }
+  }
+
+  const handleDeleteTeacher = async () => {
+    if (!deletingTeacher) return
+    setDeleteLoading(true)
+    try {
+      await api.delete(`/api/school/teachers/${deletingTeacher.id}`)
+      setDeletingTeacher(null)
+      fetchTeachers()
+    } catch (err: any) {
+      alert(err.message || "Failed to remove teacher")
+    } finally {
+      setDeleteLoading(false)
+    }
+  }
 
   useEffect(() => {
     if (!isTeacherOnly) {
@@ -364,6 +424,7 @@ export default function TeachersPage() {
                       <TableHead>Contact Phone</TableHead>
                       <TableHead>Assigned Classroom</TableHead>
                       <TableHead className="text-right">Joined</TableHead>
+                      {canManage && <TableHead className="text-right">Actions</TableHead>}
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -395,6 +456,30 @@ export default function TeachersPage() {
                         <TableCell className="text-right text-muted-foreground text-sm">
                           {new Date(t.created_at).toLocaleDateString()}
                         </TableCell>
+                        {canManage && (
+                          <TableCell className="text-right">
+                            <div className="flex items-center justify-end gap-1">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground cursor-pointer"
+                                onClick={() => openEditModal(t)}
+                                title="Edit Teacher"
+                              >
+                                <Edit2 className="h-3.5 w-3.5" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-7 w-7 p-0 text-destructive/80 hover:text-destructive hover:bg-destructive/10 cursor-pointer"
+                                onClick={() => setDeletingTeacher(t)}
+                                title="Remove Teacher"
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </Button>
+                            </div>
+                          </TableCell>
+                        )}
                       </TableRow>
                     ))}
                     {filtered.length === 0 && (
@@ -440,8 +525,27 @@ export default function TeachersPage() {
                     </div>
 
                     <div className="flex items-center justify-between text-[10px] text-muted-foreground/80 pt-1 border-t border-border/40 font-mono">
-                      <span>Joined</span>
-                      <span>{new Date(t.created_at).toLocaleDateString()}</span>
+                      <span>Joined {new Date(t.created_at).toLocaleDateString()}</span>
+                      {canManage && (
+                        <div className="flex items-center gap-1">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 px-2 text-[10px] text-muted-foreground hover:text-foreground cursor-pointer"
+                            onClick={() => openEditModal(t)}
+                          >
+                            <Edit2 className="h-3 w-3 mr-1" /> Edit
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 px-2 text-[10px] text-destructive hover:bg-destructive/10 cursor-pointer"
+                            onClick={() => setDeletingTeacher(t)}
+                          >
+                            <Trash2 className="h-3 w-3 mr-1" /> Remove
+                          </Button>
+                        </div>
+                      )}
                     </div>
                   </div>
                 ))}
@@ -455,6 +559,104 @@ export default function TeachersPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Edit Teacher Modal */}
+      <Dialog open={!!editingTeacher} onOpenChange={(open) => !open && setEditingTeacher(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Edit Faculty Assignment</DialogTitle>
+            <DialogDescription>
+              Update educator details and classroom section assignments.
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleEditTeacher} className="space-y-4">
+            {editError && (
+              <div className="p-3 text-xs bg-destructive/10 text-destructive rounded-lg flex items-center gap-2">
+                <AlertCircle className="h-4 w-4 shrink-0" />
+                <span>{editError}</span>
+              </div>
+            )}
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-foreground">Teacher Name</label>
+              <Input
+                value={editName}
+                onChange={(e) => setEditName(e.target.value)}
+                placeholder="Full name"
+                required
+                className="h-9 text-xs"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-foreground">Contact Phone</label>
+              <Input
+                value={editPhone}
+                onChange={(e) => setEditPhone(e.target.value)}
+                placeholder="+91..."
+                className="h-9 text-xs"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-foreground">Class Grade</label>
+                <select
+                  value={editAssignedGrade}
+                  onChange={(e) => setEditAssignedGrade(e.target.value)}
+                  className="w-full h-9 rounded-md border border-input bg-background px-3 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                >
+                  {["6", "7", "8", "9", "10", "11", "12"].map((g) => (
+                    <option key={g} value={g}>Class {g}th</option>
+                  ))}
+                </select>
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-foreground">Section</label>
+                <select
+                  value={editAssignedSection}
+                  onChange={(e) => setEditAssignedSection(e.target.value)}
+                  className="w-full h-9 rounded-md border border-input bg-background px-3 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                >
+                  {["A", "B", "C", "D", "E", "F"].map((s) => (
+                    <option key={s} value={s}>Section {s}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" size="sm" onClick={() => setEditingTeacher(null)}>
+                Cancel
+              </Button>
+              <Button type="submit" size="sm" disabled={editSaving}>
+                {editSaving ? "Saving..." : "Save Changes"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Modal */}
+      <Dialog open={!!deletingTeacher} onOpenChange={(open) => !open && setDeletingTeacher(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-destructive">
+              <AlertCircle className="h-5 w-5" /> Remove Faculty Access
+            </DialogTitle>
+            <DialogDescription>
+              Are you sure you want to remove <strong className="text-foreground">{deletingTeacher?.name}</strong> from your institution?
+            </DialogDescription>
+          </DialogHeader>
+          <p className="text-xs text-muted-foreground">
+            This will immediately revoke their teacher role and prevent them from viewing class check-ins or student analytics for this school.
+          </p>
+          <DialogFooter>
+            <Button variant="outline" size="sm" onClick={() => setDeletingTeacher(null)}>
+              Cancel
+            </Button>
+            <Button variant="destructive" size="sm" onClick={handleDeleteTeacher} disabled={deleteLoading}>
+              {deleteLoading ? "Removing..." : "Remove Access"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

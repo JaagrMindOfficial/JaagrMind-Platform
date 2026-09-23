@@ -143,6 +143,10 @@ export default function SchoolCounselorsPage() {
   const [editRole, setEditRole] = useState("School Wellness Counselor");
   const [editAvailableHours, setEditAvailableHours] = useState("Mon-Fri, 9:00 AM - 3:30 PM");
   const [editIsActive, setEditIsActive] = useState(true);
+
+  // Delete Counselor Modal State
+  const [deletingCounselor, setDeletingCounselor] = useState<SchoolCounselor | null>(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
   const [editSaving, setEditSaving] = useState(false);
   const [editError, setEditError] = useState("");
   const [editSuccessMsg, setEditSuccessMsg] = useState("");
@@ -279,6 +283,23 @@ export default function SchoolCounselorsPage() {
   // Open Dossier for a Student
   const handleInspectStudent = async (studentId: string, studentName: string) => {
     try {
+      // First try to fetch real student analytics profile
+      const analyticsRes = await fetch(`${apiBase}/api/school/analytics`, {
+        headers: getAuthHeaders(),
+      });
+      if (analyticsRes.ok) {
+        const analyticsData = await analyticsRes.json();
+        if (analyticsData?.students && Array.isArray(analyticsData.students)) {
+          const profile = analyticsData.students.find((s: any) => s.id === studentId || s.access_id === studentId);
+          if (profile) {
+            setDossierStudent(profile);
+            setIsDossierOpen(true);
+            return;
+          }
+        }
+      }
+
+      // Fallback to student record if no assessment telemetry yet
       const res = await fetch(`${apiBase}/api/school/students`, {
         headers: getAuthHeaders(),
       });
@@ -286,27 +307,27 @@ export default function SchoolCounselorsPage() {
       if (res.ok) {
         const allStudents = await res.json();
         if (Array.isArray(allStudents)) {
-          studentRecord = allStudents.find((s: any) => s.id === studentId);
+          studentRecord = allStudents.find((s: any) => s.id === studentId || s.name === studentName);
         }
       }
 
       setDossierStudent({
         id: studentId,
-        access_id: studentRecord?.access_id || "101",
+        access_id: studentRecord?.access_id || "—",
         name: studentName,
         grade: studentRecord?.grade || "10th",
         section: studentRecord?.section || "A",
         school_id: studentRecord?.school_id || "",
-        school_name: studentRecord?.school_name || "Oakwood High School",
+        school_name: studentRecord?.school_name || "",
         archetype: "sprinter",
-        focus_score: 80,
+        focus_score: 75,
         resilience_score: 70,
-        academic_tenacity: 78,
-        stress_adaptability: 65,
-        primary_friction: "Classroom voice hesitancy & evaluative doubt",
+        academic_tenacity: 72,
+        stress_adaptability: 68,
+        primary_friction: "Initial baseline profile pending first longitudinal check-in",
         momentum_trend: "stable",
         last_check_in_date: new Date().toISOString(),
-        check_in_count: 3,
+        check_in_count: 0,
       });
       setIsDossierOpen(true);
     } catch (err) {
@@ -420,26 +441,27 @@ export default function SchoolCounselorsPage() {
     }
   };
 
-  // Delete Counselor Handler
-  const handleDeleteCounselor = async (id: string, counselorName: string) => {
-    if (
-      !confirm(
-        `Are you sure you want to remove ${counselorName}? Parents will route to JaagrMind central desk if no active counselor is available.`
-      )
-    ) {
-      return;
-    }
-
+  // Delete Counselor Execution Handler
+  const handleExecuteDeleteCounselor = async () => {
+    if (!deletingCounselor) return;
+    setDeleteLoading(true);
     try {
-      const res = await fetch(`${apiBase}/api/school/counselors/${id}`, {
+      const res = await fetch(`${apiBase}/api/school/counselors/${deletingCounselor.id}`, {
         method: "DELETE",
         headers: getAuthHeaders(),
       });
       if (res.ok) {
         fetchCounselors();
+        setDeletingCounselor(null);
+      } else {
+        const errData = await res.json().catch(() => ({}));
+        alert(errData.error || "Failed to remove counselor");
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error("Failed to delete counselor:", err);
+      alert(err.message || "Network error removing counselor");
+    } finally {
+      setDeleteLoading(false);
     }
   };
 
@@ -1178,7 +1200,7 @@ export default function SchoolCounselorsPage() {
                             <Button
                               variant="ghost"
                               size="sm"
-                              onClick={() => handleDeleteCounselor(c.id, c.name)}
+                              onClick={() => setDeletingCounselor(c)}
                               className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
                               title="Remove counselor"
                             >
@@ -1300,7 +1322,7 @@ export default function SchoolCounselorsPage() {
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => handleDeleteCounselor(c.id, c.name)}
+                          onClick={() => setDeletingCounselor(c)}
                           className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
                           title="Remove counselor"
                         >
@@ -1977,6 +1999,40 @@ export default function SchoolCounselorsPage() {
               </DialogFooter>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* ========================================================================= */}
+      {/* DELETE COUNSELOR CONFIRMATION MODAL                                       */}
+      {/* ========================================================================= */}
+      <Dialog open={!!deletingCounselor} onOpenChange={(open) => !open && setDeletingCounselor(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-destructive">
+              <AlertCircle className="h-5 w-5" /> Remove Counselor Access
+            </DialogTitle>
+            <DialogDescription>
+              Are you sure you want to remove <strong className="text-foreground">{deletingCounselor?.name}</strong> from your institution?
+            </DialogDescription>
+          </DialogHeader>
+          <p className="text-xs text-muted-foreground leading-relaxed">
+            This will immediately revoke their counselor portal credentials for this school. Parents will route to the JaagrMind central desk if no active campus counselor is available.
+          </p>
+          <DialogFooter className="gap-2 sm:gap-0 pt-2">
+            <Button variant="outline" size="sm" onClick={() => setDeletingCounselor(null)} disabled={deleteLoading}>
+              Cancel
+            </Button>
+            <Button variant="destructive" size="sm" onClick={handleExecuteDeleteCounselor} disabled={deleteLoading}>
+              {deleteLoading ? (
+                <span className="flex items-center gap-1.5">
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  <span>Removing...</span>
+                </span>
+              ) : (
+                "Remove Access"
+              )}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 

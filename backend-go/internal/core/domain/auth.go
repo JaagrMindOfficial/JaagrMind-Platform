@@ -102,6 +102,7 @@ type UserRepository interface {
 	GetUsersByRoleAndEntity(ctx context.Context, role, entityID string) ([]User, error)
 	UpdatePassword(ctx context.Context, userID, passwordHash string) error
 	UpdateUser(ctx context.Context, userID, name, email string) error
+	UpdateMetadata(ctx context.Context, userID string, metadata map[string]any) error
 	CreateInstitutionApplication(ctx context.Context, app InstitutionApplication) (*InstitutionApplication, error)
 	GetInstitutionApplications(ctx context.Context) ([]InstitutionApplication, error)
 	GetInstitutionApplicationByID(ctx context.Context, id string) (*InstitutionApplication, error)

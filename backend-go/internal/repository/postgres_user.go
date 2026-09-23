@@ -346,6 +346,15 @@ func (r *postgresUser) UpdateUser(ctx context.Context, userID, name, email strin
 	return err
 }
 
+func (r *postgresUser) UpdateMetadata(ctx context.Context, userID string, metadata map[string]any) error {
+	metaBytes, err := json.Marshal(metadata)
+	if err != nil {
+		metaBytes = []byte("{}")
+	}
+	_, err = r.db.Exec(ctx, `UPDATE users SET metadata = $1 WHERE id = $2`, metaBytes, userID)
+	return err
+}
+
 func (r *postgresUser) CreateInstitutionApplication(ctx context.Context, app domain.InstitutionApplication) (*domain.InstitutionApplication, error) {
 	var created domain.InstitutionApplication
 	var createdAt time.Time

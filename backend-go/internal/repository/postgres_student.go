@@ -250,6 +250,64 @@ func (r *postgresStudent) Update(ctx context.Context, id string, req domain.Crea
 	return &s, nil
 }
 
+func (r *postgresStudent) UpdateScoped(ctx context.Context, id, schoolID string, req domain.CreateStudentRequest) (*domain.Student, error) {
+	if schoolID == "" {
+		return r.Update(ctx, id, req)
+	}
+	ay := req.AcademicYear
+	if ay == "" {
+		ay = "2025-2026"
+	}
+	grade := strings.TrimSpace(req.Grade)
+	section := strings.ToUpper(strings.TrimSpace(req.Section))
+	rollNumber := strings.TrimSpace(req.RollNumber)
+	stream := strings.TrimSpace(req.Stream)
+	accessID := strings.TrimSpace(req.AccessID)
+
+	if rollNumber == "" && accessID != "" {
+		if strings.Contains(accessID, "-") {
+			parts := strings.Split(accessID, "-")
+			rollNumber = parts[len(parts)-1]
+		} else {
+			rollNumber = accessID
+		}
+	}
+
+	if accessID == "" || accessID == rollNumber {
+		if rollNumber != "" {
+			cleanGrade := strings.TrimSuffix(strings.ToLower(grade), "th")
+			cleanRoll := rollNumber
+			var rollInt int
+			if _, err := fmt.Sscanf(rollNumber, "%d", &rollInt); err == nil && rollInt > 0 && rollInt < 10 && len(rollNumber) == 1 {
+				cleanRoll = fmt.Sprintf("%02d", rollInt)
+			}
+			if stream != "" {
+				streamCode := strings.ToUpper(stream)
+				if len(streamCode) > 4 {
+					streamCode = streamCode[:4]
+				}
+				accessID = fmt.Sprintf("%s%s-%s-%s", cleanGrade, section, streamCode, cleanRoll)
+			} else {
+				accessID = fmt.Sprintf("%s%s-%s", cleanGrade, section, cleanRoll)
+			}
+		}
+	}
+
+	var s domain.Student
+	err := r.db.QueryRow(ctx, `
+		UPDATE students
+		SET access_id = $1, roll_number = $2, stream = $3, name = $4, grade = $5, section = $6, mobile_number = $7, email = $8, academic_year = $9
+		WHERE id = $10 AND school_id = $11
+		RETURNING id, COALESCE(school_id::text, ''), access_id, COALESCE(roll_number, ''), COALESCE(stream, ''), name, grade, COALESCE(section, ''), COALESCE(mobile_number, ''), COALESCE(email, ''), COALESCE(academic_year, '2025-2026'), is_active, created_at
+	`, accessID, rollNumber, stream, req.Name, grade, section, req.MobileNumber, req.Email, ay, id, schoolID).Scan(
+		&s.ID, &s.SchoolID, &s.AccessID, &s.RollNumber, &s.Stream, &s.Name, &s.Grade, &s.Section, &s.MobileNumber, &s.Email, &s.AcademicYear, &s.IsActive, &s.CreatedAt,
+	)
+	if err != nil {
+		return nil, err
+	}
+	return &s, nil
+}
+
 func (r *postgresStudent) UpdateContact(ctx context.Context, id, mobile, email string) error {
 	_, err := r.db.Exec(ctx, `
 		UPDATE students SET mobile_number = $1, email = $2 WHERE id = $3
@@ -266,6 +324,7 @@ func (r *postgresStudent) BulkCreate(ctx context.Context, schoolID string, stude
 
 	// Use pgx Batch for efficient bulk insert
 	batch := &pgx.Batch{}
+	seenAccessIDs := make(map[string]int)
 	for _, s := range students {
 		grade := strings.TrimSpace(s.Grade)
 		section := strings.ToUpper(strings.TrimSpace(s.Section))
@@ -300,9 +359,17 @@ func (r *postgresStudent) BulkCreate(ctx context.Context, schoolID string, stude
 					accessID = fmt.Sprintf("%s%s-%s", cleanGrade, section, cleanRoll)
 				}
 			} else {
-				accessID = fmt.Sprintf("%s%s-%s", grade, section, s.Name)
+				cleanName := strings.ReplaceAll(strings.TrimSpace(s.Name), " ", "")
+				accessID = fmt.Sprintf("%s%s-%s", grade, section, cleanName)
 			}
 		}
+
+		baseAccessID := accessID
+		count := seenAccessIDs[baseAccessID]
+		if count > 0 {
+			accessID = fmt.Sprintf("%s-%d", baseAccessID, count+1)
+		}
+		seenAccessIDs[baseAccessID]++
 
 		batch.Queue(`
 			INSERT INTO students (school_id, access_id, roll_number, stream, name, grade, section, mobile_number, email)
@@ -332,6 +399,20 @@ func (r *postgresStudent) BulkCreate(ctx context.Context, schoolID string, stude
 func (r *postgresStudent) Delete(ctx context.Context, id string) error {
 	_, err := r.db.Exec(ctx, `DELETE FROM students WHERE id = $1`, id)
 	return err
+}
+
+func (r *postgresStudent) DeleteScoped(ctx context.Context, id, schoolID string) error {
+	if schoolID == "" {
+		return r.Delete(ctx, id)
+	}
+	res, err := r.db.Exec(ctx, `DELETE FROM students WHERE id = $1 AND school_id = $2`, id, schoolID)
+	if err != nil {
+		return err
+	}
+	if res.RowsAffected() == 0 {
+		return fmt.Errorf("student not found or does not belong to this school")
+	}
+	return nil
 }
 
 func (r *postgresStudent) BulkDelete(ctx context.Context, schoolID string, ids []string) error {

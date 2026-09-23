@@ -1196,14 +1196,21 @@ export default function SchoolTestsPage() {
                   if (shareLinkModal?.link) {
                     try {
                       await navigator.clipboard.writeText(shareLinkModal.link)
-                      alert("Assessment link copied to clipboard!")
+                      setCopiedId("share-modal")
+                      setTimeout(() => setCopiedId(null), 2000)
                     } catch {
                       // Fallback
                     }
                   }
                 }}
               >
-                Copy
+                {copiedId === "share-modal" ? (
+                  <span className="flex items-center gap-1 text-emerald-500 font-medium">
+                    <Check className="h-3.5 w-3.5" /> Copied!
+                  </span>
+                ) : (
+                  "Copy"
+                )}
               </Button>
             </div>
             <div className="flex justify-between items-center pt-2 border-t text-xs">
@@ -1299,11 +1306,18 @@ export default function SchoolTestsPage() {
                     onClick={async () => {
                       try {
                         await navigator.clipboard.writeText(qrModal.link)
-                        alert("Classroom link copied to clipboard!")
+                        setCopiedId("qr-modal")
+                        setTimeout(() => setCopiedId(null), 2000)
                       } catch {}
                     }}
                   >
-                    Copy
+                    {copiedId === "qr-modal" ? (
+                      <span className="flex items-center gap-1 text-emerald-500 font-medium">
+                        <Check className="h-3.5 w-3.5" /> Copied!
+                      </span>
+                    ) : (
+                      "Copy"
+                    )}
                   </Button>
                 </div>
               </div>

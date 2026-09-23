@@ -551,6 +551,19 @@ func AutoMigrate(ctx context.Context, db *pgxpool.Pool) error {
 		ALTER TABLE school_invites ADD COLUMN IF NOT EXISTS phone_number TEXT;
 		ALTER TABLE school_invites ADD COLUMN IF NOT EXISTS temp_password TEXT;
 
+		-- Drop uq_student_active_result if present to allow longitudinal multi-attempt history and parent re-assessments
+		DROP INDEX IF EXISTS uq_student_active_result;
+
+		-- Prevent negative student count on scheduled promotions
+		DO $$
+		BEGIN
+			IF NOT EXISTS (
+				SELECT 1 FROM pg_constraint WHERE conname = 'chk_scheduled_promotions_student_count'
+			) THEN
+				ALTER TABLE scheduled_promotions ADD CONSTRAINT chk_scheduled_promotions_student_count CHECK (student_count >= 0);
+			END IF;
+		END $$;
+
 		-- Sync historical columns if present from earlier migrations
 		DO $$ 
 		BEGIN

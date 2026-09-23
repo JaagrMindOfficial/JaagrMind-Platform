@@ -1,7 +1,9 @@
 package handlers
 
 import (
+	"crypto/rand"
 	"fmt"
+	"math/big"
 	"strings"
 	"time"
 
@@ -425,12 +427,13 @@ func (h *AuthHandler) RequestForgotPasswordOTP(c fiber.Ctx) error {
 		})
 	}
 
-	// Generate 6-digit OTP and reset token
-	// Cryptographically or pseudo-random 6-digit code
-	nano := time.Now().UnixNano()
-	codeInt := (nano % 900000) + 100000
-	if codeInt < 0 {
-		codeInt = -codeInt
+	// Generate cryptographically secure 6-digit OTP and reset token
+	n, err := rand.Int(rand.Reader, big.NewInt(900000))
+	var codeInt int64
+	if err != nil {
+		codeInt = (time.Now().UnixNano() % 900000) + 100000
+	} else {
+		codeInt = n.Int64() + 100000
 	}
 	otpCode := fmt.Sprintf("%06d", codeInt)
 	token := uuid.NewString()
@@ -442,9 +445,6 @@ func (h *AuthHandler) RequestForgotPasswordOTP(c fiber.Ctx) error {
 		})
 	}
 
-	// In server logs
-	fmt.Printf("[AUTH-OTP] Security Code for %s (%s): %s (Valid for 15 mins)\n", cleanEmail, cleanPhone, otpCode)
-
 	// Send OTP email via Resend
 	if h.emailService != nil {
 		go func(targetEmail, code string) {
@@ -453,10 +453,9 @@ func (h *AuthHandler) RequestForgotPasswordOTP(c fiber.Ctx) error {
 	}
 
 	return c.JSON(fiber.Map{
-		"success":  true,
-		"message":  "A 6-digit verification code has been dispatched to your registered email address.",
-		"email":    cleanEmail,
-		"demo_otp": otpCode, // Provided so UI can assist developer/demo testing
+		"success":            true,
+		"message":            "A 6-digit verification code has been dispatched to your registered email address.",
+		"email":              cleanEmail,
 		"expires_in_minutes": 15,
 	})
 }

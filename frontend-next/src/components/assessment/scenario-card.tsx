@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { CheckCircle2, ChevronLeft, ChevronRight, Sparkles } from "lucide-react";
+import { CheckCircle2, ChevronLeft, ChevronRight, Sparkles, Loader2, AlertCircle } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -26,6 +26,8 @@ interface ScenarioCardProps {
   onNext: () => void;
   onPrev: () => void;
   isLastQuestion: boolean;
+  isSubmitting?: boolean;
+  errorMessage?: string;
 }
 
 const OPTION_LETTERS = ["A", "B", "C", "D"];
@@ -40,6 +42,8 @@ export function ScenarioCard({
   onNext,
   onPrev,
   isLastQuestion,
+  isSubmitting,
+  errorMessage,
 }: ScenarioCardProps) {
   const [pressedKey, setPressedKey] = useState<string | null>(null);
 
@@ -78,6 +82,8 @@ export function ScenarioCard({
         return;
       }
 
+      if (isSubmitting) return;
+
       if (e.key === "ArrowLeft") {
         e.preventDefault();
         if (questionIndex > 0) {
@@ -95,7 +101,7 @@ export function ScenarioCard({
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [options.length, onSelectOption, onNext, onPrev, questionIndex, selectedIndex]);
+  }, [options.length, onSelectOption, onNext, onPrev, questionIndex, selectedIndex, isSubmitting]);
 
   const handleOptionClick = (idx: number) => {
     playSelectSound(idx);
@@ -203,12 +209,20 @@ export function ScenarioCard({
           </div>
         </CardContent>
 
+        {/* Error notification if submission failed */}
+        {errorMessage && (
+          <div className="mx-6 sm:mx-8 mb-3 p-3 text-xs bg-destructive/10 text-destructive rounded-xl border border-destructive/20 flex items-center gap-2">
+            <AlertCircle className="h-4 w-4 shrink-0" />
+            <span>{errorMessage}</span>
+          </div>
+        )}
+
         {/* Footer Navigation */}
         <div className="border-t p-4 sm:px-8 flex justify-between items-center bg-muted/20">
           <Button
             variant="ghost"
             size="sm"
-            disabled={questionIndex === 0}
+            disabled={questionIndex === 0 || isSubmitting}
             onClick={() => {
               playStepSound();
               onPrev();
@@ -221,20 +235,27 @@ export function ScenarioCard({
           {isLastQuestion ? (
             <Button
               size="sm"
-              disabled={selectedIndex === undefined}
+              disabled={selectedIndex === undefined || isSubmitting}
               onClick={() => {
                 playStepSound();
                 onNext();
               }}
-              className="px-6 text-xs shadow-sm"
+              className="px-6 text-xs shadow-sm min-w-[145px]"
             >
-              Complete Check-in ✓
+              {isSubmitting ? (
+                <span className="flex items-center gap-1.5">
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  <span>Submitting...</span>
+                </span>
+              ) : (
+                "Complete Check-in ✓"
+              )}
             </Button>
           ) : (
             <Button
               variant="secondary"
               size="sm"
-              disabled={selectedIndex === undefined}
+              disabled={selectedIndex === undefined || isSubmitting}
               onClick={() => {
                 playStepSound();
                 onNext();

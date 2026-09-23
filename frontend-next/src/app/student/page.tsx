@@ -39,6 +39,7 @@ export default function StudentAssessmentPage() {
 
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState("");
 
   useEffect(() => {
     if (authLoading) return;
@@ -131,6 +132,7 @@ export default function StudentAssessmentPage() {
     if (!selectedAssessment || submitting) return;
 
     setSubmitting(true);
+    setSubmitError("");
     playCompletionSound();
 
     try {
@@ -154,9 +156,9 @@ export default function StudentAssessmentPage() {
       });
 
       router.push("/student/thankyou");
-    } catch (err) {
+    } catch (err: any) {
       console.error("Submission failed", err);
-      alert("Submission failed. Please try again.");
+      setSubmitError(err?.response?.data?.message || err?.message || "Submission failed. Please check your connection and try again.");
       setSubmitting(false);
     }
   };
@@ -357,6 +359,8 @@ export default function StudentAssessmentPage() {
                   onNext={handleNext}
                   onPrev={handlePrev}
                   isLastQuestion={currentIdx === questionsList.length - 1}
+                  isSubmitting={submitting}
+                  errorMessage={submitError}
                 />
               )}
             </motion.div>

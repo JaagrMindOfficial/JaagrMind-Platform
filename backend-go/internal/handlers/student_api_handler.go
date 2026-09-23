@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"math"
 	"strings"
+	"time"
 
 	"github.com/gofiber/fiber/v3"
 	"github.com/jaagrmind/platform-api/internal/core/domain"
@@ -120,9 +121,17 @@ func (h *StudentAPIHandler) StudentLogin(c fiber.Ctx) error {
 		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"message": "Account inactive"})
 	}
 
-	// 3. Update Contact info if provided
-	if req.MobileNumber != "" || req.Email != "" {
-		_ = h.studentRepo.UpdateContact(c.Context(), student.ID, req.MobileNumber, req.Email)
+	// 3. Update Contact info if provided and student does not already have contact recorded
+	if (req.MobileNumber != "" && student.MobileNumber == "") || (req.Email != "" && student.Email == "") {
+		newMobile := student.MobileNumber
+		if newMobile == "" {
+			newMobile = req.MobileNumber
+		}
+		newEmail := student.Email
+		if newEmail == "" {
+			newEmail = req.Email
+		}
+		_ = h.studentRepo.UpdateContact(c.Context(), student.ID, newMobile, newEmail)
 	}
 
 	// 4. Generate JWT
@@ -325,6 +334,18 @@ func (h *StudentAPIHandler) SubmitAssessment(c fiber.Ctx) error {
 	schoolID := ""
 	if err == nil && student != nil {
 		schoolID = student.SchoolID
+	}
+
+	// Rapid double-click debounce: prevent accidental duplicate submission within 15 seconds
+	existingResults, _ := h.assessRepo.GetResultsByStudent(c.Context(), studentID, req.AssessmentID)
+	if len(existingResults) > 0 {
+		latest := existingResults[0] // GetResultsByStudent is ORDER BY completed_at DESC
+		if !latest.CompletedAt.IsZero() && time.Since(latest.CompletedAt) < 15*time.Second {
+			return c.JSON(fiber.Map{
+				"success": true,
+				"message": "Assessment submitted successfully",
+			})
+		}
 	}
 
 	// Fetch assessment to compute scores

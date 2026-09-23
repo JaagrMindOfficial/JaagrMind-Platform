@@ -101,6 +101,8 @@ func SetupSchoolAPIRoutes(app fiber.Router, userRepo domain.UserRepository, scho
 	schoolAPI.Post("/branches", handler.CreateSchoolBranch)
 	schoolAPI.Get("/teachers", handler.ListTeachers)
 	schoolAPI.Post("/teachers", handler.AddTeacher)
+	schoolAPI.Put("/teachers/:id", handler.UpdateTeacher)
+	schoolAPI.Delete("/teachers/:id", handler.DeleteTeacher)
 
 	// Counselor Case Notes
 	schoolAPI.Get("/students/:studentId/notes", handler.GetCounselorNotes)
@@ -352,6 +354,98 @@ func (h *SchoolAPIHandler) AddTeacher(c fiber.Ctx) error {
 	})
 }
 
+// UpdateTeacher updates teacher details and classroom assignment
+func (h *SchoolAPIHandler) UpdateTeacher(c fiber.Ctx) error {
+	user := h.getAuthenticatedUser(c)
+	if h.isTeacherOnly(user) {
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "Only school administrators can update teacher details"})
+	}
+
+	schoolID := h.extractSchoolID(c)
+	teacherID := c.Params("id")
+	if schoolID == "" || teacherID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "School ID and Teacher ID are required"})
+	}
+
+	var req domain.CreateTeacherRequest
+	if err := c.Bind().Body(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid request"})
+	}
+
+	teacherUser, err := h.userRepo.GetUserByID(c.Context(), teacherID)
+	if err != nil || teacherUser == nil {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "Teacher not found"})
+	}
+
+	// Verify teacher has role in this school
+	hasSchoolRole := false
+	for _, r := range teacherUser.Roles {
+		if r.Role == domain.RoleTeacher && r.EntityID == schoolID {
+			hasSchoolRole = true
+			break
+		}
+	}
+	if !hasSchoolRole {
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "Teacher does not belong to this school"})
+	}
+
+	designation := req.Designation
+	if designation == "" {
+		designation = "Class Teacher"
+	}
+
+	meta := teacherUser.Metadata
+	if meta == nil {
+		meta = make(map[string]any)
+	}
+	meta["assigned_grade"] = req.AssignedGrade
+	meta["assigned_section"] = req.AssignedSection
+	meta["designation"] = designation
+	if req.Phone != "" {
+		meta["phone"] = req.Phone
+	}
+
+	name := teacherUser.Name
+	if req.Name != "" {
+		name = req.Name
+	}
+	email := teacherUser.Email
+	if req.Email != "" {
+		email = req.Email
+	}
+
+	if err := h.userRepo.UpdateUser(c.Context(), teacherID, name, email); err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to update teacher"})
+	}
+	if err := h.userRepo.UpdateMetadata(c.Context(), teacherID, meta); err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to update teacher metadata"})
+	}
+
+	return c.JSON(fiber.Map{"success": true, "message": "Teacher updated successfully"})
+}
+
+// DeleteTeacher removes a teacher's association with the school
+func (h *SchoolAPIHandler) DeleteTeacher(c fiber.Ctx) error {
+	user := h.getAuthenticatedUser(c)
+	if h.isTeacherOnly(user) {
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "Only school administrators can remove teachers"})
+	}
+
+	schoolID := h.extractSchoolID(c)
+	teacherID := c.Params("id")
+	if schoolID == "" || teacherID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "School ID and Teacher ID are required"})
+	}
+
+	// Remove the teacher role for this specific school
+	err := h.userRepo.RemoveRole(c.Context(), teacherID, domain.RoleTeacher, schoolID)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to remove teacher: " + err.Error()})
+	}
+
+	return c.JSON(fiber.Map{"success": true, "message": "Teacher removed successfully from school"})
+}
+
 // GetCounselorNotes returns confidential counselor case notes for a student
 func (h *SchoolAPIHandler) GetCounselorNotes(c fiber.Ctx) error {
 	schoolID := h.extractSchoolID(c)
@@ -469,9 +563,9 @@ func (h *SchoolAPIHandler) UpdateStudent(c fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"message": "Invalid payload"})
 	}
 
-	student, err := h.studentRepo.Update(c.Context(), id, req)
+	student, err := h.studentRepo.UpdateScoped(c.Context(), id, schoolID, req)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"message": "Failed to update student"})
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"message": "Failed to update student: " + err.Error()})
 	}
 
 	return c.JSON(student)
@@ -499,9 +593,13 @@ func (h *SchoolAPIHandler) BulkCreateStudents(c fiber.Ctx) error {
 }
 
 func (h *SchoolAPIHandler) DeleteStudent(c fiber.Ctx) error {
+	schoolID := h.extractSchoolID(c)
+	if schoolID == "" {
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "Not associated with a school"})
+	}
 	id := c.Params("id")
-	if err := h.studentRepo.Delete(c.Context(), id); err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to delete student"})
+	if err := h.studentRepo.DeleteScoped(c.Context(), id, schoolID); err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to delete student: " + err.Error()})
 	}
 	return c.JSON(fiber.Map{"success": true, "message": "Student deleted successfully"})
 }
@@ -1277,9 +1375,6 @@ func (h *SchoolAPIHandler) extractSchoolID(c fiber.Ctx) string {
 				}
 				return role.EntityID
 			}
-			if xSchoolID != "" {
-				return xSchoolID
-			}
 		}
 	}
 
@@ -1763,7 +1858,17 @@ func (h *SchoolAPIHandler) GetAssessmentLink(c fiber.Ctx) error {
 }
 
 func (h *SchoolAPIHandler) ResetStudentTest(c fiber.Ctx) error {
+	schoolID := h.extractSchoolID(c)
+	if schoolID == "" {
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "Not associated with a school"})
+	}
+
 	studentID := c.Params("id")
+	student, err := h.studentRepo.GetByID(c.Context(), studentID)
+	if err != nil || student == nil || student.SchoolID != schoolID {
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "Student not found or unauthorized for this institution"})
+	}
+
 	var req struct {
 		AssessmentID string `json:"assessmentId"`
 	}
@@ -1784,6 +1889,14 @@ func (h *SchoolAPIHandler) GetStudentAttempts(c fiber.Ctx) error {
 	}
 
 	currentSchoolID := h.extractSchoolID(c)
+	if currentSchoolID == "" {
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "Not associated with a school"})
+	}
+
+	student, err := h.studentRepo.GetByID(c.Context(), studentID)
+	if err != nil || student == nil || student.SchoolID != currentSchoolID {
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "Student not found or unauthorized for this institution"})
+	}
 
 	results, err := h.assessRepo.GetResultsByStudent(c.Context(), studentID, assessmentID)
 	if err != nil {

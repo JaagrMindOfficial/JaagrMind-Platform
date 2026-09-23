@@ -88,9 +88,11 @@ type StudentRepository interface {
 	GetByClassAndRoll(ctx context.Context, schoolID, grade, section, rollNumber, stream string) (*Student, error)
 	Create(ctx context.Context, schoolID string, req CreateStudentRequest) (*Student, error)
 	Update(ctx context.Context, id string, req CreateStudentRequest) (*Student, error)
+	UpdateScoped(ctx context.Context, id, schoolID string, req CreateStudentRequest) (*Student, error)
 	UpdateContact(ctx context.Context, id, mobile, email string) error
 	BulkCreate(ctx context.Context, schoolID string, students []CreateStudentRequest) error
 	Delete(ctx context.Context, id string) error
+	DeleteScoped(ctx context.Context, id, schoolID string) error
 	BulkDelete(ctx context.Context, schoolID string, ids []string) error
 	PromoteClass(ctx context.Context, schoolID string, filterGrade, filterSection string, studentIDs []string) (updatedCount int, skippedCount int, err error)
 	PromoteAllClasses(ctx context.Context, schoolID, targetAY string) (promotedCount int, graduatedCount int, err error)

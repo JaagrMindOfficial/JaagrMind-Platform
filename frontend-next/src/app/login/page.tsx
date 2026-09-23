@@ -111,7 +111,7 @@ function LoginContent() {
 
   return (
     <div className="min-h-screen min-h-dvh overflow-y-auto md:overflow-hidden md:h-screen w-full bg-[#FFF8F0] dark:bg-[#121212] text-[#222222] dark:text-[#FFF8F0] flex flex-col md:flex-row relative select-none">
-      
+
       {/* ── Desktop-Only Top-Right Controls: Home + Visit Our Page + JM Internal-Ops + Theme Toggle ── */}
       <div className="hidden md:flex absolute top-5 right-6 z-30 items-center gap-2.5">
         {navActions}
@@ -125,12 +125,12 @@ function LoginContent() {
 
       {/* ── RIGHT SIDE: Seamless Login Form or Active Session ────────── */}
       <div className="w-full md:w-7/12 lg:w-[54%] min-h-full h-auto md:h-full flex flex-col justify-center px-5 sm:px-12 lg:px-16 py-6 pb-14 md:py-6 overflow-y-auto relative">
-        
+
         {/* Subtle Ambient Radial Glow */}
         <div className="absolute top-1/4 right-1/4 w-80 h-80 bg-[#42B677]/8 rounded-full blur-[120px] pointer-events-none" />
 
         <div className="max-w-md w-full mx-auto space-y-5 relative z-10 my-auto">
-          
+
           {/* ── CASE 1: Already Authenticated Active Session ─────────── */}
           {activeSession ? (
             <div className="space-y-5">
@@ -222,7 +222,7 @@ function LoginContent() {
 
               {/* Form Card */}
               <div className="rounded-2xl border border-[#222222]/15 dark:border-white/10 bg-white/80 dark:bg-[#181818]/80 backdrop-blur-md p-6 sm:p-7 shadow-md space-y-4">
-                
+
                 {/* Error Message */}
                 {error && (
                   <div
@@ -333,7 +333,7 @@ function LoginContent() {
                         <span>Signing in...</span>
                       </>
                     ) : (
-                      <span>Sign In to Workspace</span>
+                      <span>Sign In to your space</span>
                     )}
                   </Button>
                 </form>

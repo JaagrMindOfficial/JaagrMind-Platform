@@ -316,8 +316,8 @@ export default function SchoolDashboardPage() {
               {isTeacherView
                 ? `Class Teacher — Grade ${assignedGrade}-${assignedSection}`
                 : isSchoolAdmin
-                ? "School Administrator"
-                : "Faculty / Educator"}
+                  ? "School Administrator"
+                  : "Faculty / Educator"}
               )
             </span>
             {data?.school?.city && (
@@ -389,8 +389,8 @@ export default function SchoolDashboardPage() {
             <div className="text-2xl font-semibold mt-1">
               {loading ? "..." : totalStudents}
             </div>
-            <div className="text-[11px] text-emerald-600 dark:text-emerald-400 mt-0.5 flex items-center gap-1">
-              <TrendingUp className="h-3 w-3" /> Longitudinal profiles
+            <div className="text-[11px] text-muted-foreground mt-0.5">
+              Total numbers of Students
             </div>
           </div>
           <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center text-primary shrink-0">

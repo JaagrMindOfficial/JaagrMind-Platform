@@ -28,12 +28,14 @@ import { useAuth } from "@/context/auth-context"
 import { InfoTooltip } from "@/components/ui/info-tooltip"
 import { MinimalUUID } from "@/components/ui/minimal-uuid"
 import { CreateBranchDialog } from "@/components/create-branch-dialog"
+import { INDIAN_STATES_AND_UTS } from "@/lib/constants"
 
 interface SchoolAccount {
   id: string
   name: string
   code: string
   city: string
+  state?: string
   contact_phone: string
   contact_email: string
   status: string
@@ -43,6 +45,7 @@ interface SchoolAccount {
     name: string
     code: string
     city: string
+    state?: string
     contact_phone?: string
     is_active?: boolean
   }>
@@ -59,6 +62,7 @@ export default function SchoolAccountPage() {
     contact_phone: "",
     contact_email: "",
     city: "",
+    state: "",
   })
   const [savingProfile, setSavingProfile] = useState(false)
   const [profileSuccess, setProfileSuccess] = useState("")
@@ -94,6 +98,7 @@ export default function SchoolAccountPage() {
           name: s.name || "",
           code: s.school_code || s.code || "",
           city: s.city || "",
+          state: s.state || "",
           contact_phone: s.phone_number || s.contact_phone || "",
           contact_email: s.contact || s.contact_email || "",
           status: s.is_active !== false ? "active" : "inactive",
@@ -105,6 +110,7 @@ export default function SchoolAccountPage() {
           contact_phone: s.phone_number || s.contact_phone || "",
           contact_email: s.contact || s.contact_email || "",
           city: s.city || "",
+          state: s.state || "",
         })
       }
     } catch (err) {
@@ -397,19 +403,40 @@ export default function SchoolAccountPage() {
                 </div>
               </div>
 
-              <div className="space-y-1.5">
-                <label className="text-xs font-medium text-foreground flex items-center gap-1.5">
-                  City / Campus Location
-                  <InfoTooltip text="Used in national analytics to map regional school distributions across India." />
-                </label>
-                <div className="relative">
-                  <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-                  <Input
-                    value={profileData.city}
-                    onChange={(e) => setProfileData({ ...profileData, city: e.target.value })}
-                    placeholder="e.g. Hyderabad, Telangana"
-                    className="pl-9 h-9 text-xs"
-                  />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-foreground flex items-center gap-1.5">
+                    City / Campus Hub
+                    <InfoTooltip text="City where this campus is located." />
+                  </label>
+                  <div className="relative">
+                    <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                    <Input
+                      value={profileData.city}
+                      onChange={(e) => setProfileData({ ...profileData, city: e.target.value })}
+                      placeholder="e.g. Dehradun"
+                      className="pl-9 h-9 text-xs"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-foreground flex items-center gap-1.5">
+                    State / Union Territory
+                    <InfoTooltip text="State/UT used to correctly position and correlate regional analytics." />
+                  </label>
+                  <select
+                    value={profileData.state}
+                    onChange={(e) => setProfileData({ ...profileData, state: e.target.value })}
+                    className="w-full h-9 rounded-md border border-input bg-background px-3 py-1 text-xs shadow-xs focus:outline-hidden focus:ring-1 focus:ring-ring"
+                  >
+                    <option value="">Select State / UT</option>
+                    {INDIAN_STATES_AND_UTS.map((st) => (
+                      <option key={st} value={st}>
+                        {st}
+                      </option>
+                    ))}
+                  </select>
                 </div>
               </div>
 
@@ -637,9 +664,10 @@ export default function SchoolAccountPage() {
                       <MinimalUUID id={branch.id} label="Branch UUID" />
                     </div>
                     <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap">
-                      {branch.city && (
+                      {(branch.city || branch.state) && (
                         <span className="flex items-center gap-1 font-medium">
-                          <MapPin className="h-3 w-3 text-primary" /> {branch.city}
+                          <MapPin className="h-3 w-3 text-primary" />
+                          {[branch.city, branch.state].filter(Boolean).join(", ")}
                         </span>
                       )}
                       {branch.contact_phone && (
@@ -691,6 +719,7 @@ export default function SchoolAccountPage() {
                 name: account.name,
                 school_code: account.code,
                 city: account.city,
+                state: account.state,
               }
             : null
         }

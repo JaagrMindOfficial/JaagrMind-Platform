@@ -34,6 +34,7 @@ func AutoMigrate(ctx context.Context, db *pgxpool.Pool) error {
 			school_code TEXT UNIQUE NOT NULL,
 			name TEXT NOT NULL,
 			city TEXT NOT NULL,
+			state TEXT NOT NULL DEFAULT '',
 			contact TEXT,
 			phone_number TEXT,
 			logo TEXT,
@@ -485,6 +486,20 @@ func AutoMigrate(ctx context.Context, db *pgxpool.Pool) error {
 		END $$;
 
 		ALTER TABLE schools ADD COLUMN IF NOT EXISTS assigned_tests UUID[] DEFAULT '{}';
+		ALTER TABLE schools ADD COLUMN IF NOT EXISTS state TEXT NOT NULL DEFAULT '';
+
+		-- Backfill schools state if city has comma or known cities
+		UPDATE schools 
+		SET state = TRIM(split_part(city, ',', 2)), 
+		    city = TRIM(split_part(city, ',', 1)) 
+		WHERE city LIKE '%,%' AND (state = '' OR state IS NULL);
+
+		UPDATE schools SET state = 'Uttarakhand' WHERE (state = '' OR state IS NULL) AND city ILIKE '%Dehradun%';
+		UPDATE schools SET state = 'Karnataka' WHERE (state = '' OR state IS NULL) AND (city ILIKE '%Bangalore%' OR city ILIKE '%Bengaluru%');
+		UPDATE schools SET state = 'Delhi (NCT)' WHERE (state = '' OR state IS NULL) AND city ILIKE '%Delhi%';
+		UPDATE schools SET state = 'Haryana' WHERE (state = '' OR state IS NULL) AND (city ILIKE '%Gurugram%' OR city ILIKE '%Gurgaon%');
+		UPDATE schools SET state = 'Maharashtra' WHERE (state = '' OR state IS NULL) AND (city ILIKE '%Mumbai%' OR city ILIKE '%Pune%');
+		UPDATE schools SET state = 'Telangana' WHERE (state = '' OR state IS NULL) AND city ILIKE '%Hyderabad%';
 
 		ALTER TABLE student_results ADD COLUMN IF NOT EXISTS origin TEXT DEFAULT 'school';
 		ALTER TABLE student_results ADD COLUMN IF NOT EXISTS pathway_track_id TEXT;

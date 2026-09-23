@@ -31,6 +31,7 @@ interface School {
   name: string
   school_code: string
   city: string
+  state?: string
   contact: string
   phone_number?: string
   parent_school_id?: string | null
@@ -297,6 +298,7 @@ Portal Sign-In: ${provisionSuccessModal.login_url}`
     name: "",
     school_code: "",
     city: "",
+    state: "",
     contact: "",
     phone_number: "",
     parent_school_id: ""
@@ -433,6 +435,7 @@ Portal Sign-In: ${provisionSuccessModal.login_url}`
       name: school.name || "",
       school_code: school.school_code || "",
       city: school.city || "",
+      state: school.state || "",
       contact: school.contact || "",
       phone_number: school.phone_number || "",
       parent_school_id: school.parent_school_id || ""
@@ -454,6 +457,7 @@ Portal Sign-In: ${provisionSuccessModal.login_url}`
           name: editForm.name,
           school_code: editForm.school_code,
           city: editForm.city,
+          state: editForm.state,
           contact: editForm.contact,
           phone_number: editForm.phone_number,
           parent_school_id: editForm.parent_school_id ? editForm.parent_school_id : null
@@ -463,6 +467,7 @@ Portal Sign-In: ${provisionSuccessModal.login_url}`
           name: editForm.name,
           school_code: editForm.school_code,
           city: editForm.city,
+          state: editForm.state,
           contact: editForm.contact,
           phone_number: editForm.phone_number,
           parent_school_id: editForm.parent_school_id ? editForm.parent_school_id : null
@@ -1081,7 +1086,7 @@ Portal Sign-In: ${provisionSuccessModal.login_url}`
                           <TableCell className="text-muted-foreground text-xs">
                             <div className="flex items-center gap-1.5">
                               <MapPin className="h-3 w-3 text-muted-foreground/70" />
-                              <span>{school.city || "Not specified"}</span>
+                              <span>{[school.city, school.state].filter(Boolean).join(", ") || "Not specified"}</span>
                             </div>
                           </TableCell>
                           <TableCell className="text-muted-foreground text-xs">
@@ -1254,7 +1259,7 @@ Portal Sign-In: ${provisionSuccessModal.login_url}`
                           <span className="text-[10px] text-muted-foreground uppercase font-medium block">Location</span>
                           <div className="flex items-center gap-1 text-foreground font-medium mt-0.5 truncate">
                             <MapPin className="h-3 w-3 text-muted-foreground/70 shrink-0" />
-                            <span className="truncate">{school.city || "Not specified"}</span>
+                            <span className="truncate">{[school.city, school.state].filter(Boolean).join(", ") || "Not specified"}</span>
                           </div>
                         </div>
                         <div>
@@ -1408,13 +1413,30 @@ Portal Sign-In: ${provisionSuccessModal.login_url}`
               </div>
             </div>
 
-            <div className="space-y-1.5">
-              <label className="text-xs font-medium uppercase tracking-wider text-muted-foreground">City / Region</label>
-              <Input 
-                value={editForm.city} 
-                onChange={e => setEditForm({...editForm, city: e.target.value})} 
-                placeholder="e.g. Bangalore, KA"
-              />
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium uppercase tracking-wider text-muted-foreground">City *</label>
+                <Input 
+                  required 
+                  value={editForm.city} 
+                  onChange={e => setEditForm({...editForm, city: e.target.value})} 
+                  placeholder="e.g. Dehradun"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium uppercase tracking-wider text-muted-foreground">State / UT *</label>
+                <select
+                  required
+                  className="w-full h-9 px-3 rounded-md border border-input bg-background text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                  value={editForm.state}
+                  onChange={e => setEditForm({...editForm, state: e.target.value})}
+                >
+                  <option value="">Select State / UT</option>
+                  {INDIAN_STATES_AND_UTS.map(st => (
+                    <option key={st} value={st}>{st}</option>
+                  ))}
+                </select>
+              </div>
             </div>
 
             <div className="space-y-1.5">
@@ -1613,6 +1635,7 @@ Portal Sign-In: ${provisionSuccessModal.login_url}`
                 name: branchParentSchool.name,
                 school_code: branchParentSchool.school_code,
                 city: branchParentSchool.city,
+                state: branchParentSchool.state,
               }
             : null
         }

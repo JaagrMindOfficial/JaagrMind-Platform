@@ -24,6 +24,7 @@ import {
 } from "lucide-react"
 import { api } from "@/lib/api"
 import { useAuth } from "@/context/auth-context"
+import { INDIAN_STATES_AND_UTS } from "@/lib/constants"
 
 export default function InviteOnboardingPage() {
   const { token } = useParams()
@@ -48,6 +49,7 @@ export default function InviteOnboardingPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [city, setCity] = useState("")
+  const [state, setState] = useState("")
   const [phone, setPhone] = useState("")
   const [address, setAddress] = useState("")
   const [submitting, setSubmitting] = useState(false)
@@ -103,6 +105,7 @@ export default function InviteOnboardingPage() {
           password,
           name: name.trim(),
           city: city.trim(),
+          state: state.trim(),
           phone: phone.trim(),
           address: address.trim(),
         },
@@ -348,18 +351,38 @@ export default function InviteOnboardingPage() {
 
               <div className="grid gap-3 sm:grid-cols-2">
                 <div className="space-y-1">
-                  <label className="text-xs font-medium text-foreground">City / Location *</label>
+                  <label className="text-xs font-medium text-foreground">City / Campus Hub *</label>
                   <div className="relative">
                     <MapPin className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
                     <Input
                       value={city}
                       onChange={(e) => setCity(e.target.value)}
-                      placeholder="e.g. Hyderabad, Telangana"
+                      placeholder="e.g. Dehradun"
                       className="pl-8 h-9 text-xs"
                       required
                     />
                   </div>
                 </div>
+
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-foreground">State / Union Territory *</label>
+                  <select
+                    value={state}
+                    onChange={(e) => setState(e.target.value)}
+                    className="w-full h-9 rounded-md border border-input bg-background px-3 py-1 text-xs shadow-xs focus:outline-hidden focus:ring-1 focus:ring-ring"
+                    required
+                  >
+                    <option value="">Select State / UT</option>
+                    {INDIAN_STATES_AND_UTS.map((st) => (
+                      <option key={st} value={st}>
+                        {st}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid gap-3 sm:grid-cols-2">
 
                 <div className="space-y-1">
                   <label className="text-xs font-medium text-foreground flex items-center justify-between">

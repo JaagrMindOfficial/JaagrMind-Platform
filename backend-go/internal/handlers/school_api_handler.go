@@ -749,15 +749,25 @@ func (h *SchoolAPIHandler) UpdateSchoolAccount(c fiber.Ctx) error {
 	}
 
 	var req struct {
-		Name        string `json:"name"`
-		SchoolCode  string `json:"school_code"`
-		City        string `json:"city"`
-		PhoneNumber string `json:"phone_number"`
-		Contact     string `json:"contact"`
-		AdminName   string `json:"admin_name"`
+		Name         string `json:"name"`
+		SchoolCode   string `json:"school_code"`
+		City         string `json:"city"`
+		State        string `json:"state"`
+		PhoneNumber  string `json:"phone_number"`
+		ContactPhone string `json:"contact_phone"`
+		Contact      string `json:"contact"`
+		ContactEmail string `json:"contact_email"`
+		AdminName    string `json:"admin_name"`
 	}
 	if err := c.Bind().Body(&req); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid request payload"})
+	}
+
+	if req.PhoneNumber == "" && req.ContactPhone != "" {
+		req.PhoneNumber = req.ContactPhone
+	}
+	if req.Contact == "" && req.ContactEmail != "" {
+		req.Contact = req.ContactEmail
 	}
 
 	existing, err := h.schoolRepo.GetByID(c.Context(), schoolID)
@@ -765,10 +775,24 @@ func (h *SchoolAPIHandler) UpdateSchoolAccount(c fiber.Ctx) error {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "School not found"})
 	}
 
+	city := strings.TrimSpace(req.City)
+	state := strings.TrimSpace(req.State)
+	if strings.Contains(city, ",") {
+		parts := strings.Split(city, ",")
+		city = strings.TrimSpace(parts[0])
+		if state == "" && len(parts) > 1 {
+			state = strings.TrimSpace(parts[1])
+		}
+	}
+	if state == "" {
+		state = existing.State
+	}
+
 	createReq := domain.CreateSchoolRequest{
 		Name:           req.Name,
 		SchoolCode:     req.SchoolCode,
-		City:           req.City,
+		City:           city,
+		State:          state,
 		PhoneNumber:    req.PhoneNumber,
 		Contact:        req.Contact,
 		ParentSchoolID: existing.ParentSchoolID,
@@ -850,6 +874,7 @@ func (h *SchoolAPIHandler) CreateSchoolBranch(c fiber.Ctx) error {
 		Name        string `json:"name"`
 		SchoolCode  string `json:"school_code"`
 		City        string `json:"city"`
+		State       string `json:"state"`
 		Contact     string `json:"contact"`
 		PhoneNumber string `json:"phone_number"`
 	}
@@ -859,9 +884,21 @@ func (h *SchoolAPIHandler) CreateSchoolBranch(c fiber.Ctx) error {
 
 	req.Name = strings.TrimSpace(req.Name)
 	req.City = strings.TrimSpace(req.City)
+	req.State = strings.TrimSpace(req.State)
 	req.Contact = strings.TrimSpace(req.Contact)
 	req.PhoneNumber = strings.TrimSpace(req.PhoneNumber)
 	req.SchoolCode = strings.ToUpper(strings.TrimSpace(req.SchoolCode))
+
+	if strings.Contains(req.City, ",") {
+		parts := strings.Split(req.City, ",")
+		req.City = strings.TrimSpace(parts[0])
+		if req.State == "" && len(parts) > 1 {
+			req.State = strings.TrimSpace(parts[1])
+		}
+	}
+	if req.State == "" && parentSchool != nil {
+		req.State = parentSchool.State
+	}
 
 	if req.Name == "" || req.City == "" {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Branch campus name and location/city are required"})
@@ -875,6 +912,7 @@ func (h *SchoolAPIHandler) CreateSchoolBranch(c fiber.Ctx) error {
 		Name:           req.Name,
 		SchoolCode:     req.SchoolCode,
 		City:           req.City,
+		State:          req.State,
 		Contact:        req.Contact,
 		PhoneNumber:    req.PhoneNumber,
 		ParentSchoolID: &schoolID,

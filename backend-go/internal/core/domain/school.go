@@ -10,6 +10,7 @@ type School struct {
 	SchoolCode     string    `json:"school_code"`
 	Name           string    `json:"name"`
 	City           string    `json:"city"`
+	State          string    `json:"state"`
 	Contact        string    `json:"contact"`
 	PhoneNumber    string    `json:"phone_number"`
 	Logo           string    `json:"logo"`
@@ -23,6 +24,7 @@ type CreateSchoolRequest struct {
 	Name           string  `json:"name"`
 	SchoolCode     string  `json:"school_code"`
 	City           string  `json:"city"`
+	State          string  `json:"state"`
 	Contact        string  `json:"contact"`
 	PhoneNumber    string  `json:"phone_number"`
 	ParentSchoolID *string `json:"parent_school_id,omitempty"`

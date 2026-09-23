@@ -163,7 +163,8 @@ func (h *AdminAPIHandler) ApproveInstitutionApplication(c fiber.Ctx) error {
 	createdSchool, err := h.schoolRepo.Create(c.Context(), domain.CreateSchoolRequest{
 		Name:        app.InstituteName,
 		SchoolCode:  code,
-		City:        fmt.Sprintf("%s, %s", app.City, app.State),
+		City:        app.City,
+		State:       app.State,
 		Contact:     app.Email,
 		PhoneNumber: app.Phone,
 	})
@@ -430,23 +431,25 @@ func (h *AdminAPIHandler) ProvisionSchool(c fiber.Ctx) error {
 	}
 
 	// 2. Format Location
-	location := req.City
-	if req.State != "" {
-		if location != "" && !strings.Contains(strings.ToLower(location), strings.ToLower(req.State)) {
-			location = fmt.Sprintf("%s, %s", location, req.State)
-		} else if location == "" {
-			location = req.State
+	city := req.City
+	state := req.State
+	if strings.Contains(city, ",") {
+		parts := strings.Split(city, ",")
+		city = strings.TrimSpace(parts[0])
+		if state == "" && len(parts) > 1 {
+			state = strings.TrimSpace(parts[1])
 		}
 	}
-	if location == "" {
-		location = "India"
+	if city == "" {
+		city = "India"
 	}
 
 	// 3. Create School
 	school, err := h.schoolRepo.Create(c.Context(), domain.CreateSchoolRequest{
 		Name:        req.Name,
 		SchoolCode:  schoolCode,
-		City:        location,
+		City:        city,
+		State:       state,
 		Contact:     req.AdminEmail,
 		PhoneNumber: req.PhoneNumber,
 	})
@@ -546,6 +549,13 @@ func (h *AdminAPIHandler) CreateSchool(c fiber.Ctx) error {
 	if err := c.Bind().Body(&req); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid payload"})
 	}
+	if strings.Contains(req.City, ",") && req.State == "" {
+		parts := strings.Split(req.City, ",")
+		req.City = strings.TrimSpace(parts[0])
+		if len(parts) > 1 {
+			req.State = strings.TrimSpace(parts[1])
+		}
+	}
 
 	school, err := h.schoolRepo.Create(c.Context(), req)
 	if err != nil {
@@ -559,6 +569,13 @@ func (h *AdminAPIHandler) UpdateSchool(c fiber.Ctx) error {
 	var req domain.CreateSchoolRequest
 	if err := c.Bind().Body(&req); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid payload"})
+	}
+	if strings.Contains(req.City, ",") && req.State == "" {
+		parts := strings.Split(req.City, ",")
+		req.City = strings.TrimSpace(parts[0])
+		if len(parts) > 1 {
+			req.State = strings.TrimSpace(parts[1])
+		}
 	}
 	
 	school, err := h.schoolRepo.Update(c.Context(), id, req)

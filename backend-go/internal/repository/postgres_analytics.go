@@ -165,6 +165,11 @@ func (r *postgresAnalytics) GetAdminAnalytics(ctx context.Context) (*domain.Admi
 
 	// City distribution with proper normalization of cities and states
 	cityStateMap := map[string]string{
+		"Dehradun":   "Uttarakhand",
+		"Gurugram":   "Haryana",
+		"Gurgaon":    "Haryana",
+		"Noida":      "Uttar Pradesh",
+		"Chandigarh": "Chandigarh",
 		"Hyderabad": "Telangana",
 		"Bangalore": "Karnataka",
 		"Bengaluru": "Karnataka",
@@ -179,22 +184,26 @@ func (r *postgresAnalytics) GetAdminAnalytics(ctx context.Context) (*domain.Admi
 		"Kochi":     "Kerala",
 	}
 
-	cRows, cErr := r.db.Query(ctx, `SELECT id, name, school_code, COALESCE(city, ''), is_active, is_blocked FROM schools`)
+	cRows, cErr := r.db.Query(ctx, `SELECT id, name, school_code, COALESCE(city, ''), COALESCE(state, ''), is_active, is_blocked FROM schools`)
 	if cErr == nil {
 		defer cRows.Close()
 		cityAggMap := make(map[string]*domain.CityDistribution)
 
 		for cRows.Next() {
-			var id, name, code, rawCity string
+			var id, name, code, rawCity, rawState string
 			var isActive, isBlocked bool
-			if err := cRows.Scan(&id, &name, &code, &rawCity, &isActive, &isBlocked); err == nil {
+			if err := cRows.Scan(&id, &name, &code, &rawCity, &rawState, &isActive, &isBlocked); err == nil {
 				rawCity = strings.TrimSpace(rawCity)
+				rawState = strings.TrimSpace(rawState)
 				if rawCity == "" {
 					rawCity = "Other"
 				}
 
 				var normCity, normState string
-				if strings.Contains(rawCity, ",") {
+				if rawState != "" {
+					normCity = rawCity
+					normState = rawState
+				} else if strings.Contains(rawCity, ",") {
 					parts := strings.Split(rawCity, ",")
 					normCity = strings.TrimSpace(parts[0])
 					if len(parts) > 1 {
@@ -296,7 +305,7 @@ func (r *postgresAnalytics) GetSchoolAnalytics(ctx context.Context, schoolID str
 func (r *postgresAnalytics) GetSchoolsOverview(ctx context.Context) ([]domain.SchoolComparativeMetric, error) {
 	query := `
 		SELECT 
-			s.id, s.name, s.school_code, s.city,
+			s.id, s.name, s.school_code, COALESCE(s.city, ''), COALESCE(s.state, ''),
 			COALESCE((SELECT COUNT(*) FROM schools b WHERE b.parent_school_id = s.id), 0) AS branch_count,
 			COALESCE((SELECT COUNT(*) FROM students st WHERE st.school_id = s.id OR st.school_id IN (SELECT b.id FROM schools b WHERE b.parent_school_id = s.id)), 0) AS total_students,
 			COALESCE((SELECT COUNT(*) FROM student_results sr WHERE sr.school_id = s.id OR sr.school_id IN (SELECT b.id FROM schools b WHERE b.parent_school_id = s.id)), 0) AS completed_checkins,
@@ -314,19 +323,22 @@ func (r *postgresAnalytics) GetSchoolsOverview(ctx context.Context) ([]domain.Sc
 
 	var list []domain.SchoolComparativeMetric
 	cityStateMap := map[string]string{
+		"Dehradun": "Uttarakhand", "Gurugram": "Haryana", "Gurgaon": "Haryana", "Noida": "Uttar Pradesh",
 		"Bangalore": "Karnataka", "Bengaluru": "Karnataka", "Hyderabad": "Telangana",
 		"Pune": "Maharashtra", "Mumbai": "Maharashtra", "Delhi": "Delhi NCR",
 	}
 
 	for rows.Next() {
 		var m domain.SchoolComparativeMetric
-		if err := rows.Scan(&m.ID, &m.Name, &m.SchoolCode, &m.City, &m.BranchCount, &m.TotalStudents, &m.CompletedCheckins, &m.Status); err != nil {
+		if err := rows.Scan(&m.ID, &m.Name, &m.SchoolCode, &m.City, &m.State, &m.BranchCount, &m.TotalStudents, &m.CompletedCheckins, &m.Status); err != nil {
 			return nil, err
 		}
-		if st, ok := cityStateMap[m.City]; ok {
-			m.State = st
-		} else {
-			m.State = m.City
+		if m.State == "" {
+			if st, ok := cityStateMap[m.City]; ok {
+				m.State = st
+			} else {
+				m.State = m.City
+			}
 		}
 
 		if m.TotalStudents > 0 {
@@ -386,8 +398,8 @@ func (r *postgresAnalytics) GetDetailedSchoolAnalytics(ctx context.Context, scho
 	d.SchoolID = schoolID
 
 	err := r.db.QueryRow(ctx, `
-		SELECT name, school_code, city FROM schools WHERE id = $1
-	`, schoolID).Scan(&d.SchoolName, &d.SchoolCode, &d.City)
+		SELECT name, school_code, COALESCE(city, ''), COALESCE(state, '') FROM schools WHERE id = $1
+	`, schoolID).Scan(&d.SchoolName, &d.SchoolCode, &d.City, &d.State)
 	if err != nil {
 		return nil, err
 	}
@@ -396,12 +408,12 @@ func (r *postgresAnalytics) GetDetailedSchoolAnalytics(ctx context.Context, scho
 	if branchID != "" && branchID != "all" {
 		targetSchoolIDs = []string{branchID}
 	} else {
-		bRows, bErr := r.db.Query(ctx, `SELECT id, name, city FROM schools WHERE parent_school_id = $1`, schoolID)
+		bRows, bErr := r.db.Query(ctx, `SELECT id, name, COALESCE(city, ''), COALESCE(state, '') FROM schools WHERE parent_school_id = $1`, schoolID)
 		if bErr == nil {
 			defer bRows.Close()
 			for bRows.Next() {
 				var bm domain.BranchMetric
-				if err := bRows.Scan(&bm.ID, &bm.Name, &bm.City); err == nil {
+				if err := bRows.Scan(&bm.ID, &bm.Name, &bm.City, &bm.State); err == nil {
 					targetSchoolIDs = append(targetSchoolIDs, bm.ID)
 					_ = r.db.QueryRow(ctx, `SELECT COUNT(*) FROM students WHERE school_id = $1`, bm.ID).Scan(&bm.TotalStudents)
 					_ = r.db.QueryRow(ctx, `SELECT COUNT(*) FROM student_results WHERE school_id = $1`, bm.ID).Scan(&bm.CompletedCheckins)

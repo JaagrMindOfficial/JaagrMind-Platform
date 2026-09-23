@@ -72,6 +72,7 @@ type AcceptInviteRequest struct {
 	Name     string `json:"name"` // admin's name
 	// School details filled during onboarding
 	City    string `json:"city"`
+	State   string `json:"state"`
 	Phone   string `json:"phone"`
 	Address string `json:"address"`
 }

@@ -24,25 +24,74 @@ interface IndiaMapProps {
 
 // Geometrically projected city coordinates matching viewBox 0 0 600 660
 const CITY_PROJECTED_COORDS: Record<string, { x: number; y: number; state: string; labelOffset?: { dx: number; dy: number } }> = {
+  "dehradun": { x: 212.0, y: 172.0, state: "Uttarakhand", labelOffset: { dx: 12, dy: -18 } },
+  "haridwar": { x: 215.0, y: 178.0, state: "Uttarakhand", labelOffset: { dx: 12, dy: -18 } },
+  "rishikesh": { x: 216.0, y: 174.0, state: "Uttarakhand", labelOffset: { dx: 12, dy: -18 } },
+  "gurugram": { x: 194.0, y: 212.0, state: "Haryana", labelOffset: { dx: 12, dy: -18 } },
+  "gurgaon": { x: 194.0, y: 212.0, state: "Haryana", labelOffset: { dx: 12, dy: -18 } },
+  "noida": { x: 200.0, y: 210.0, state: "Uttar Pradesh", labelOffset: { dx: 12, dy: -18 } },
   "hyderabad": { x: 219.5, y: 436.5, state: "Telangana", labelOffset: { dx: 12, dy: -18 } },
   "bangalore": { x: 202.8, y: 522.0, state: "Karnataka", labelOffset: { dx: 12, dy: -18 } },
   "bengaluru": { x: 202.8, y: 522.0, state: "Karnataka", labelOffset: { dx: 12, dy: -18 } },
   "mumbai": { x: 114.6, y: 403.3, state: "Maharashtra", labelOffset: { dx: -70, dy: -20 } },
   "pune": { x: 132.9, y: 414.2, state: "Maharashtra", labelOffset: { dx: 12, dy: 10 } },
+  "nagpur": { x: 218.0, y: 352.0, state: "Maharashtra", labelOffset: { dx: 12, dy: -18 } },
   "delhi": { x: 195.6, y: 208.0, state: "Delhi NCR", labelOffset: { dx: 12, dy: -20 } },
   "new delhi": { x: 195.6, y: 208.0, state: "Delhi NCR", labelOffset: { dx: 12, dy: -20 } },
   "delhi ncr": { x: 195.6, y: 208.0, state: "Delhi NCR", labelOffset: { dx: 12, dy: -20 } },
   "chennai": { x: 252.8, y: 519.9, state: "Tamil Nadu", labelOffset: { dx: 14, dy: -16 } },
   "kolkata": { x: 404.1, y: 333.3, state: "West Bengal", labelOffset: { dx: 14, dy: -18 } },
   "kochi": { x: 178.0, y: 580.0, state: "Kerala", labelOffset: { dx: -60, dy: 10 } },
+  "thiruvananthapuram": { x: 182.0, y: 620.0, state: "Kerala", labelOffset: { dx: -70, dy: 10 } },
   "jaipur": { x: 169.0, y: 244.0, state: "Rajasthan", labelOffset: { dx: -65, dy: -18 } },
   "ahmedabad": { x: 108.9, y: 324.2, state: "Gujarat", labelOffset: { dx: -75, dy: -10 } },
+  "surat": { x: 116.0, y: 358.0, state: "Gujarat", labelOffset: { dx: -60, dy: -10 } },
   "chandigarh": { x: 187.6, y: 162.4, state: "Punjab", labelOffset: { dx: 12, dy: -20 } },
   "lucknow": { x: 265.5, y: 245.3, state: "Uttar Pradesh", labelOffset: { dx: 12, dy: -20 } },
   "bhopal": { x: 199.4, y: 319.4, state: "Madhya Pradesh", labelOffset: { dx: 12, dy: -16 } },
+  "indore": { x: 175.0, y: 335.0, state: "Madhya Pradesh", labelOffset: { dx: 12, dy: -18 } },
   "patna": { x: 343.8, y: 271.4, state: "Bihar", labelOffset: { dx: 12, dy: -18 } },
   "bhubaneswar": { x: 356.6, y: 379.0, state: "Odisha", labelOffset: { dx: 14, dy: -16 } },
   "guwahati": { x: 467.1, y: 260.0, state: "Assam", labelOffset: { dx: 14, dy: -18 } },
+  "shimla": { x: 202.0, y: 154.0, state: "Himachal Pradesh", labelOffset: { dx: 12, dy: -18 } },
+}
+
+const STATE_CENTROIDS: Record<string, { x: number; y: number }> = {
+  "uttarakhand": { x: 215.0, y: 175.0 },
+  "haryana": { x: 190.0, y: 195.0 },
+  "delhi": { x: 195.6, y: 208.0 },
+  "delhi (nct)": { x: 195.6, y: 208.0 },
+  "delhi ncr": { x: 195.6, y: 208.0 },
+  "punjab": { x: 175.0, y: 170.0 },
+  "himachal pradesh": { x: 198.0, y: 145.0 },
+  "jammu and kashmir": { x: 170.0, y: 105.0 },
+  "ladakh": { x: 210.0, y: 95.0 },
+  "rajasthan": { x: 150.0, y: 245.0 },
+  "uttar pradesh": { x: 260.0, y: 245.0 },
+  "bihar": { x: 345.0, y: 270.0 },
+  "west bengal": { x: 395.0, y: 330.0 },
+  "jharkhand": { x: 335.0, y: 315.0 },
+  "odisha": { x: 340.0, y: 375.0 },
+  "chhattisgarh": { x: 275.0, y: 350.0 },
+  "madhya pradesh": { x: 215.0, y: 315.0 },
+  "gujarat": { x: 110.0, y: 320.0 },
+  "maharashtra": { x: 165.0, y: 405.0 },
+  "goa": { x: 135.0, y: 485.0 },
+  "karnataka": { x: 185.0, y: 495.0 },
+  "telangana": { x: 225.0, y: 420.0 },
+  "andhra pradesh": { x: 245.0, y: 470.0 },
+  "tamil nadu": { x: 220.0, y: 550.0 },
+  "kerala": { x: 180.0, y: 585.0 },
+  "assam": { x: 465.0, y: 255.0 },
+  "sikkim": { x: 380.0, y: 225.0 },
+  "meghalaya": { x: 440.0, y: 275.0 },
+  "tripura": { x: 435.0, y: 310.0 },
+  "mizoram": { x: 455.0, y: 325.0 },
+  "manipur": { x: 475.0, y: 290.0 },
+  "nagaland": { x: 495.0, y: 255.0 },
+  "arunachal pradesh": { x: 505.0, y: 210.0 },
+  "chandigarh": { x: 187.6, y: 162.4 },
+  "puducherry": { x: 245.0, y: 535.0 },
 }
 
 export function IndiaDistributionMap({ distribution, totalSchools }: IndiaMapProps) {
@@ -152,12 +201,20 @@ export function IndiaDistributionMap({ distribution, totalSchools }: IndiaMapPro
                 {distribution.map((item) => {
                   const cleanCityName = item.city.split(',')[0].trim()
                   const key = cleanCityName.toLowerCase()
-                  const coord = CITY_PROJECTED_COORDS[key] || {
+                  const stateKey = (item.state || "").toLowerCase().trim()
+                  const stateCentroid = STATE_CENTROIDS[stateKey]
+
+                  const coord = CITY_PROJECTED_COORDS[key] || (stateCentroid ? {
+                    x: stateCentroid.x + (Math.sin(cleanCityName.length * 3) * 15),
+                    y: stateCentroid.y + (Math.cos(cleanCityName.length * 3) * 15),
+                    state: item.state || "India",
+                    labelOffset: { dx: 10, dy: -18 },
+                  } : {
                     x: 220 + (Math.sin(cleanCityName.length * 3) * 60),
                     y: 400 + (Math.cos(cleanCityName.length * 3) * 60),
                     state: item.state || "India",
                     labelOffset: { dx: 10, dy: -18 },
-                  }
+                  })
 
                   const isSelected =
                     selectedCity?.city.toLowerCase() === key ||

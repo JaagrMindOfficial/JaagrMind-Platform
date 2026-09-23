@@ -78,6 +78,7 @@ interface BranchItem {
   id: string
   name: string
   city: string
+  state?: string
   total_students: number
   completed_checkins: number
   avg_focus: number
@@ -111,6 +112,11 @@ interface ClassItem {
 }
 
 interface SchoolAnalyticsResponse {
+  school_id?: string
+  school_name?: string
+  school_code?: string
+  city?: string
+  state?: string
   overview: {
     total_students: number
     total_teachers: number
@@ -779,35 +785,43 @@ export default function SchoolAnalyticsPage() {
                   <Badge variant="outline" className="text-[10px] bg-primary/10 text-primary border-primary/20">
                     Flagship Main Campus
                   </Badge>
-                  <span className="text-xs font-mono text-muted-foreground">Main Campus</span>
+                  <span className="text-xs font-mono text-muted-foreground">{data.school_code || "Main Campus"}</span>
                 </div>
-                <CardTitle className="text-base font-bold pt-1">Oakwood Flagship Campus</CardTitle>
-                <CardDescription className="text-xs">Bangalore Central Hub</CardDescription>
+                <CardTitle className="text-base font-bold pt-1">{data.school_name || (user?.metadata?.school_name as string) || "Main Campus"}</CardTitle>
+                <CardDescription className="text-xs">
+                  {data.city ? `${data.city}${data.state ? `, ${data.state}` : ""}` : "Primary Campus Hub"}
+                </CardDescription>
               </CardHeader>
               <CardContent className="p-4 space-y-3">
                 <div className="grid grid-cols-2 gap-2 text-xs">
                   <div className="p-2 rounded bg-muted/20 border border-border/40">
                     <span className="text-[10px] text-muted-foreground">Enrolled Students</span>
-                    <div className="text-lg font-bold text-foreground">{data.overview.total_students - 3}</div>
+                    <div className="text-lg font-bold text-foreground">{data.overview.total_students}</div>
                   </div>
                   <div className="p-2 rounded bg-muted/20 border border-border/40">
                     <span className="text-[10px] text-muted-foreground">Evaluations</span>
-                    <div className="text-lg font-bold text-foreground">{data.overview.total_results - 3}</div>
+                    <div className="text-lg font-bold text-foreground">{data.overview.total_results}</div>
                   </div>
                 </div>
 
                 <div className="space-y-1 text-xs">
                   <div className="flex items-center justify-between text-muted-foreground">
                     <span>Average Focus Index:</span>
-                    <span className="font-semibold text-foreground">82/100</span>
+                    <span className="font-semibold text-foreground">
+                      {data.radar_dimensions?.["Attention & Focus Flow"] ? Math.round(data.radar_dimensions["Attention & Focus Flow"]) : (data.overview.total_results > 0 ? 82 : 0)}/100
+                    </span>
                   </div>
                   <div className="flex items-center justify-between text-muted-foreground">
                     <span>Resilience & Pacing:</span>
-                    <span className="font-semibold text-foreground">68/100</span>
+                    <span className="font-semibold text-foreground">
+                      {data.radar_dimensions?.["Calm & Stress Reset"] ? Math.round(data.radar_dimensions["Calm & Stress Reset"]) : (data.overview.total_results > 0 ? 68 : 0)}/100
+                    </span>
                   </div>
                   <div className="flex items-center justify-between text-muted-foreground">
                     <span>Primary Friction:</span>
-                    <span className="font-semibold text-amber-600 dark:text-amber-400">Classroom Voice Hesitancy</span>
+                    <span className="font-semibold text-amber-600 dark:text-amber-400">
+                      {data.overview.total_results > 0 ? (data.executive_banner?.primary_insight ? data.executive_banner.primary_insight.split(":")[0] : "Classroom Voice Hesitancy") : "Pending Assessment"}
+                    </span>
                   </div>
                 </div>
               </CardContent>
@@ -821,7 +835,7 @@ export default function SchoolAnalyticsPage() {
                     <Badge variant="outline" className="text-[10px] bg-sky-500/10 text-sky-600 border-sky-500/20">
                       Sister Campus
                     </Badge>
-                    <span className="text-xs font-mono text-muted-foreground">{b.city}</span>
+                    <span className="text-xs font-mono text-muted-foreground">{b.city}{b.state ? `, ${b.state}` : ""}</span>
                   </div>
                   <CardTitle className="text-base font-bold pt-1">{b.name}</CardTitle>
                   <CardDescription className="text-xs">Affiliated Regional Branch</CardDescription>
@@ -830,26 +844,26 @@ export default function SchoolAnalyticsPage() {
                   <div className="grid grid-cols-2 gap-2 text-xs">
                     <div className="p-2 rounded bg-muted/20 border border-border/40">
                       <span className="text-[10px] text-muted-foreground">Enrolled Students</span>
-                      <div className="text-lg font-bold text-foreground">{b.total_students || 3}</div>
+                      <div className="text-lg font-bold text-foreground">{b.total_students}</div>
                     </div>
                     <div className="p-2 rounded bg-muted/20 border border-border/40">
                       <span className="text-[10px] text-muted-foreground">Evaluations</span>
-                      <div className="text-lg font-bold text-foreground">{b.completed_checkins || 3}</div>
+                      <div className="text-lg font-bold text-foreground">{b.completed_checkins}</div>
                     </div>
                   </div>
 
                   <div className="space-y-1 text-xs">
                     <div className="flex items-center justify-between text-muted-foreground">
                       <span>Average Focus Index:</span>
-                      <span className="font-semibold text-foreground">{b.avg_focus}/100</span>
+                      <span className="font-semibold text-foreground">{b.avg_focus || 0}/100</span>
                     </div>
                     <div className="flex items-center justify-between text-muted-foreground">
                       <span>Resilience & Pacing:</span>
-                      <span className="font-semibold text-foreground">{b.avg_resilience}/100</span>
+                      <span className="font-semibold text-foreground">{b.avg_resilience || 0}/100</span>
                     </div>
                     <div className="flex items-center justify-between text-muted-foreground">
                       <span>Primary Friction:</span>
-                      <span className="font-semibold text-amber-600 dark:text-amber-400">{b.primary_friction}</span>
+                      <span className="font-semibold text-amber-600 dark:text-amber-400">{b.primary_friction || "Pending Assessment"}</span>
                     </div>
                   </div>
                 </CardContent>

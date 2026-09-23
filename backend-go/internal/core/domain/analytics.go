@@ -81,6 +81,7 @@ type BranchMetric struct {
 	ID                string `json:"id"`
 	Name              string `json:"name"`
 	City              string `json:"city"`
+	State             string `json:"state"`
 	TotalStudents     int    `json:"total_students"`
 	CompletedCheckins int    `json:"completed_checkins"`
 	AvgFocus          int    `json:"avg_focus"`
@@ -179,6 +180,7 @@ type DetailedSchoolAnalytics struct {
 	SchoolName          string                     `json:"school_name"`
 	SchoolCode          string                     `json:"school_code"`
 	City                string                     `json:"city"`
+	State               string                     `json:"state"`
 	TotalStudents       int                        `json:"total_students"`
 	TotalTeachers       int                        `json:"total_teachers"`
 	TotalResults        int                        `json:"total_results"`

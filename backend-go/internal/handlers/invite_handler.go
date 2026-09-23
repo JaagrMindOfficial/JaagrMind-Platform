@@ -98,12 +98,18 @@ func (h *InviteHandler) AcceptInvite(c fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Password must be at least 8 characters"})
 	}
 
-	// Generate a unique School Code
-	codePrefix := strings.ToUpper(strings.ReplaceAll(invite.SchoolName, " ", ""))
-	if len(codePrefix) > 4 {
-		codePrefix = codePrefix[:4]
+	city := strings.TrimSpace(req.City)
+	state := strings.TrimSpace(req.State)
+	if strings.Contains(city, ",") {
+		parts := strings.Split(city, ",")
+		city = strings.TrimSpace(parts[0])
+		if state == "" && len(parts) > 1 {
+			state = strings.TrimSpace(parts[1])
+		}
 	}
-	schoolCode := fmt.Sprintf("%s%d", codePrefix, time.Now().Unix()%10000)
+
+	// Generate a unique School Code using smart initials algorithm
+	schoolCode := utils.GenerateSchoolCode(c.Context(), h.schoolRepo, invite.SchoolName, city)
 
 	phone := strings.TrimSpace(req.Phone)
 	if phone == "" {
@@ -114,7 +120,8 @@ func (h *InviteHandler) AcceptInvite(c fiber.Ctx) error {
 	school, err := h.schoolRepo.Create(c.Context(), domain.CreateSchoolRequest{
 		Name:        invite.SchoolName,
 		SchoolCode:  schoolCode,
-		City:        req.City,
+		City:        city,
+		State:       state,
 		Contact:     invite.Email,
 		PhoneNumber: phone,
 	})

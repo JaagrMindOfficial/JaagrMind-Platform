@@ -24,6 +24,7 @@ import {
   Info,
 } from "lucide-react"
 import { api } from "@/lib/api"
+import { INDIAN_STATES_AND_UTS } from "@/lib/constants"
 
 export interface ParentSchoolInfo {
   id: string
@@ -31,6 +32,7 @@ export interface ParentSchoolInfo {
   school_code?: string
   code?: string
   city?: string
+  state?: string
 }
 
 interface CreateBranchDialogProps {
@@ -50,6 +52,7 @@ export function CreateBranchDialog({
 }: CreateBranchDialogProps) {
   const [name, setName] = useState("")
   const [city, setCity] = useState("")
+  const [state, setState] = useState("")
   const [schoolCode, setSchoolCode] = useState("")
   const [contact, setContact] = useState("")
   const [phoneNumber, setPhoneNumber] = useState("")
@@ -77,6 +80,7 @@ export function CreateBranchDialog({
     if (isOpen) {
       setName("")
       setCity(parentSchool?.city || "")
+      setState(parentSchool?.state || "")
       setSchoolCode(parentSchool ? `${parentCode}-` : "")
       setContact("")
       setPhoneNumber("")
@@ -108,6 +112,7 @@ export function CreateBranchDialog({
           name: name.trim(),
           school_code: schoolCode.trim().toUpperCase(),
           city: city.trim(),
+          state: state.trim(),
           contact: contact.trim(),
           phone_number: phoneNumber.trim(),
           parent_school_id: parentSchool.id,
@@ -117,6 +122,7 @@ export function CreateBranchDialog({
           name: name.trim(),
           school_code: schoolCode.trim().toUpperCase(),
           city: city.trim(),
+          state: state.trim(),
           contact: contact.trim(),
           phone_number: phoneNumber.trim(),
         })
@@ -222,6 +228,26 @@ export function CreateBranchDialog({
 
             <div className="space-y-1.5">
               <label className="text-xs font-medium text-foreground">
+                State / Union Territory
+              </label>
+              <select
+                value={state}
+                onChange={(e) => setState(e.target.value)}
+                className="w-full h-9 rounded-md border border-input bg-background px-3 py-1 text-xs shadow-xs focus:outline-hidden focus:ring-1 focus:ring-ring"
+              >
+                <option value="">Select State / UT</option>
+                {INDIAN_STATES_AND_UTS.map((st) => (
+                  <option key={st} value={st}>
+                    {st}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-foreground">
                 Branch Code *
               </label>
               <Input
@@ -230,20 +256,6 @@ export function CreateBranchDialog({
                 placeholder={`e.g. ${parentSchool.school_code}-INDIRA`}
                 className="h-9 text-xs font-mono"
                 required
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <label className="text-xs font-medium text-foreground">
-                Branch Admin / Contact Person
-              </label>
-              <Input
-                value={contact}
-                onChange={(e) => setContact(e.target.value)}
-                placeholder="e.g. Dr. Meera Rao (Principal)"
-                className="h-9 text-xs"
               />
             </div>
 
@@ -261,6 +273,18 @@ export function CreateBranchDialog({
                 />
               </div>
             </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-foreground">
+              Branch Admin / Contact Person
+            </label>
+            <Input
+              value={contact}
+              onChange={(e) => setContact(e.target.value)}
+              placeholder="e.g. Dr. Meera Rao (Principal)"
+              className="h-9 text-xs"
+            />
           </div>
 
           <DialogFooter className="pt-3 border-t border-border/40 gap-2">

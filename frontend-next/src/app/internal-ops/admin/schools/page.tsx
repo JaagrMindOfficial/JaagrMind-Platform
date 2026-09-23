@@ -9,7 +9,8 @@ import { Badge } from "@/components/ui/badge"
 import { 
   Search, Plus, Edit, ShieldBan, ShieldCheck, Trash2, 
   Building2, School as SchoolIcon, BarChart2, Check, AlertCircle, Phone, MapPin,
-  Mail, Key, Copy, CheckCircle2, GitBranch, ExternalLink, History, RefreshCw, AlertTriangle
+  Mail, Key, Copy, CheckCircle2, GitBranch, ExternalLink, History, RefreshCw, AlertTriangle,
+  BookOpen
 } from "lucide-react"
 import { 
   Dialog, DialogContent, DialogHeader, DialogTitle, 
@@ -19,8 +20,9 @@ import { InfoTooltip } from "@/components/ui/info-tooltip"
 import { MinimalUUID } from "@/components/ui/minimal-uuid"
 import { EventsAuditCard, AuditEvent } from "@/components/events-audit-card"
 import { CreateBranchDialog } from "@/components/create-branch-dialog"
+import { InstitutionRequestsTab } from "@/components/institution-requests-tab"
 import { api } from "@/lib/api"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
 import { INDIAN_STATES_AND_UTS, SCHOOL_DESIGNATIONS, generateSchoolCodePreview } from "@/lib/constants"
 
@@ -57,7 +59,17 @@ export default function AdminSchoolsPage() {
   const [pendingApplicationsCount, setPendingApplicationsCount] = useState(0)
 
   // Tab navigation
-  const [activeTab, setActiveTab] = useState<"campuses" | "invites">("campuses")
+  const searchParams = useSearchParams()
+  const tabParam = searchParams.get("tab")
+  const [activeTab, setActiveTab] = useState<"campuses" | "invites" | "requests">(
+    tabParam === "requests" ? "requests" : tabParam === "invites" ? "invites" : "campuses"
+  )
+
+  useEffect(() => {
+    if (tabParam === "requests" || tabParam === "invites" || tabParam === "campuses") {
+      setActiveTab(tabParam)
+    }
+  }, [tabParam])
 
   // Invites state
   const [invites, setInvites] = useState<SchoolInvite[]>([])
@@ -615,7 +627,7 @@ Portal Sign-In: ${provisionSuccessModal.login_url}`
       </div>
 
       {/* Pending Inbound Applications Banner */}
-      {pendingApplicationsCount > 0 && (
+      {pendingApplicationsCount > 0 && activeTab !== "requests" && (
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-4 rounded-xl border border-amber-500/30 bg-amber-500/10 text-amber-900 dark:text-amber-200">
           <div className="flex items-center gap-2.5">
             <div className="p-2 rounded-lg bg-amber-500/20 text-amber-700 dark:text-amber-300 shrink-0">
@@ -630,55 +642,17 @@ Portal Sign-In: ${provisionSuccessModal.login_url}`
               </p>
             </div>
           </div>
-          <Link href="/internal-ops/admin/institution-applications">
-            <Button size="sm" className="h-8 text-xs bg-amber-600 hover:bg-amber-500 text-white gap-1 shrink-0">
-              Review & Provision Schools &rarr;
-            </Button>
-          </Link>
+          <Button
+            size="sm"
+            onClick={() => setActiveTab("requests")}
+            className="h-8 text-xs bg-amber-600 hover:bg-amber-500 text-white gap-1 shrink-0 cursor-pointer"
+          >
+            Review & Provision Schools &rarr;
+          </Button>
         </div>
       )}
 
-      {/* Metrics Row */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <Card className="p-5 flex !flex-row items-center justify-between border-border/60 shadow-sm">
-          <div className="space-y-1">
-            <div className="text-xs font-medium text-muted-foreground uppercase tracking-wider flex items-center">
-              Total Schools
-              <InfoTooltip content="Total recognized educational institutions registered across the platform." />
-            </div>
-            <div className="text-2xl font-bold tracking-tight mt-1">{schools.length}</div>
-          </div>
-          <div className="h-11 w-11 rounded-xl bg-primary/10 flex items-center justify-center text-primary shrink-0">
-            <SchoolIcon className="h-5 w-5" />
-          </div>
-        </Card>
-        <Card className="p-5 flex !flex-row items-center justify-between border-border/60 shadow-sm">
-          <div className="space-y-1">
-            <div className="text-xs font-medium text-muted-foreground uppercase tracking-wider flex items-center">
-              Active Campuses
-              <InfoTooltip content="Operational campuses currently authorized to conduct wellness check-ins." />
-            </div>
-            <div className="text-2xl font-bold tracking-tight mt-1 text-emerald-600 dark:text-emerald-400">{activeCount}</div>
-          </div>
-          <div className="h-11 w-11 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-600 dark:text-emerald-400 shrink-0">
-            <ShieldCheck className="h-5 w-5" />
-          </div>
-        </Card>
-        <Card className="p-5 flex !flex-row items-center justify-between border-border/60 shadow-sm">
-          <div className="space-y-1">
-            <div className="text-xs font-medium text-muted-foreground uppercase tracking-wider flex items-center">
-              Blocked / Suspended
-              <InfoTooltip content="Institutions with administrative holds or pending onboarding verifications." />
-            </div>
-            <div className="text-2xl font-bold tracking-tight mt-1 text-rose-600 dark:text-rose-400">{blockedCount}</div>
-          </div>
-          <div className="h-11 w-11 rounded-xl bg-rose-500/10 flex items-center justify-center text-rose-600 dark:text-rose-400 shrink-0">
-            <ShieldBan className="h-5 w-5" />
-          </div>
-        </Card>
-      </div>
-
-      {/* Views Switcher: Registered Campuses vs Sent Invitations */}
+      {/* Views Switcher: Registered Campuses vs Sent Invitations vs Onboarding Requests */}
       <div className="flex items-center gap-2 border-b border-border/60 pb-3">
         <button
           type="button"
@@ -711,7 +685,70 @@ Portal Sign-In: ${provisionSuccessModal.login_url}`
             {invites.filter(i => !i.accepted_at).length} Pending
           </Badge>
         </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab("requests")}
+          className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+            activeTab === "requests"
+              ? "bg-primary text-primary-foreground shadow-xs"
+              : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+          }`}
+        >
+          <BookOpen className="h-3.5 w-3.5" />
+          <span>Onboarding Requests</span>
+          <Badge variant="outline" className={`text-[10px] px-1.5 py-0 ${activeTab === "requests" ? "border-primary-foreground/30 text-primary-foreground" : "bg-amber-500/10 text-amber-600 border-amber-500/30"}`}>
+            {pendingApplicationsCount} Pending
+          </Badge>
+        </button>
       </div>
+
+      {activeTab === "requests" ? (
+        <InstitutionRequestsTab
+          onSchoolProvisioned={fetchSchools}
+          onPendingCountChange={setPendingApplicationsCount}
+        />
+      ) : (
+        <>
+          {/* Metrics Row */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <Card className="p-5 flex !flex-row items-center justify-between border-border/60 shadow-sm">
+              <div className="space-y-1">
+                <div className="text-xs font-medium text-muted-foreground uppercase tracking-wider flex items-center">
+                  Total Schools
+                  <InfoTooltip content="Total recognized educational institutions registered across the platform." />
+                </div>
+                <div className="text-2xl font-bold tracking-tight mt-1">{schools.length}</div>
+              </div>
+              <div className="h-11 w-11 rounded-xl bg-primary/10 flex items-center justify-center text-primary shrink-0">
+                <SchoolIcon className="h-5 w-5" />
+              </div>
+            </Card>
+            <Card className="p-5 flex !flex-row items-center justify-between border-border/60 shadow-sm">
+              <div className="space-y-1">
+                <div className="text-xs font-medium text-muted-foreground uppercase tracking-wider flex items-center">
+                  Active Campuses
+                  <InfoTooltip content="Operational campuses currently authorized to conduct wellness check-ins." />
+                </div>
+                <div className="text-2xl font-bold tracking-tight mt-1 text-emerald-600 dark:text-emerald-400">{activeCount}</div>
+              </div>
+              <div className="h-11 w-11 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-600 dark:text-emerald-400 shrink-0">
+                <ShieldCheck className="h-5 w-5" />
+              </div>
+            </Card>
+            <Card className="p-5 flex !flex-row items-center justify-between border-border/60 shadow-sm">
+              <div className="space-y-1">
+                <div className="text-xs font-medium text-muted-foreground uppercase tracking-wider flex items-center">
+                  Blocked / Suspended
+                  <InfoTooltip content="Institutions with administrative holds or pending onboarding verifications." />
+                </div>
+                <div className="text-2xl font-bold tracking-tight mt-1 text-rose-600 dark:text-rose-400">{blockedCount}</div>
+              </div>
+              <div className="h-11 w-11 rounded-xl bg-rose-500/10 flex items-center justify-center text-rose-600 dark:text-rose-400 shrink-0">
+                <ShieldBan className="h-5 w-5" />
+              </div>
+            </Card>
+          </div>
 
       {/* Table Card */}
       <Card className="border-border/60 shadow-sm">
@@ -1318,6 +1355,8 @@ Portal Sign-In: ${provisionSuccessModal.login_url}`
           ) )}
         </CardContent>
       </Card>
+    </>
+  )}
 
       {/* Edit School Modal */}
       <Dialog open={!!editingSchool} onOpenChange={(open) => !open && setEditingSchool(null)}>

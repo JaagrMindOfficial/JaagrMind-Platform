@@ -26,6 +26,9 @@ type Assessment struct {
 	TargetGrades        []string    `json:"target_grades"`
 	QuestionCount       int         `json:"question_count"`
 	IsActive            bool        `json:"is_active"`
+	PublishToSchools    bool        `json:"publish_to_schools"`
+	PublishToParents    bool        `json:"publish_to_parents"`
+	AutoAssignSchools   bool        `json:"auto_assign_schools"`
 	CreatedAt           time.Time   `json:"created_at"`
 }
 

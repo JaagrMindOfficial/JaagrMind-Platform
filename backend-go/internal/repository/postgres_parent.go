@@ -558,6 +558,7 @@ func (r *postgresParent) GetParentOverview(ctx context.Context, parentID string,
 		       GREATEST(COALESCE(jsonb_array_length(questions), 0), 12) as question_count
 		FROM assessments
 		WHERE is_active = true
+		  AND coalesce(publish_to_parents, true) = true
 		  AND (
 			(min_grade <= $1 AND max_grade >= $1)
 			OR ($2 = ANY(target_grades))

@@ -166,20 +166,45 @@ func (h *StudentAPIHandler) GetAssessment(c fiber.Ctx) error {
 	studentID := middleware.ExtractUserID(c)
 	assessmentID := c.Query("assessmentId")
 
-	var target *domain.Assessment
-	if assessmentID != "" {
-		a, err := h.assessRepo.GetByID(c.Context(), assessmentID)
-		if err == nil {
-			target = a
+	var student *domain.Student
+	if studentID != "" {
+		s, err := h.studentRepo.GetByID(c.Context(), studentID)
+		if err == nil && s != nil {
+			student = s
 		}
 	}
 
-	// If no explicit ID requested, resolve the check-in matching student's enrolled grade
-	if target == nil && studentID != "" {
-		student, err := h.studentRepo.GetByID(c.Context(), studentID)
-		if err == nil && student != nil && student.Grade != "" {
-			actives, _ := h.assessRepo.GetActiveAssessments(c.Context())
-			for _, a := range actives {
+	var target *domain.Assessment
+	if assessmentID != "" {
+		a, err := h.assessRepo.GetByID(c.Context(), assessmentID)
+		if err == nil && a != nil && a.IsActive {
+			// If student belongs to a school campus, ensure assessment is published to schools and authorized
+			if student != nil && student.SchoolID != "" {
+				if a.PublishToSchools {
+					if a.AutoAssignSchools {
+						target = a
+					} else {
+						assigned, _ := h.assessRepo.GetAssignedTests(c.Context(), student.SchoolID)
+						for _, as := range assigned {
+							if as.ID == a.ID {
+								target = a
+								break
+							}
+						}
+					}
+				}
+			} else {
+				target = a
+			}
+		}
+	}
+
+	// If no explicit ID requested, resolve from student's school-authorized assessments
+	if target == nil && student != nil && student.SchoolID != "" {
+		assigned, _ := h.assessRepo.GetAssignedTests(c.Context(), student.SchoolID)
+		// Grade-match within authorized assessments
+		if student.Grade != "" {
+			for _, a := range assigned {
 				for _, tg := range a.TargetGrades {
 					if strings.EqualFold(strings.TrimSpace(tg), strings.TrimSpace(student.Grade)) {
 						target = &a
@@ -191,19 +216,23 @@ func (h *StudentAPIHandler) GetAssessment(c fiber.Ctx) error {
 				}
 			}
 		}
-	}
-
-	if target == nil {
-		def, err := h.assessRepo.GetDefault(c.Context())
-		if err == nil {
-			target = def
+		// If no grade match but school has authorized tests, use the first one
+		if target == nil && len(assigned) > 0 {
+			target = &assigned[0]
 		}
 	}
 
+	// Last resort: the platform default assessment
 	if target == nil {
-		actives, err := h.assessRepo.GetActiveAssessments(c.Context())
-		if err == nil && len(actives) > 0 {
-			target = &actives[0]
+		def, err := h.assessRepo.GetDefault(c.Context())
+		if err == nil && def != nil && def.IsActive {
+			if student != nil && student.SchoolID != "" {
+				if def.PublishToSchools {
+					target = def
+				}
+			} else {
+				target = def
+			}
 		}
 	}
 

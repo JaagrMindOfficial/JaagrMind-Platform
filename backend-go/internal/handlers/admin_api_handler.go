@@ -623,7 +623,12 @@ func (h *AdminAPIHandler) GetAssessments(c fiber.Ctx) error {
 }
 
 func (h *AdminAPIHandler) CreateAssessment(c fiber.Ctx) error {
-	var req domain.Assessment
+	req := domain.Assessment{
+		IsActive:          true,
+		PublishToSchools:  true,
+		PublishToParents:  true,
+		AutoAssignSchools: true,
+	}
 	if err := c.Bind().Body(&req); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid payload"})
 	}
@@ -637,7 +642,12 @@ func (h *AdminAPIHandler) CreateAssessment(c fiber.Ctx) error {
 
 func (h *AdminAPIHandler) UpdateAssessment(c fiber.Ctx) error {
 	id := c.Params("id")
-	var req domain.Assessment
+	existing, err := h.assessRepo.GetByID(c.Context(), id)
+	if err != nil || existing == nil {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "Assessment not found"})
+	}
+
+	req := *existing
 	if err := c.Bind().Body(&req); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid payload"})
 	}
@@ -686,14 +696,34 @@ func (h *AdminAPIHandler) GetAssessmentSchools(c fiber.Ctx) error {
 func (h *AdminAPIHandler) AssignAssessmentToSchools(c fiber.Ctx) error {
 	id := c.Params("id")
 	var req struct {
-		SchoolIDs []string `json:"schoolIds"`
-		Reassign  bool     `json:"reassign"`
+		SchoolIDs         []string `json:"schoolIds"`
+		AutoAssignSchools *bool    `json:"autoAssignSchools"`
+		PublishToSchools  *bool    `json:"publishToSchools"`
+		PublishToParents  *bool    `json:"publishToParents"`
 	}
 	if err := c.Bind().Body(&req); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid payload"})
 	}
 
-	if err := h.assessRepo.AssignAssessmentToSchools(c.Context(), id, req.SchoolIDs, req.Reassign); err != nil {
+	// Update assessment distribution scope fields if provided
+	if req.AutoAssignSchools != nil || req.PublishToSchools != nil || req.PublishToParents != nil {
+		existing, err := h.assessRepo.GetByID(c.Context(), id)
+		if err == nil && existing != nil {
+			if req.AutoAssignSchools != nil {
+				existing.AutoAssignSchools = *req.AutoAssignSchools
+			}
+			if req.PublishToSchools != nil {
+				existing.PublishToSchools = *req.PublishToSchools
+			}
+			if req.PublishToParents != nil {
+				existing.PublishToParents = *req.PublishToParents
+			}
+			_, _ = h.assessRepo.Update(c.Context(), id, *existing)
+		}
+	}
+
+	// Update school assignments (Super Admin assigns without force-archiving student retake history)
+	if err := h.assessRepo.AssignAssessmentToSchools(c.Context(), id, req.SchoolIDs, false); err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to assign assessment to schools: " + err.Error()})
 	}
 
@@ -708,12 +738,8 @@ func (h *AdminAPIHandler) AssignAssessmentToSchools(c fiber.Ctx) error {
 		}
 	}
 
-	action := "assessment_assigned_schools"
-	title := "Assessment Assigned to Institutions"
-	if req.Reassign {
-		action = "assessment_reassigned_schools"
-		title = "Assessment Reassigned to Institutions (New Window)"
-	}
+	action := "assessment_distribution_updated"
+	title := "Assessment Assignment & Distribution Updated"
 
 	_, _ = h.eventRepo.Create(c.Context(), domain.CreateEventRequest{
 		ActorName:   actorName,
@@ -721,17 +747,16 @@ func (h *AdminAPIHandler) AssignAssessmentToSchools(c fiber.Ctx) error {
 		EventType:   "governance",
 		Action:      action,
 		Title:       title,
-		Description: fmt.Sprintf("Assigned assessment %s across %d institutions (reassign=%v)", id, len(req.SchoolIDs), req.Reassign),
+		Description: fmt.Sprintf("Updated assignment and distribution for assessment %s across %d institutions", id, len(req.SchoolIDs)),
 		Metadata: map[string]interface{}{
 			"assessment_id": id,
 			"schools_count": len(req.SchoolIDs),
-			"reassigned":    req.Reassign,
 		},
 	})
 
 	return c.JSON(fiber.Map{
 		"success": true,
-		"message": fmt.Sprintf("Assessment successfully assigned to %d institutions", len(req.SchoolIDs)),
+		"message": "Assessment assignment and distribution updated successfully",
 	})
 }
 

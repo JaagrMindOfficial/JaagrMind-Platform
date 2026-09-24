@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { useAuth } from "@/context/auth-context";
 import { api } from "@/lib/api";
-import { BookOpen, LogOut, Sparkles } from "lucide-react";
+import { BookOpen, LogOut, Sparkles, CheckCircle2 } from "lucide-react";
 import { MindWeatherCheck, type MindWeatherState } from "@/components/assessment/mind-weather-check";
 import { CenteringBreath } from "@/components/assessment/centering-breath";
 import { JourneyTimeline } from "@/components/assessment/journey-timeline";
@@ -61,7 +61,8 @@ export default function StudentAssessmentPage() {
       setTests(list);
 
       if (list.length > 0) {
-        selectTest(list[0]);
+        const pending = list.find((t: any) => !t.isCompleted);
+        selectTest(pending || list[0]);
       }
     } catch (err) {
       console.error("Failed to fetch assessment", err);
@@ -182,6 +183,58 @@ export default function StudentAssessmentPage() {
         <Button variant="outline" onClick={() => logout("/student/login")}>
           <LogOut className="h-4 w-4 mr-2" /> Logout
         </Button>
+      </div>
+    );
+  }
+
+  if (selectedAssessment?.isCompleted) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center p-6 text-center bg-background relative selection:bg-primary/20">
+        <div className="absolute top-6 right-6 z-40 flex items-center gap-2">
+          <ThemeToggle />
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => logout("/student/login")}
+            className="text-xs text-muted-foreground hover:text-destructive gap-1.5 h-9 px-2.5 cursor-pointer"
+          >
+            <LogOut className="h-3.5 w-3.5" />
+            <span>Exit</span>
+          </Button>
+        </div>
+
+        <div className="w-full max-w-md bg-card border rounded-2xl p-8 sm:p-10 shadow-sm space-y-6">
+          <div className="h-16 w-16 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 rounded-full flex items-center justify-center mx-auto ring-8 ring-emerald-500/5">
+            <CheckCircle2 className="h-8 w-8" />
+          </div>
+
+          <div className="space-y-2">
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+              <CheckCircle2 className="h-3.5 w-3.5" /> Check-in Completed
+            </div>
+            <h1 className="text-2xl font-bold tracking-tight text-foreground">
+              {selectedAssessment.title}
+            </h1>
+            <p className="text-sm text-muted-foreground leading-relaxed">
+              Your responses have been recorded and securely shared with your school's counseling team.
+            </p>
+          </div>
+
+          <div className="p-4 rounded-xl bg-muted/40 border text-xs text-muted-foreground space-y-1.5 text-left">
+            <p className="font-semibold text-foreground">Need to retake this check-in?</p>
+            <p className="leading-relaxed">
+              Retakes can only be authorized and unlocked by your school counselor or administrator. Please reach out to them if you submitted by mistake or need a fresh session.
+            </p>
+          </div>
+
+          <Button
+            variant="outline"
+            className="w-full"
+            onClick={() => logout("/student/login")}
+          >
+            <LogOut className="h-4 w-4 mr-2" /> Sign Out
+          </Button>
+        </div>
       </div>
     );
   }

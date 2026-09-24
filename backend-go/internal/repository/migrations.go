@@ -554,6 +554,11 @@ func AutoMigrate(ctx context.Context, db *pgxpool.Pool) error {
 		-- Drop uq_student_active_result if present to allow longitudinal multi-attempt history and parent re-assessments
 		DROP INDEX IF EXISTS uq_student_active_result;
 
+		-- Assessment distribution channels: controls who sees what
+		ALTER TABLE assessments ADD COLUMN IF NOT EXISTS publish_to_schools BOOLEAN DEFAULT true;
+		ALTER TABLE assessments ADD COLUMN IF NOT EXISTS publish_to_parents BOOLEAN DEFAULT true;
+		ALTER TABLE assessments ADD COLUMN IF NOT EXISTS auto_assign_schools BOOLEAN DEFAULT true;
+
 		-- Prevent negative student count on scheduled promotions
 		DO $$
 		BEGIN

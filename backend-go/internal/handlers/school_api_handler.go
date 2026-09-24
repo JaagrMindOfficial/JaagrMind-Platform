@@ -114,6 +114,7 @@ func SetupSchoolAPIRoutes(app fiber.Router, userRepo domain.UserRepository, scho
 
 	// Tests and Assessments
 	schoolAPI.Get("/tests", handler.GetSchoolTests)
+	schoolAPI.Get("/assessments", handler.GetSchoolTests)
 	schoolAPI.Get("/test-status", handler.GetSchoolTestStatus)
 	schoolAPI.Post("/tests/check-recent", handler.CheckRecentCompletions)
 	schoolAPI.Post("/tests/assign", handler.AssignTest)

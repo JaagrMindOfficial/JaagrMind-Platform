@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { FileText, Clock, AlertCircle, Loader2, ArrowUpRight, CheckCircle2 } from "lucide-react";
 import Link from "next/link";
+import { api } from "@/lib/api";
 
 interface Assessment {
   id: string;
@@ -25,14 +26,8 @@ export default function CounselorTestsPage() {
   useEffect(() => {
     const fetchTests = async () => {
       try {
-        const token = localStorage.getItem("token");
-        const res = await fetch("/api/school/assessments", {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (res.ok) {
-          const data = await res.json();
-          if (Array.isArray(data)) setTests(data);
-        }
+        const data = await api.get("/api/school/tests");
+        if (Array.isArray(data)) setTests(data);
       } catch (err) {
         console.error("Failed to load assessments:", err);
       } finally {

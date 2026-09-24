@@ -74,3 +74,6 @@ backend-go/bin/.agents
 graphify-out
 DECISIONS.md
 schema.md
+current_chat_transcript_full.jsonl
+current_chat_transcript.jsonl
+current_chat_readable.md

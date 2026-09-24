@@ -19,12 +19,11 @@ import {
   MapPin,
   AlertTriangle,
   CheckCircle2,
-  RotateCcw,
   Users,
-  Calendar,
-  Layers,
-  Filter,
   RefreshCw,
+  Home,
+  Check,
+  Layers,
 } from "lucide-react"
 import { api } from "@/lib/api"
 
@@ -48,6 +47,9 @@ interface AssignSchoolsDialogProps {
     tier?: string
     targetGrades?: string[]
     target_grades?: string[]
+    auto_assign_schools?: boolean
+    publish_to_schools?: boolean
+    publish_to_parents?: boolean
   } | null
 }
 
@@ -63,12 +65,15 @@ export function AssignSchoolsDialog({
   const [error, setError] = useState("")
   const [successMsg, setSuccessMsg] = useState("")
 
+  // Assignment scope & portal distribution
+  const [schoolScope, setSchoolScope] = useState<"all" | "specific">("all")
+  const [publishToParents, setPublishToParents] = useState(true)
+
   // Filters & selection
   const [searchTerm, setSearchTerm] = useState("")
   const [selectedCity, setSelectedCity] = useState("all")
   const [selectedStatusFilter, setSelectedStatusFilter] = useState<"all" | "assigned" | "unassigned" | "recent">("all")
   const [selectedSchoolIds, setSelectedSchoolIds] = useState<Set<string>>(new Set())
-  const [reassignMode, setReassignMode] = useState(false)
 
   const fetchSchools = async () => {
     if (!assessment?.id) return
@@ -96,7 +101,15 @@ export function AssignSchoolsDialog({
     if (isOpen && assessment?.id) {
       setError("")
       setSuccessMsg("")
-      setReassignMode(false)
+      setSearchTerm("")
+      setSelectedCity("all")
+      setSelectedStatusFilter("all")
+
+      // Initialize scope from assessment
+      const isUniversal = assessment.auto_assign_schools !== false
+      setSchoolScope(isUniversal ? "all" : "specific")
+      setPublishToParents(assessment.publish_to_parents !== false)
+
       fetchSchools()
     }
   }, [isOpen, assessment?.id])
@@ -121,22 +134,17 @@ export function AssignSchoolsDialog({
       const matchesCity = selectedCity === "all" || s.city === selectedCity
 
       let matchesStatus = true
-      if (selectedStatusFilter === "assigned") matchesStatus = s.is_assigned
-      else if (selectedStatusFilter === "unassigned") matchesStatus = !s.is_assigned
-      else if (selectedStatusFilter === "recent") matchesStatus = s.recent_attempts > 0
+      if (schoolScope === "specific") {
+        if (selectedStatusFilter === "assigned") matchesStatus = selectedSchoolIds.has(s.school_id)
+        else if (selectedStatusFilter === "unassigned") matchesStatus = !selectedSchoolIds.has(s.school_id)
+        else if (selectedStatusFilter === "recent") matchesStatus = s.recent_attempts > 0
+      } else {
+        if (selectedStatusFilter === "recent") matchesStatus = s.recent_attempts > 0
+      }
 
       return matchesSearch && matchesCity && matchesStatus
     })
-  }, [schools, searchTerm, selectedCity, selectedStatusFilter])
-
-  // Check if any selected school has recent completions
-  const selectedSchoolsWithRecent = useMemo(() => {
-    return schools.filter((s) => selectedSchoolIds.has(s.school_id) && s.recent_attempts > 0)
-  }, [schools, selectedSchoolIds])
-
-  const totalRecentInSelection = useMemo(() => {
-    return selectedSchoolsWithRecent.reduce((sum, s) => sum + s.recent_attempts, 0)
-  }, [selectedSchoolsWithRecent])
+  }, [schools, searchTerm, selectedCity, selectedStatusFilter, schoolScope, selectedSchoolIds])
 
   const handleToggleSelect = (schoolId: string) => {
     setSelectedSchoolIds((prev) => {
@@ -158,12 +166,12 @@ export function AssignSchoolsDialog({
     })
   }
 
-  const handleDeselectAllFiltered = () => {
-    setSelectedSchoolIds((prev) => {
-      const next = new Set(prev)
-      filteredSchools.forEach((s) => next.delete(s.school_id))
-      return next
-    })
+  const handleSelectAllSchools = () => {
+    setSelectedSchoolIds(new Set(schools.map((s) => s.school_id)))
+  }
+
+  const handleDeselectAll = () => {
+    setSelectedSchoolIds(new Set())
   }
 
   const handleSubmit = async () => {
@@ -173,23 +181,26 @@ export function AssignSchoolsDialog({
     setSuccessMsg("")
 
     try {
+      const isAll = schoolScope === "all"
       await api.post(`/api/admin/assessments/${assessment.id}/assign-schools`, {
-        schoolIds: Array.from(selectedSchoolIds),
-        reassign: reassignMode,
+        autoAssignSchools: isAll,
+        publishToSchools: true,
+        publishToParents: publishToParents,
+        schoolIds: isAll ? [] : Array.from(selectedSchoolIds),
       })
 
       setSuccessMsg(
-        reassignMode
-          ? `Successfully reassigned check-in across ${selectedSchoolIds.size} school(s). Recent attempts archived for fresh retakes!`
-          : `Successfully updated assignments across ${selectedSchoolIds.size} school(s)!`
+        isAll
+          ? "Successfully assigned to all schools & updated distribution!"
+          : `Successfully assigned to ${selectedSchoolIds.size} specific school(s) & updated distribution!`
       )
 
       setTimeout(() => {
         onSuccess?.()
         onClose()
-      }, 1200)
+      }, 1000)
     } catch (err: any) {
-      setError(err?.response?.data?.error || err?.message || "Failed to update school assignments")
+      setError(err?.response?.data?.error || err?.message || "Failed to update assignments")
     } finally {
       setSubmitting(false)
     }
@@ -210,10 +221,10 @@ export function AssignSchoolsDialog({
                 </span>
                 <div>
                   <DialogTitle className="text-xl font-bold tracking-tight">
-                    Assign to Institutions
+                    Assignment & Distribution
                   </DialogTitle>
                   <DialogDescription className="text-xs text-muted-foreground mt-0.5">
-                    Select target schools with instant search, city filtering, and reassignment control.
+                    Configure school campus availability and parent portal distribution.
                   </DialogDescription>
                 </div>
               </div>
@@ -225,6 +236,16 @@ export function AssignSchoolsDialog({
                 {assessment?.title}
               </span>
               <div className="flex items-center gap-1.5 flex-wrap justify-end">
+                <Badge
+                  variant="outline"
+                  className={
+                    schoolScope === "all"
+                      ? "text-[10px] bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20"
+                      : "text-[10px] bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20"
+                  }
+                >
+                  {schoolScope === "all" ? "All Schools" : "Specific Schools"}
+                </Badge>
                 {assessment?.tier && (
                   <Badge variant="secondary" className="text-[10px] uppercase font-mono tracking-wider">
                     {assessment.tier}
@@ -241,7 +262,7 @@ export function AssignSchoolsDialog({
         </DialogHeader>
 
         {/* Content Body */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-4">
+        <div className="flex-1 overflow-y-auto p-6 space-y-5">
           {error && (
             <div className="p-3.5 text-xs rounded-xl bg-destructive/10 text-destructive border border-destructive/20 flex items-center gap-2">
               <AlertTriangle className="h-4 w-4 shrink-0" />
@@ -256,221 +277,315 @@ export function AssignSchoolsDialog({
             </div>
           )}
 
-          {/* Search and Filters Bar */}
-          <div className="grid grid-cols-1 sm:grid-cols-12 gap-2.5">
-            <div className="relative sm:col-span-6">
-              <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search by school name, code or city..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-9 h-9 text-xs rounded-xl"
-              />
+          {/* Section 1: School Campus Assignment Scope */}
+          <div className="space-y-2.5">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                <Building2 className="h-3.5 w-3.5" /> School Campus Assignment
+              </span>
+              <span className="text-[11px] text-muted-foreground">
+                {schoolScope === "all" ? "Enabled across all campuses" : `Assigned to ${selectedSchoolIds.size} of ${schools.length} schools`}
+              </span>
             </div>
 
-            <div className="sm:col-span-3">
-              <select
-                value={selectedCity}
-                onChange={(e) => setSelectedCity(e.target.value)}
-                className="w-full h-9 rounded-xl border border-input bg-background px-3 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+              {/* Option A: All Schools */}
+              <button
+                type="button"
+                onClick={() => setSchoolScope("all")}
+                className={`p-3.5 rounded-xl border text-left transition-all ${
+                  schoolScope === "all"
+                    ? "border-primary bg-primary/10 shadow-sm"
+                    : "border-border bg-card/60 hover:bg-muted/30"
+                }`}
               >
-                <option value="all">All Cities ({uniqueCities.length})</option>
-                {uniqueCities.map((c) => (
-                  <option key={c} value={c}>
-                    {c}
-                  </option>
-                ))}
-              </select>
-            </div>
+                <div className="flex items-center justify-between">
+                  <span className={`text-xs font-semibold flex items-center gap-1.5 ${schoolScope === "all" ? "text-primary" : "text-foreground"}`}>
+                    <Building2 className="h-4 w-4" />
+                    All Schools (Default)
+                  </span>
+                  {schoolScope === "all" && <Check className="h-4 w-4 text-primary" />}
+                </div>
+                <p className="text-[11px] text-muted-foreground mt-1 leading-relaxed">
+                  Automatically available to all registered school campuses. Counselors and admins can schedule check-ins immediately.
+                </p>
+              </button>
 
-            <div className="sm:col-span-3">
-              <select
-                value={selectedStatusFilter}
-                onChange={(e: any) => setSelectedStatusFilter(e.target.value)}
-                className="w-full h-9 rounded-xl border border-input bg-background px-3 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+              {/* Option B: Specific Schools */}
+              <button
+                type="button"
+                onClick={() => setSchoolScope("specific")}
+                className={`p-3.5 rounded-xl border text-left transition-all ${
+                  schoolScope === "specific"
+                    ? "border-amber-500 bg-amber-500/10 shadow-sm"
+                    : "border-border bg-card/60 hover:bg-muted/30"
+                }`}
               >
-                <option value="all">All Statuses</option>
-                <option value="assigned">Currently Assigned</option>
-                <option value="unassigned">Unassigned</option>
-                <option value="recent">Has Recent Attempts</option>
-              </select>
+                <div className="flex items-center justify-between">
+                  <span className={`text-xs font-semibold flex items-center gap-1.5 ${schoolScope === "specific" ? "text-amber-600 dark:text-amber-400" : "text-foreground"}`}>
+                    <Layers className="h-4 w-4" />
+                    Specific Schools
+                  </span>
+                  {schoolScope === "specific" && <Check className="h-4 w-4 text-amber-600 dark:text-amber-400" />}
+                </div>
+                <p className="text-[11px] text-muted-foreground mt-1 leading-relaxed">
+                  Restrict access to designated institutions only. Hand-pick campuses using search or one-click selection.
+                </p>
+              </button>
             </div>
           </div>
 
-          {/* Selection Control Bar */}
-          <div className="flex items-center justify-between gap-2 px-1 text-xs text-muted-foreground">
-            <div className="flex items-center gap-2">
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={handleSelectAllFiltered}
-                disabled={filteredSchools.length === 0}
-                className="h-7 text-xs px-2"
-              >
-                Select Filtered ({filteredSchools.length})
-              </Button>
-              <span>•</span>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={handleDeselectAllFiltered}
-                disabled={selectedSchoolIds.size === 0}
-                className="h-7 text-xs px-2 text-muted-foreground hover:text-foreground"
-              >
-                Clear Selection
-              </Button>
+          {/* Search, Filter & School List */}
+          <div className="space-y-3 pt-1">
+            {/* Search and Filters Bar */}
+            <div className="grid grid-cols-1 sm:grid-cols-12 gap-2.5">
+              <div className={`relative ${schoolScope === "specific" ? "sm:col-span-6" : "sm:col-span-8"}`}>
+                <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search by school name, code or city..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-9 h-9 text-xs rounded-xl"
+                />
+              </div>
+
+              <div className={`sm:col-span-${schoolScope === "specific" ? "3" : "4"}`}>
+                <select
+                  value={selectedCity}
+                  onChange={(e) => setSelectedCity(e.target.value)}
+                  className="w-full h-9 rounded-xl border border-input bg-background px-3 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                >
+                  <option value="all">All Cities ({uniqueCities.length})</option>
+                  {uniqueCities.map((c) => (
+                    <option key={c} value={c}>
+                      {c}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {schoolScope === "specific" && (
+                <div className="sm:col-span-3">
+                  <select
+                    value={selectedStatusFilter}
+                    onChange={(e: any) => setSelectedStatusFilter(e.target.value)}
+                    className="w-full h-9 rounded-xl border border-input bg-background px-3 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                  >
+                    <option value="all">All Statuses</option>
+                    <option value="assigned">Assigned</option>
+                    <option value="unassigned">Unassigned</option>
+                    <option value="recent">Has Recent Attempts</option>
+                  </select>
+                </div>
+              )}
             </div>
 
-            <span className="font-medium text-foreground">
-              Selected: <span className="text-primary font-bold">{selectedSchoolIds.size}</span> of {schools.length}
+            {/* Selection Controls for Specific Scope */}
+            {schoolScope === "specific" ? (
+              <div className="flex items-center justify-between gap-2 px-1 text-xs text-muted-foreground">
+                <div className="flex items-center gap-2">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleSelectAllSchools}
+                    disabled={selectedSchoolIds.size === schools.length}
+                    className="h-7 text-xs px-2 text-primary hover:text-primary"
+                  >
+                    Select All Schools ({schools.length})
+                  </Button>
+                  <span>•</span>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleSelectAllFiltered}
+                    disabled={filteredSchools.length === 0}
+                    className="h-7 text-xs px-2"
+                  >
+                    Select Filtered ({filteredSchools.length})
+                  </Button>
+                  <span>•</span>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleDeselectAll}
+                    disabled={selectedSchoolIds.size === 0}
+                    className="h-7 text-xs px-2 text-muted-foreground hover:text-foreground"
+                  >
+                    Clear Selection
+                  </Button>
+                </div>
+
+                <span className="font-medium text-foreground">
+                  Assigned: <span className="text-primary font-bold">{selectedSchoolIds.size}</span> of {schools.length}
+                </span>
+              </div>
+            ) : (
+              <div className="flex items-center justify-between gap-2 px-1 text-xs text-muted-foreground">
+                <span>
+                  Showing <span className="font-semibold text-foreground">{filteredSchools.length}</span> of {schools.length} institutions
+                </span>
+                <Badge variant="outline" className="text-[11px] bg-blue-500/5 text-blue-600 dark:text-blue-400 border-blue-500/20">
+                  Active for All Campuses
+                </Badge>
+              </div>
+            )}
+
+            {/* School List Table */}
+            <div className="border rounded-xl overflow-hidden bg-background divide-y">
+              {loading ? (
+                <div className="p-10 text-center text-xs text-muted-foreground flex flex-col items-center justify-center gap-2">
+                  <RefreshCw className="h-5 w-5 animate-spin text-primary" />
+                  <span>Loading institutions and check-in telemetry...</span>
+                </div>
+              ) : filteredSchools.length === 0 ? (
+                <div className="p-10 text-center text-xs text-muted-foreground">
+                  No institutions match your search or filter criteria.
+                </div>
+              ) : (
+                <div className="max-h-[260px] overflow-y-auto divide-y">
+                  {filteredSchools.map((s) => {
+                    const isSelected = selectedSchoolIds.has(s.school_id)
+                    const isSpecific = schoolScope === "specific"
+
+                    return (
+                      <div
+                        key={s.school_id}
+                        onClick={() => isSpecific && handleToggleSelect(s.school_id)}
+                        className={`flex items-center justify-between p-3 text-xs select-none ${
+                          isSpecific ? "cursor-pointer transition-colors" : ""
+                        } ${
+                          isSpecific && isSelected
+                            ? "bg-primary/5 hover:bg-primary/10"
+                            : isSpecific
+                            ? "hover:bg-muted/30"
+                            : "hover:bg-muted/10"
+                        }`}
+                      >
+                        <div className="flex items-center gap-3">
+                          {isSpecific ? (
+                            <Checkbox
+                              checked={isSelected}
+                              onCheckedChange={() => handleToggleSelect(s.school_id)}
+                              onClick={(e: React.MouseEvent) => e.stopPropagation()}
+                            />
+                          ) : (
+                            <div className="p-1.5 rounded-lg bg-blue-500/10 text-blue-600 dark:text-blue-400">
+                              <Building2 className="h-3.5 w-3.5" />
+                            </div>
+                          )}
+                          <div className="space-y-0.5">
+                            <div className="font-medium text-foreground flex items-center gap-2">
+                              <span>{s.school_name}</span>
+                              <Badge variant="outline" className="text-[10px] font-mono py-0 h-4">
+                                {s.school_code}
+                              </Badge>
+                            </div>
+                            {s.city && (
+                              <div className="flex items-center gap-1 text-[11px] text-muted-foreground">
+                                <MapPin className="h-3 w-3" />
+                                <span>{s.city}</span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          {s.recent_attempts > 0 ? (
+                            <Badge
+                              variant="secondary"
+                              className="text-[10px] bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20"
+                            >
+                              <Users className="h-3 w-3 mr-1" />
+                              {s.recent_attempts} recent
+                            </Badge>
+                          ) : null}
+
+                          {schoolScope === "all" ? (
+                            <Badge
+                              variant="default"
+                              className="text-[10px] bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20"
+                            >
+                              <CheckCircle2 className="h-3 w-3 mr-1" />
+                              All Schools
+                            </Badge>
+                          ) : isSelected ? (
+                            <Badge
+                              variant="default"
+                              className="text-[10px] bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20"
+                            >
+                              <CheckCircle2 className="h-3 w-3 mr-1" />
+                              Assigned
+                            </Badge>
+                          ) : (
+                            <Badge variant="outline" className="text-[10px] text-muted-foreground">
+                              Unassigned
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Section 2: Parent Portal Distribution */}
+          <div className="space-y-2 pt-1 border-t">
+            <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+              <Home className="h-3.5 w-3.5" /> Parent Portal Distribution
             </span>
-          </div>
 
-          {/* Reassignment Advisory Banner */}
-          {selectedSchoolsWithRecent.length > 0 && (
-            <div className="p-4 rounded-xl border border-amber-500/30 bg-amber-500/10 space-y-2.5">
-              <div className="flex items-start gap-2.5 text-amber-600 dark:text-amber-400">
-                <AlertTriangle className="h-5 w-5 shrink-0 mt-0.5" />
-                <div className="space-y-1">
-                  <p className="text-xs font-semibold">
-                    Recent Completions Detected ({totalRecentInSelection} student attempts across {selectedSchoolsWithRecent.length} selected school{selectedSchoolsWithRecent.length > 1 ? "s" : ""})
-                  </p>
-                  <p className="text-[11px] text-amber-700/80 dark:text-amber-300/80 leading-relaxed">
-                    Students at these schools have taken this check-in within the last 30 days. Decide how to proceed with the assignment:
+            <div
+              onClick={() => setPublishToParents(!publishToParents)}
+              className={`p-3.5 rounded-xl border flex items-start justify-between gap-3 cursor-pointer transition-all ${
+                publishToParents
+                  ? "border-purple-500/30 bg-purple-500/5 hover:bg-purple-500/10"
+                  : "border-border bg-card/60 hover:bg-muted/30"
+              }`}
+            >
+              <div className="flex items-start gap-3">
+                <Checkbox
+                  checked={publishToParents}
+                  onCheckedChange={(val) => setPublishToParents(!!val)}
+                  onClick={(e: React.MouseEvent) => e.stopPropagation()}
+                  className="mt-0.5"
+                />
+                <div className="space-y-0.5">
+                  <div className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+                    <span>Enable for Parent Portal</span>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground leading-relaxed">
+                    Visible to all parents whose children are in matching grades. Parents can view and conduct standard wellness check-ins directly at home.
                   </p>
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
-                <button
-                  type="button"
-                  onClick={() => setReassignMode(false)}
-                  className={`p-2.5 rounded-lg border text-left text-xs transition-all ${
-                    !reassignMode
-                      ? "border-primary bg-primary/10 text-primary font-medium shadow-sm"
-                      : "border-border bg-card/60 text-muted-foreground hover:bg-muted/30"
-                  }`}
-                >
-                  <div className="font-semibold flex items-center gap-1.5">
-                    <CheckCircle2 className="h-3.5 w-3.5" />
-                    Assign Only (Keep Results)
-                  </div>
-                  <div className="text-[10px] text-muted-foreground mt-0.5">
-                    Assigns to schools without resetting any student attempts. Students who finished cannot retake.
-                  </div>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setReassignMode(true)}
-                  className={`p-2.5 rounded-lg border text-left text-xs transition-all ${
-                    reassignMode
-                      ? "border-amber-500 bg-amber-500/20 text-amber-700 dark:text-amber-300 font-medium shadow-sm"
-                      : "border-border bg-card/60 text-muted-foreground hover:bg-muted/30"
-                  }`}
-                >
-                  <div className="font-semibold flex items-center gap-1.5">
-                    <RotateCcw className="h-3.5 w-3.5" />
-                    Reassign & Unlock Retake
-                  </div>
-                  <div className="text-[10px] text-muted-foreground mt-0.5">
-                    Archives past attempts safely (preserving history for student dossiers) and unlocks test for fresh retake.
-                  </div>
-                </button>
-              </div>
+              <Badge
+                variant="outline"
+                className={`text-[10px] shrink-0 ${
+                  publishToParents
+                    ? "bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20"
+                    : "text-muted-foreground"
+                }`}
+              >
+                {publishToParents ? "Visible to Parents" : "Hidden from Parents"}
+              </Badge>
             </div>
-          )}
-
-          {/* School List Table */}
-          <div className="border rounded-xl overflow-hidden bg-background divide-y">
-            {loading ? (
-              <div className="p-12 text-center text-xs text-muted-foreground flex flex-col items-center justify-center gap-2">
-                <RefreshCw className="h-5 w-5 animate-spin text-primary" />
-                <span>Loading institutions and check-in telemetry...</span>
-              </div>
-            ) : filteredSchools.length === 0 ? (
-              <div className="p-12 text-center text-xs text-muted-foreground">
-                No institutions match your search or filter criteria.
-              </div>
-            ) : (
-              <div className="max-h-[320px] overflow-y-auto divide-y">
-                {filteredSchools.map((s) => {
-                  const isSelected = selectedSchoolIds.has(s.school_id)
-                  return (
-                    <div
-                      key={s.school_id}
-                      onClick={() => handleToggleSelect(s.school_id)}
-                      className={`flex items-center justify-between p-3 cursor-pointer transition-colors text-xs select-none ${
-                        isSelected ? "bg-primary/5 hover:bg-primary/10" : "hover:bg-muted/30"
-                      }`}
-                    >
-                      <div className="flex items-center gap-3">
-                        <Checkbox
-                          checked={isSelected}
-                          onCheckedChange={() => handleToggleSelect(s.school_id)}
-                          onClick={(e: React.MouseEvent) => e.stopPropagation()}
-                        />
-                        <div className="space-y-0.5">
-                          <div className="font-medium text-foreground flex items-center gap-2">
-                            <span>{s.school_name}</span>
-                            <Badge variant="outline" className="text-[10px] font-mono py-0 h-4">
-                              {s.school_code}
-                            </Badge>
-                          </div>
-                          {s.city && (
-                            <div className="flex items-center gap-1 text-[11px] text-muted-foreground">
-                              <MapPin className="h-3 w-3" />
-                              <span>{s.city}</span>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-
-                      <div className="flex items-center gap-2">
-                        {s.recent_attempts > 0 ? (
-                          <Badge
-                            variant="secondary"
-                            className="text-[10px] bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20"
-                          >
-                            <Users className="h-3 w-3 mr-1" />
-                            {s.recent_attempts} recent
-                          </Badge>
-                        ) : null}
-
-                        {s.is_assigned ? (
-                          <Badge
-                            variant="default"
-                            className="text-[10px] bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20"
-                          >
-                            <CheckCircle2 className="h-3 w-3 mr-1" />
-                            Assigned
-                          </Badge>
-                        ) : (
-                          <Badge variant="outline" className="text-[10px] text-muted-foreground">
-                            Not Assigned
-                          </Badge>
-                        )}
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-            )}
           </div>
         </div>
 
         {/* Footer */}
         <DialogFooter className="p-4 border-t bg-muted/20 flex items-center justify-between sm:justify-between">
           <div className="text-xs text-muted-foreground">
-            {reassignMode ? (
-              <span className="text-amber-600 dark:text-amber-400 font-medium">
-                Reassign mode active: past completions will be archived for retake.
-              </span>
-            ) : (
-              <span>Existing completions will remain untouched.</span>
-            )}
+            <span>
+              {schoolScope === "all" ? "All Schools" : `${selectedSchoolIds.size} Specific Schools`}
+              {" • "}
+              {publishToParents ? "Parent Portal Active" : "Parent Portal Inactive"}
+            </span>
           </div>
 
           <div className="flex items-center gap-2">
@@ -479,26 +594,19 @@ export function AssignSchoolsDialog({
             </Button>
             <Button
               type="button"
-              variant={reassignMode ? "default" : "default"}
               size="sm"
               onClick={handleSubmit}
               disabled={submitting || loading}
-              className={reassignMode ? "bg-amber-600 hover:bg-amber-700 text-white" : ""}
             >
               {submitting ? (
                 <>
                   <RefreshCw className="h-3.5 w-3.5 animate-spin mr-1.5" />
                   Saving...
                 </>
-              ) : reassignMode ? (
-                <>
-                  <RotateCcw className="h-3.5 w-3.5 mr-1.5" />
-                  Reassign to {selectedSchoolIds.size} Schools
-                </>
               ) : (
                 <>
-                  <Building2 className="h-3.5 w-3.5 mr-1.5" />
-                  Save Assignments ({selectedSchoolIds.size})
+                  <Check className="h-3.5 w-3.5 mr-1.5" />
+                  Save Assignment & Distribution
                 </>
               )}
             </Button>

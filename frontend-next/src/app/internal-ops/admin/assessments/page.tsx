@@ -16,8 +16,12 @@ import {
   Clock, 
   CheckCircle2, 
   Sparkles,
-  Building2
+  Building2,
+  Home,
+  Search,
+  Filter
 } from "lucide-react"
+import { Input } from "@/components/ui/input"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { AssessmentEditorDialog, AssessmentFormData } from "@/components/assessment-editor-dialog"
 import { AssignSchoolsDialog } from "@/components/assign-schools-dialog"
@@ -34,6 +38,9 @@ interface Assessment {
   sections: any
   question_count?: number
   is_active: boolean
+  publish_to_schools?: boolean
+  publish_to_parents?: boolean
+  auto_assign_schools?: boolean
   created_at: string
 }
 
@@ -41,6 +48,9 @@ export default function AdminAssessmentsPage() {
   const router = useRouter()
   const [assessments, setAssessments] = useState<Assessment[]>([])
   const [loading, setLoading] = useState(true)
+  const [searchQuery, setSearchQuery] = useState("")
+  const [channelFilter, setChannelFilter] = useState<"all" | "schools" | "parents" | "specific">("all")
+  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "draft">("all")
 
   // Editor Dialog State
   const [isEditorOpen, setIsEditorOpen] = useState(false)
@@ -171,6 +181,25 @@ export default function AdminAssessmentsPage() {
     return []
   }
 
+  const schoolsCount = assessments.filter(a => a.publish_to_schools !== false).length
+  const parentsCount = assessments.filter(a => a.publish_to_parents !== false).length
+  const specificSchoolsCount = assessments.filter(a => a.publish_to_schools !== false && a.auto_assign_schools === false).length
+
+  const filteredAssessments = assessments.filter((a) => {
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase()
+      const matchesTitle = a.title.toLowerCase().includes(q)
+      const matchesDesc = (a.description || "").toLowerCase().includes(q)
+      if (!matchesTitle && !matchesDesc) return false
+    }
+    if (statusFilter === "active" && !a.is_active) return false
+    if (statusFilter === "draft" && a.is_active) return false
+    if (channelFilter === "schools" && a.publish_to_schools === false) return false
+    if (channelFilter === "parents" && a.publish_to_parents === false) return false
+    if (channelFilter === "specific" && (a.publish_to_schools === false || a.auto_assign_schools !== false)) return false
+    return true
+  })
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -184,6 +213,99 @@ export default function AdminAssessmentsPage() {
         <Button size="sm" onClick={handleOpenCreate}>
           <Plus className="mr-1.5 h-3.5 w-3.5" /> Create Check-in
         </Button>
+      </div>
+
+      {/* Search and Channel Filters */}
+      <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center justify-between bg-card p-3 rounded-xl border">
+        <div className="relative flex-1 max-w-sm">
+          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Search templates..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-9 h-9 text-xs"
+          />
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Channel Filters */}
+          <div className="flex items-center rounded-lg border bg-muted/40 p-1 text-xs">
+            <button
+              onClick={() => setChannelFilter("all")}
+              className={`px-2.5 py-1 rounded-md font-medium transition-all ${
+                channelFilter === "all"
+                  ? "bg-background text-foreground shadow-xs"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              All ({assessments.length})
+            </button>
+            <button
+              onClick={() => setChannelFilter("schools")}
+              className={`px-2.5 py-1 rounded-md font-medium transition-all flex items-center gap-1 ${
+                channelFilter === "schools"
+                  ? "bg-background text-foreground shadow-xs"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <Building2 className="h-3 w-3" /> Schools ({schoolsCount})
+            </button>
+            <button
+              onClick={() => setChannelFilter("parents")}
+              className={`px-2.5 py-1 rounded-md font-medium transition-all flex items-center gap-1 ${
+                channelFilter === "parents"
+                  ? "bg-background text-foreground shadow-xs"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <Home className="h-3 w-3" /> Parents ({parentsCount})
+            </button>
+            <button
+              onClick={() => setChannelFilter("specific")}
+              className={`px-2.5 py-1 rounded-md font-medium transition-all ${
+                channelFilter === "specific"
+                  ? "bg-background text-foreground shadow-xs"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              Specific Schools ({specificSchoolsCount})
+            </button>
+          </div>
+
+          {/* Status Filter */}
+          <div className="flex items-center rounded-lg border bg-muted/40 p-1 text-xs">
+            <button
+              onClick={() => setStatusFilter("all")}
+              className={`px-2.5 py-1 rounded-md font-medium transition-all ${
+                statusFilter === "all"
+                  ? "bg-background text-foreground shadow-xs"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              All
+            </button>
+            <button
+              onClick={() => setStatusFilter("active")}
+              className={`px-2.5 py-1 rounded-md font-medium transition-all ${
+                statusFilter === "active"
+                  ? "bg-background text-emerald-600 dark:text-emerald-400 shadow-xs"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              Active
+            </button>
+            <button
+              onClick={() => setStatusFilter("draft")}
+              className={`px-2.5 py-1 rounded-md font-medium transition-all ${
+                statusFilter === "draft"
+                  ? "bg-background text-foreground shadow-xs"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              Draft
+            </button>
+          </div>
+        </div>
       </div>
 
       {loading ? (
@@ -202,9 +324,18 @@ export default function AdminAssessmentsPage() {
             <p>No check-in templates found.</p>
           </CardContent>
         </Card>
+      ) : filteredAssessments.length === 0 ? (
+        <Card className="border-dashed">
+          <CardContent className="flex flex-col items-center justify-center h-[200px] text-muted-foreground space-y-2">
+            <p className="text-sm">No check-in templates match the active filter criteria.</p>
+            <Button variant="outline" size="sm" onClick={() => { setSearchQuery(""); setChannelFilter("all"); setStatusFilter("all"); }}>
+              Reset Filters
+            </Button>
+          </CardContent>
+        </Card>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {assessments.map((a) => {
+          {filteredAssessments.map((a) => {
             const count = getQuestionCount(a)
             return (
               <Card key={a.id} className="flex flex-col justify-between border transition-all hover:border-primary/40 hover:shadow-xs">
@@ -229,6 +360,33 @@ export default function AdminAssessmentsPage() {
                   </div>
                   <CardTitle className="text-lg leading-snug">{a.title}</CardTitle>
                   <CardDescription className="line-clamp-2 mt-1 text-xs">{a.description || "No description provided."}</CardDescription>
+
+                  {/* Channel Badges */}
+                  <div className="flex items-center gap-1.5 flex-wrap pt-2">
+                    {a.publish_to_schools !== false ? (
+                       <Badge 
+                        variant="outline" 
+                        className={`text-[10px] gap-1 px-1.5 py-0.5 ${
+                          a.auto_assign_schools !== false
+                            ? "bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20"
+                            : "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20"
+                        }`}
+                      >
+                        <Building2 className="h-3 w-3" />
+                        {a.auto_assign_schools !== false ? "All Schools" : "Specific Schools"}
+                      </Badge>
+                    ) : (
+                      <Badge variant="outline" className="text-[10px] bg-muted/60 text-muted-foreground border-border px-1.5 py-0.5">
+                        No Schools
+                      </Badge>
+                    )}
+
+                    {a.publish_to_parents !== false && (
+                      <Badge variant="outline" className="text-[10px] bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20 gap-1 px-1.5 py-0.5">
+                        <Home className="h-3 w-3" /> Parents
+                      </Badge>
+                    )}
+                  </div>
                 </CardHeader>
 
                 <CardContent className="pt-0 space-y-4">
@@ -262,9 +420,9 @@ export default function AdminAssessmentsPage() {
                       variant="outline" 
                       size="sm" 
                       onClick={() => openAssignModal(a)}
-                      className="text-xs h-8 text-primary border-primary/30 hover:bg-primary/10 hover:text-primary font-medium"
+                      className="text-xs h-8 text-primary border-primary/30 hover:bg-primary/10 hover:text-primary font-medium col-span-2"
                     >
-                      <Building2 className="mr-1.5 h-3.5 w-3.5" /> Assign to Schools
+                      <Building2 className="mr-1.5 h-3.5 w-3.5" /> Assign & Distribution
                     </Button>
                   </div>
 

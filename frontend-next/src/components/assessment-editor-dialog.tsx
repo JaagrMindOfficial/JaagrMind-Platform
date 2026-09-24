@@ -20,7 +20,9 @@ import {
   CheckCircle2, 
   Sliders, 
   Layers, 
-  Search 
+  Search,
+  Home,
+  Building2
 } from "lucide-react"
 
 export interface QuestionOption {
@@ -58,6 +60,9 @@ export interface AssessmentFormData {
   questions: QuestionItem[]
   buckets: BucketItem[]
   section_buckets: boolean
+  publish_to_schools?: boolean
+  publish_to_parents?: boolean
+  auto_assign_schools?: boolean
 }
 
 interface AssessmentEditorDialogProps {
@@ -113,6 +118,9 @@ export function AssessmentEditorDialog({
     questions: [],
     buckets: DEFAULT_BUCKETS,
     section_buckets: true,
+    publish_to_schools: true,
+    publish_to_parents: true,
+    auto_assign_schools: true,
   })
 
   const [jsonText, setJsonText] = useState("")
@@ -154,7 +162,7 @@ export function AssessmentEditorDialog({
 
     const bList: BucketItem[] = initialData?.buckets && Array.isArray(initialData.buckets) && initialData.buckets.length > 0
       ? initialData.buckets.map((b: any) => ({
-          name: b.name || "",
+          name: b.name || b.label || "",
           min_score: Number(b.min_score ?? b.minScore ?? b.min ?? 0),
           max_score: Number(b.max_score ?? b.maxScore ?? b.max ?? 0),
         }))
@@ -180,6 +188,9 @@ export function AssessmentEditorDialog({
       questions: qList,
       buckets: bList,
       section_buckets: initialData?.section_buckets ?? true,
+      publish_to_schools: initialData?.publish_to_schools ?? true,
+      publish_to_parents: initialData?.publish_to_parents ?? true,
+      auto_assign_schools: initialData?.auto_assign_schools ?? true,
     }
 
     setFormData(data)
@@ -214,9 +225,14 @@ export function AssessmentEditorDialog({
       }
       setFormData({
         ...formData,
+        ...parsed,
         title: parsed.title || formData.title,
         description: parsed.description || formData.description,
         is_active: parsed.is_active ?? formData.is_active,
+        tier: parsed.tier || formData.tier,
+        min_grade: parsed.min_grade ?? formData.min_grade,
+        max_grade: parsed.max_grade ?? formData.max_grade,
+        target_grades: Array.isArray(parsed.target_grades) ? parsed.target_grades : formData.target_grades,
         time_per_question: parsed.time_per_question || formData.time_per_question,
         total_time: parsed.total_time || formData.total_time,
         inactivity_alert_time: parsed.inactivity_alert_time || formData.inactivity_alert_time,
@@ -224,6 +240,9 @@ export function AssessmentEditorDialog({
         questions: Array.isArray(parsed.questions) ? parsed.questions : formData.questions,
         buckets: Array.isArray(parsed.buckets) ? parsed.buckets : formData.buckets,
         section_buckets: parsed.section_buckets ?? formData.section_buckets,
+        publish_to_schools: parsed.publish_to_schools ?? formData.publish_to_schools,
+        publish_to_parents: parsed.publish_to_parents ?? formData.publish_to_parents,
+        auto_assign_schools: parsed.auto_assign_schools ?? formData.auto_assign_schools,
       })
       setJsonError(null)
       setMode("visual")
@@ -880,6 +899,99 @@ export function AssessmentEditorDialog({
                     <div className="text-[11px] text-muted-foreground bg-muted/30 p-2.5 rounded-lg border border-border/60">
                       <span className="font-medium text-foreground">Active Target Grades: </span>
                       {(formData.target_grades || ["6", "7", "8", "9", "10", "11", "12"]).map((g) => `Grade ${g}`).join(", ")}
+                    </div>
+                  </div>
+
+                  {/* Distribution Channels & Portals */}
+                  <div className="space-y-3.5 border-t pt-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                          Distribution Channels & Portals
+                        </h3>
+                        <p className="text-[11px] text-muted-foreground mt-0.5">
+                          Control which portals and school campuses this check-in is published to.
+                        </p>
+                      </div>
+                      <Badge variant="outline" className="text-[10px] font-mono">
+                        Distribution
+                      </Badge>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      {/* School Portals Channel */}
+                      <div className="p-3 rounded-xl border bg-muted/15 space-y-3">
+                        <div className="flex items-start gap-2.5">
+                          <input
+                            type="checkbox"
+                            id="publish_to_schools_toggle"
+                            checked={formData.publish_to_schools !== false}
+                            onChange={e => {
+                              const checked = e.target.checked
+                              setFormData({
+                                ...formData,
+                                publish_to_schools: checked,
+                                auto_assign_schools: checked ? (formData.auto_assign_schools ?? true) : false,
+                              })
+                            }}
+                            className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary mt-0.5"
+                          />
+                          <div className="flex-1">
+                            <label htmlFor="publish_to_schools_toggle" className="text-xs font-semibold cursor-pointer flex items-center gap-1.5 text-foreground">
+                              <Building2 className="h-3.5 w-3.5 text-primary" />
+                              Publish to School Portals
+                            </label>
+                            <p className="text-[11px] text-muted-foreground mt-0.5 leading-relaxed">
+                              Enables this check-in for school admins, counselors, and campus student test scheduling.
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* All Schools vs Specific Schools toggle */}
+                        {formData.publish_to_schools !== false && (
+                          <div className="ml-6 pl-3 border-l-2 border-primary/30 pt-1 space-y-1 bg-background/50 p-2 rounded-md">
+                            <div className="flex items-start gap-2">
+                              <input
+                                type="checkbox"
+                                id="auto_assign_schools_toggle"
+                                checked={formData.auto_assign_schools !== false}
+                                onChange={e => setFormData({ ...formData, auto_assign_schools: e.target.checked })}
+                                className="h-3.5 w-3.5 rounded border-gray-300 text-primary focus:ring-primary mt-0.5"
+                              />
+                              <div>
+                                <label htmlFor="auto_assign_schools_toggle" className="text-xs font-medium cursor-pointer text-foreground">
+                                  Assign to All Schools (Default)
+                                </label>
+                                <p className="text-[10px] text-muted-foreground mt-0.5 leading-snug">
+                                  Automatically available to all registered schools. Uncheck to restrict this check-in to specific campuses via &quot;Assign &amp; Distribution&quot;.
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Parent Portal Channel */}
+                      <div className="p-3 rounded-xl border bg-muted/15 flex flex-col justify-between">
+                        <div className="flex items-start gap-2.5">
+                          <input
+                            type="checkbox"
+                            id="publish_to_parents_toggle"
+                            checked={formData.publish_to_parents !== false}
+                            onChange={e => setFormData({ ...formData, publish_to_parents: e.target.checked })}
+                            className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary mt-0.5"
+                          />
+                          <div className="flex-1">
+                            <label htmlFor="publish_to_parents_toggle" className="text-xs font-semibold cursor-pointer flex items-center gap-1.5 text-foreground">
+                              <Home className="h-3.5 w-3.5 text-primary" />
+                              Publish to Parent Portal
+                            </label>
+                            <p className="text-[11px] text-muted-foreground mt-0.5 leading-relaxed">
+                              Permits parents to administer this standard wellness check-in directly at home for children in matching grade brackets.
+                            </p>
+                          </div>
+                        </div>
+                      </div>
                     </div>
                   </div>
 

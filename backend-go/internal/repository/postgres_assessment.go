@@ -40,6 +40,9 @@ func (r *postgresAssessment) scanAssessment(row pgx.Row) (domain.Assessment, err
 		&a.MinGrade,
 		&a.MaxGrade,
 		&a.TargetGrades,
+		&a.PublishToSchools,
+		&a.PublishToParents,
+		&a.AutoAssignSchools,
 		&a.CreatedAt,
 	)
 	if err != nil {
@@ -88,6 +91,7 @@ func (r *postgresAssessment) GetActiveAssessments(ctx context.Context) ([]domain
 		       coalesce(is_active, true),
 		       coalesce(tier, 'all'), coalesce(min_grade, 1), coalesce(max_grade, 12),
 		       coalesce(target_grades, ARRAY['6','7','8','9','10','11','12']),
+		       coalesce(publish_to_schools, true), coalesce(publish_to_parents, true), coalesce(auto_assign_schools, true),
 		       created_at
 		FROM assessments WHERE coalesce(is_active, true) = true
 		ORDER BY coalesce(is_default, false) DESC, created_at DESC
@@ -117,6 +121,7 @@ func (r *postgresAssessment) GetAll(ctx context.Context) ([]domain.Assessment, e
 		       coalesce(is_active, true),
 		       coalesce(tier, 'all'), coalesce(min_grade, 1), coalesce(max_grade, 12),
 		       coalesce(target_grades, ARRAY['6','7','8','9','10','11','12']),
+		       coalesce(publish_to_schools, true), coalesce(publish_to_parents, true), coalesce(auto_assign_schools, true),
 		       created_at
 		FROM assessments 
 		ORDER BY coalesce(is_default, false) DESC, created_at DESC
@@ -146,6 +151,7 @@ func (r *postgresAssessment) GetByID(ctx context.Context, id string) (*domain.As
 		       coalesce(is_active, true),
 		       coalesce(tier, 'all'), coalesce(min_grade, 1), coalesce(max_grade, 12),
 		       coalesce(target_grades, ARRAY['6','7','8','9','10','11','12']),
+		       coalesce(publish_to_schools, true), coalesce(publish_to_parents, true), coalesce(auto_assign_schools, true),
 		       created_at
 		FROM assessments 
 		WHERE id = $1
@@ -167,6 +173,7 @@ func (r *postgresAssessment) GetDefault(ctx context.Context) (*domain.Assessment
 		       coalesce(is_active, true),
 		       coalesce(tier, 'all'), coalesce(min_grade, 1), coalesce(max_grade, 12),
 		       coalesce(target_grades, ARRAY['6','7','8','9','10','11','12']),
+		       coalesce(publish_to_schools, true), coalesce(publish_to_parents, true), coalesce(auto_assign_schools, true),
 		       created_at
 		FROM assessments 
 		WHERE is_default = true AND coalesce(is_active, true) = true
@@ -230,14 +237,16 @@ func (r *postgresAssessment) Create(ctx context.Context, req domain.Assessment) 
 			title, description, is_default, time_per_question, total_time,
 			inactivity_alert_time, inactivity_end_time, questions, buckets,
 			section_buckets, custom_sections, sections, is_active,
-			tier, min_grade, max_grade, target_grades
+			tier, min_grade, max_grade, target_grades,
+			publish_to_schools, publish_to_parents, auto_assign_schools
 		)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)
 		RETURNING id
 	`, req.Title, req.Description, req.IsDefault, req.TimePerQuestion, req.TotalTime,
 		inactivityAlert, inactivityEnd, questionsJSON, bucketsJSON,
 		req.SectionBuckets, customSectionsJSON, sectionsJSON, req.IsActive,
 		tier, minGrade, maxGrade, targetGrades,
+		req.PublishToSchools, req.PublishToParents, req.AutoAssignSchools,
 	).Scan(&newID)
 
 	if err != nil {
@@ -305,12 +314,14 @@ func (r *postgresAssessment) Update(ctx context.Context, id string, req domain.A
 		    custom_sections = $5, sections = $6, is_active = $7,
 		    inactivity_alert_time = $8, inactivity_end_time = $9,
 		    time_per_question = $10, total_time = $11, section_buckets = $12,
-		    tier = $13, min_grade = $14, max_grade = $15, target_grades = $16
-		WHERE id = $17
+		    tier = $13, min_grade = $14, max_grade = $15, target_grades = $16,
+		    publish_to_schools = $17, publish_to_parents = $18, auto_assign_schools = $19
+		WHERE id = $20
 	`, req.Title, req.Description, questionsJSON, bucketsJSON,
 		customSectionsJSON, sectionsJSON, req.IsActive,
 		inactivityAlert, inactivityEnd, timePerQuestion, totalTime, req.SectionBuckets,
-		tier, minGrade, maxGrade, targetGrades, id,
+		tier, minGrade, maxGrade, targetGrades,
+		req.PublishToSchools, req.PublishToParents, req.AutoAssignSchools, id,
 	)
 	if err != nil {
 		return nil, err
@@ -519,14 +530,13 @@ func (r *postgresAssessment) AssignTest(ctx context.Context, schoolID, assessmen
 }
 
 func (r *postgresAssessment) GetAssignedTests(ctx context.Context, schoolID string) ([]domain.Assessment, error) {
-	// First get assigned_tests array from schools
+	// Get the school's explicitly assigned test IDs
 	var assignedUUIDs []string
-	err := r.db.QueryRow(ctx, "SELECT coalesce(assigned_tests::text[], '{}') FROM schools WHERE id = $1::uuid", schoolID).Scan(&assignedUUIDs)
-	if err != nil || len(assignedUUIDs) == 0 {
-		// Fallback to all active assessments or default assessment
-		return r.GetActiveAssessments(ctx)
-	}
+	_ = r.db.QueryRow(ctx, "SELECT coalesce(assigned_tests::text[], '{}') FROM schools WHERE id = $1::uuid", schoolID).Scan(&assignedUUIDs)
 
+	// Single query: return assessments that are either
+	// 1. publish_to_schools=true AND auto_assign_schools=true (universal campus defaults)
+	// 2. publish_to_schools=true AND id IN school.assigned_tests (manually assigned/licensed)
 	rows, err := r.db.Query(ctx, `
 		SELECT id, title, coalesce(description, ''), coalesce(is_default, false), 
 		       coalesce(time_per_question, 30), coalesce(total_time, 15), 
@@ -535,13 +545,19 @@ func (r *postgresAssessment) GetAssignedTests(ctx context.Context, schoolID stri
 		       coalesce(is_active, true),
 		       coalesce(tier, 'all'), coalesce(min_grade, 1), coalesce(max_grade, 12),
 		       coalesce(target_grades, ARRAY['6','7','8','9','10','11','12']),
+		       coalesce(publish_to_schools, true), coalesce(publish_to_parents, true), coalesce(auto_assign_schools, true),
 		       created_at
 		FROM assessments
-		WHERE id = ANY($1::uuid[]) AND coalesce(is_active, true) = true
+		WHERE coalesce(is_active, true) = true
+		  AND coalesce(publish_to_schools, true) = true
+		  AND (
+		    coalesce(auto_assign_schools, true) = true
+		    OR id = ANY($1::uuid[])
+		  )
 		ORDER BY coalesce(is_default, false) DESC, created_at DESC
 	`, assignedUUIDs)
 	if err != nil {
-		return r.GetActiveAssessments(ctx)
+		return nil, err
 	}
 	defer rows.Close()
 
@@ -553,9 +569,8 @@ func (r *postgresAssessment) GetAssignedTests(ctx context.Context, schoolID stri
 		}
 		assessments = append(assessments, a)
 	}
-
-	if len(assessments) == 0 {
-		return r.GetActiveAssessments(ctx)
+	if assessments == nil {
+		assessments = []domain.Assessment{}
 	}
 
 	return assessments, nil
@@ -597,27 +612,26 @@ func (r *postgresAssessment) GetSchoolAssignments(ctx context.Context, assessmen
 }
 
 func (r *postgresAssessment) AssignAssessmentToSchools(ctx context.Context, assessmentID string, schoolIDs []string, reassign bool) error {
-	if len(schoolIDs) == 0 {
-		return nil
-	}
-	_, err := r.db.Exec(ctx, `
-		UPDATE schools
-		SET assigned_tests = array_append(coalesce(assigned_tests, '{}'), $1::uuid)
-		WHERE id = ANY($2::uuid[]) AND NOT ($1::uuid = ANY(coalesce(assigned_tests, '{}')))
-	`, assessmentID, schoolIDs)
-	if err != nil {
-		return err
+	// Add assessment to selected schools (idempotent append)
+	if len(schoolIDs) > 0 {
+		_, err := r.db.Exec(ctx, `
+			UPDATE schools
+			SET assigned_tests = array_append(coalesce(assigned_tests, '{}'), $1::uuid)
+			WHERE id = ANY($2::uuid[]) AND NOT ($1::uuid = ANY(coalesce(assigned_tests, '{}')))
+		`, assessmentID, schoolIDs)
+		if err != nil {
+			return err
+		}
 	}
 
-	if reassign {
-		_, err = r.db.Exec(ctx, `
-			UPDATE student_results
-			SET status = 'archived'
-			WHERE assessment_id = $1::uuid AND school_id = ANY($2::uuid[]) AND coalesce(status, 'complete') = 'complete'
-		`, assessmentID, schoolIDs)
-		return err
-	}
-	return nil
+	// Remove assessment from schools that were unchecked
+	_, err := r.db.Exec(ctx, `
+		UPDATE schools
+		SET assigned_tests = array_remove(coalesce(assigned_tests, '{}'), $1::uuid)
+		WHERE NOT (id = ANY($2::uuid[])) AND ($1::uuid = ANY(coalesce(assigned_tests, '{}')))
+	`, assessmentID, schoolIDs)
+
+	return err
 }
 
 func (r *postgresAssessment) CheckRecentCompletions(ctx context.Context, schoolID, assessmentID string, targetType string, targetClass string, targetSection string, studentIDs []string) ([]domain.StudentRecentAttempt, error) {

@@ -279,8 +279,8 @@ export default function AdminDashboardPage() {
             <div className="text-2xl font-semibold mt-1">
               {loading ? "..." : totalStudents}
             </div>
-            <div className="text-[11px] text-emerald-600 dark:text-emerald-400 mt-0.5 flex items-center gap-1">
-              <TrendingUp className="h-3 w-3" /> Longitudinal tracked
+            <div className="text-[11px] text-muted-foreground mt-0.5">
+              Total numbers of Students
             </div>
           </div>
           <div className="h-10 w-10 rounded-lg bg-blue-500/10 flex items-center justify-center text-blue-600 dark:text-blue-400 shrink-0">
@@ -394,8 +394,8 @@ export default function AdminDashboardPage() {
                     type="button"
                     onClick={() => setActiveCohort(c.id)}
                     className={`px-2 py-0.5 text-[11px] font-medium rounded-md transition-colors ${activeCohort === c.id
-                        ? "bg-background text-foreground shadow-xs"
-                        : "text-muted-foreground hover:text-foreground"
+                      ? "bg-background text-foreground shadow-xs"
+                      : "text-muted-foreground hover:text-foreground"
                       }`}
                   >
                     {c.label}
@@ -476,12 +476,12 @@ export default function AdminDashboardPage() {
                                 v === "Attention & Focus Flow"
                                   ? "Focus Flow"
                                   : v === "Social Comfort & Belonging"
-                                  ? "Social Ease"
-                                  : v === "Calm & Stress Reset"
-                                  ? "Calm Reset"
-                                  : v === "Inner Grounding & Confidence"
-                                  ? "Grounding"
-                                  : v
+                                    ? "Social Ease"
+                                    : v === "Calm & Stress Reset"
+                                      ? "Calm Reset"
+                                      : v === "Inner Grounding & Confidence"
+                                        ? "Grounding"
+                                        : v
                               }
                               tick={{ fill: isDark ? "#f1f5f9" : "#0f172a", fontSize: 10, fontWeight: 600 }}
                             />

@@ -23,6 +23,55 @@ func NewPostgresParent(db *pgxpool.Pool) domain.ParentRepository {
 }
 
 func (r *postgresParent) GetChildren(ctx context.Context, parentID string) ([]domain.ChildSummary, error) {
+	// Auto-migration & consistency check:
+	// If the parent has a child_name recorded in users.metadata that is not yet linked in parent_students,
+	// automatically create a real student record with an IND-XXXXXX access code and link it in parent_students.
+	var metaBytes []byte
+	var parentName string
+	_ = r.db.QueryRow(ctx, `SELECT COALESCE(metadata, '{}'::jsonb), name FROM users WHERE id = $1`, parentID).Scan(&metaBytes, &parentName)
+
+	if len(metaBytes) > 0 {
+		var meta map[string]any
+		if err := json.Unmarshal(metaBytes, &meta); err == nil {
+			childName, _ := meta["child_name"].(string)
+			childName = strings.TrimSpace(childName)
+			if childName != "" {
+				var alreadyLinked bool
+				_ = r.db.QueryRow(ctx, `
+					SELECT EXISTS (
+						SELECT 1 FROM parent_students ps
+						JOIN students s ON s.id = ps.student_id
+						WHERE ps.parent_id = $1::uuid AND LOWER(TRIM(s.name)) = LOWER($2)
+					)
+				`, parentID, childName).Scan(&alreadyLinked)
+
+				if !alreadyLinked {
+					grade, _ := meta["grade"].(string)
+					grade = strings.TrimSpace(grade)
+					if grade == "" {
+						grade = "10th"
+					}
+					if !strings.HasSuffix(grade, "th") && !strings.HasSuffix(grade, "st") && !strings.HasSuffix(grade, "nd") && !strings.HasSuffix(grade, "rd") {
+						grade = grade + "th"
+					}
+					schoolName, _ := meta["school_name"].(string)
+					schoolName = strings.TrimSpace(schoolName)
+					if schoolName == "" {
+						schoolName = "Independent / Home Study"
+					}
+
+					// Persist child via AddChild so they get an IND-XXXXXX Access ID and permanent database record
+					_, _ = r.AddChild(ctx, parentID, domain.ParentAddChildRequest{
+						Name:         childName,
+						Grade:        grade,
+						SchoolName:   schoolName,
+						Relationship: "parent",
+					})
+				}
+			}
+		}
+	}
+
 	rows, err := r.db.Query(ctx, `
 		SELECT s.id, s.name, COALESCE(s.nickname, ''), s.grade, s.section,
 		       COALESCE(s.roll_number, ''), COALESCE(s.stream, ''), s.access_id,
@@ -51,45 +100,6 @@ func (r *postgresParent) GetChildren(ctx context.Context, parentID string) ([]do
 		}
 		c.IsLinked = (c.SchoolID != "")
 		children = append(children, c)
-	}
-
-	// Fallback: If parent has no institutional student linked yet, check user metadata
-	if len(children) == 0 {
-		var metaBytes []byte
-		var parentName string
-		_ = r.db.QueryRow(ctx, `SELECT COALESCE(metadata, '{}'::jsonb), name FROM users WHERE id = $1`, parentID).Scan(&metaBytes, &parentName)
-
-		if len(metaBytes) > 0 {
-			var meta map[string]any
-			if err := json.Unmarshal(metaBytes, &meta); err == nil {
-				childName, _ := meta["child_name"].(string)
-				childName = strings.TrimSpace(childName)
-				// Only register if the user actually supplied a child name! Never inject fake fallback names
-				if childName != "" {
-					grade, _ := meta["grade"].(string)
-					schoolName, _ := meta["school_name"].(string)
-					if strings.TrimSpace(grade) == "" {
-						grade = "10th"
-					}
-					if strings.TrimSpace(schoolName) == "" {
-						schoolName = "Independent Study / Home"
-					}
-
-					children = append(children, domain.ChildSummary{
-						ID:           "self-registered",
-						Name:         childName,
-						Grade:        grade,
-						Section:      "A",
-						AccessID:     "HOME-01",
-						SchoolID:     "",
-						SchoolName:   schoolName,
-						SchoolCode:   "HOME",
-						Relationship: "parent",
-						IsLinked:     false,
-					})
-				}
-			}
-		}
 	}
 
 	return children, nil

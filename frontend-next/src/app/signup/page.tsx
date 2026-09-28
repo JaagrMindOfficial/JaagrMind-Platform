@@ -58,6 +58,7 @@ function SignupContent() {
     phone: "",
     estimated_students: 500,
     message: "",
+    website: "", // Anti-spam honeypot trap
   });
 
   // Independent Signup Form State
@@ -66,6 +67,7 @@ function SignupContent() {
     email: "",
     password: "",
     phone: "",
+    website: "", // Anti-spam honeypot trap
   });
 
   const [loading, setLoading] = useState(false);
@@ -136,6 +138,7 @@ function SignupContent() {
           password: independentForm.password,
           phone: independentForm.phone,
           account_type: independentRole,
+          website: independentForm.website,
         },
         { skipAuth: true }
       );
@@ -434,6 +437,20 @@ function SignupContent() {
                     </div>
                   ) : (
                     <form onSubmit={handleInstituteSubmit} className="space-y-2">
+                      {/* Anti-spam honeypot trap */}
+                      <div style={{ opacity: 0, position: 'absolute', top: 0, left: 0, height: 0, width: 0, zIndex: -1, pointerEvents: 'none' }} aria-hidden="true">
+                        <label htmlFor="institute_website_hp">Official Campus Website</label>
+                        <input
+                          id="institute_website_hp"
+                          type="text"
+                          name="website"
+                          tabIndex={-1}
+                          autoComplete="off"
+                          value={instituteForm.website}
+                          onChange={(e) => setInstituteForm({ ...instituteForm, website: e.target.value })}
+                        />
+                      </div>
+
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                         <div className="space-y-1">
                           <label className="text-[11px] font-semibold text-foreground">
@@ -715,6 +732,20 @@ function SignupContent() {
                       </div>
 
                       <form onSubmit={handleIndependentSubmit} className="space-y-2">
+                        {/* Anti-spam honeypot trap */}
+                        <div style={{ opacity: 0, position: 'absolute', top: 0, left: 0, height: 0, width: 0, zIndex: -1, pointerEvents: 'none' }} aria-hidden="true">
+                          <label htmlFor="indep_website_hp">Personal Website</label>
+                          <input
+                            id="indep_website_hp"
+                            type="text"
+                            name="website"
+                            tabIndex={-1}
+                            autoComplete="off"
+                            value={independentForm.website}
+                            onChange={(e) => setIndependentForm({ ...independentForm, website: e.target.value })}
+                          />
+                        </div>
+
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                           <div className="space-y-1">
                             <label className="text-[11px] font-semibold text-foreground">

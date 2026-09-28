@@ -3,9 +3,11 @@ package handlers
 import (
 	"crypto/rand"
 	"fmt"
+	"log"
 	"math/big"
 	"strings"
 	"time"
+	"unicode"
 
 	"github.com/gofiber/fiber/v3"
 	"github.com/google/uuid"
@@ -13,6 +15,25 @@ import (
 	"github.com/jaagrmind/platform-api/internal/middleware"
 	"github.com/jaagrmind/platform-api/internal/utils"
 )
+
+// isLikelyBotGibberish identifies randomized, machine-generated string patterns (e.g. 'YKInSeLrHPOUgZEeaHXMMk')
+func isLikelyBotGibberish(s string) bool {
+	clean := strings.TrimSpace(s)
+	// Legitimate single-word names or schools rarely exceed 13 characters without spaces or hyphens.
+	// If a string is >= 14 chars with NO spaces, and has 3+ uppercase letters scattered inside, it is bot-generated noise.
+	if len(clean) >= 14 && !strings.Contains(clean, " ") && !strings.Contains(clean, "-") {
+		upperCount := 0
+		for _, r := range clean {
+			if unicode.IsUpper(r) {
+				upperCount++
+			}
+		}
+		if upperCount >= 3 {
+			return true
+		}
+	}
+	return false
+}
 
 type AuthHandler struct {
 	service      domain.AuthService
@@ -37,14 +58,14 @@ func SetupAuthRoutes(
 	}
 	
 	api := app.Group("/api/auth")
-	api.Post("/login", handler.Login)
-	api.Post("/internal/login", handler.InternalOpsLogin)
-	api.Post("/signup", handler.RegisterIndependent)
-	api.Post("/register-independent", handler.RegisterIndependent)
-	api.Post("/apply-institution", handler.ApplyInstitution)
+	api.Post("/login", middleware.AuthLoginRateLimiter(), handler.Login)
+	api.Post("/internal/login", middleware.AuthLoginRateLimiter(), handler.InternalOpsLogin)
+	api.Post("/signup", middleware.AuthSignupRateLimiter(), handler.RegisterIndependent)
+	api.Post("/register-independent", middleware.AuthSignupRateLimiter(), handler.RegisterIndependent)
+	api.Post("/apply-institution", middleware.InstitutionApplicationRateLimiter(), handler.ApplyInstitution)
 	api.Post("/reset-password", handler.ResetPassword)
-	api.Post("/forgot-password/request-otp", handler.RequestForgotPasswordOTP)
-	api.Post("/forgot-password/verify-otp", handler.VerifyForgotPasswordOTP)
+	api.Post("/forgot-password/request-otp", middleware.ForgotPasswordRateLimiter(), handler.RequestForgotPasswordOTP)
+	api.Post("/forgot-password/verify-otp", middleware.ForgotPasswordRateLimiter(), handler.VerifyForgotPasswordOTP)
 
 	// Protected routes under /api/auth
 	api.Post("/change-password", handler.ChangePassword, middleware.Protected(jwtSecret))
@@ -180,6 +201,16 @@ func (h *AuthHandler) RegisterIndependent(c fiber.Ctx) error {
 
 	req.Email = strings.TrimSpace(strings.ToLower(req.Email))
 	req.Name = strings.TrimSpace(req.Name)
+
+	// Anti-Spam Check: Honeypot & bot detection
+	if strings.TrimSpace(req.Website) != "" || isLikelyBotGibberish(req.Name) {
+		log.Printf("[SPAM-BLOCKED] Registration spam blocked from IP %s (name=%s, email=%s)\n",
+			middleware.GetClientIP(c), req.Name, req.Email)
+		return c.Status(fiber.StatusCreated).JSON(fiber.Map{
+			"message": "Independent account created successfully",
+		})
+	}
+
 	if req.Email == "" || req.Password == "" || req.Name == "" {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Name, email, and password are required"})
 	}
@@ -286,6 +317,23 @@ func (h *AuthHandler) ApplyInstitution(c fiber.Ctx) error {
 	req.Email = strings.TrimSpace(strings.ToLower(req.Email))
 	req.Phone = strings.TrimSpace(req.Phone)
 
+	// Anti-Spam Check 1: Honeypot trap (bots fill hidden fields, human users do not)
+	if strings.TrimSpace(req.Website) != "" {
+		log.Printf("[SPAM-BLOCKED] Honeypot triggered from IP %s (website=%s)\n", middleware.GetClientIP(c), req.Website)
+		return c.Status(fiber.StatusCreated).JSON(fiber.Map{
+			"message": "Institution application submitted successfully. Our onboarding team will contact you within 24 hours.",
+		})
+	}
+
+	// Anti-Spam Check 2: Random string / machine entropy detection
+	if isLikelyBotGibberish(req.InstituteName) || isLikelyBotGibberish(req.ContactName) {
+		log.Printf("[SPAM-BLOCKED] Bot gibberish detected from IP %s: inst='%s', contact='%s', email='%s'\n",
+			middleware.GetClientIP(c), req.InstituteName, req.ContactName, req.Email)
+		return c.Status(fiber.StatusCreated).JSON(fiber.Map{
+			"message": "Institution application submitted successfully. Our onboarding team will contact you within 24 hours.",
+		})
+	}
+
 	if req.InstituteName == "" || req.ContactName == "" || req.Email == "" || req.Phone == "" {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Institute name, contact name, email, and phone are required"})
 	}
@@ -318,11 +366,9 @@ func (h *AuthHandler) ApplyInstitution(c fiber.Ctx) error {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to submit application: " + err.Error()})
 	}
 
-	if h.emailService != nil {
-		go func(email, instituteName, contactName string) {
-			_ = h.emailService.SendInstitutionWelcomeEmail(email, instituteName, contactName)
-		}(created.Email, created.InstituteName, created.ContactName)
-	}
+	// NOTE: We deliberately do NOT send an automatic unverified email here.
+	// Outbound email is sent securely only upon administrator approval in the admin portal (SendInstitutionApprovalEmail),
+	// preventing spambots from using this endpoint as an open relay to spam third-party inboxes.
 
 	return c.Status(fiber.StatusCreated).JSON(fiber.Map{
 		"application": created,

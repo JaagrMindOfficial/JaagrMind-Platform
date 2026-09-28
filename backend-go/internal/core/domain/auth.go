@@ -34,6 +34,7 @@ type IndependentSignupRequest struct {
 	Grade       string `json:"grade,omitempty"`
 	ChildName   string `json:"child_name,omitempty"`
 	SchoolName  string `json:"school_name,omitempty"`
+	Website     string `json:"website,omitempty"` // Honeypot field: must be blank for genuine humans
 }
 
 type InstitutionApplication struct {
@@ -63,6 +64,7 @@ type ApplyInstitutionRequest struct {
 	Phone             string `json:"phone"`
 	EstimatedStudents int    `json:"estimated_students"`
 	Message           string `json:"message,omitempty"`
+	Website           string `json:"website,omitempty"` // Honeypot field: must be blank for genuine human submissions
 }
 
 type PasswordResetRequest struct {

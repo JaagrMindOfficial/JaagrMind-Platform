@@ -24,7 +24,7 @@ export default function DashboardPage() {
     setUser(authUser);
     const roles = authUser.roles?.map((r: any) => r.role) || [];
     if (roles.includes("parent") || roles.includes("relative")) {
-      router.replace("/parent");
+      window.location.replace("/parent");
       return;
     }
   }, [authUser, authLoading, router]);

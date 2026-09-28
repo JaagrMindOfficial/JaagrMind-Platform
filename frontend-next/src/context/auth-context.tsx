@@ -5,6 +5,7 @@ import {
   useContext,
   useState,
   useEffect,
+  useCallback,
   ReactNode,
 } from "react";
 import { useRouter, usePathname } from "next/navigation";
@@ -228,12 +229,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     router.push("/student");
   };
 
-  const setAuthSession = (token: string, userData: User) => {
+  const setAuthSession = useCallback((token: string, userData: User) => {
     localStorage.setItem("token", token);
     localStorage.setItem("user", JSON.stringify(userData));
     setUserSessionCookies(token, userData);
     setUser(userData);
-  };
+  }, []);
 
   const logout = (redirectTo?: unknown) => {
     clearAllAuthSession();

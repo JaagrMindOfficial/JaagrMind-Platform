@@ -17,11 +17,24 @@ import (
 type AuthHandler struct {
 	service      domain.AuthService
 	userRepo     domain.UserRepository
+	parentRepo   domain.ParentRepository
 	emailService utils.EmailService
 }
 
-func SetupAuthRoutes(app *fiber.App, service domain.AuthService, userRepo domain.UserRepository, emailService utils.EmailService, jwtSecret string) {
-	handler := &AuthHandler{service: service, userRepo: userRepo, emailService: emailService}
+func SetupAuthRoutes(
+	app *fiber.App,
+	service domain.AuthService,
+	userRepo domain.UserRepository,
+	parentRepo domain.ParentRepository,
+	emailService utils.EmailService,
+	jwtSecret string,
+) {
+	handler := &AuthHandler{
+		service:      service,
+		userRepo:     userRepo,
+		parentRepo:   parentRepo,
+		emailService: emailService,
+	}
 	
 	api := app.Group("/api/auth")
 	api.Post("/login", handler.Login)
@@ -222,6 +235,24 @@ func (h *AuthHandler) RegisterIndependent(c fiber.Ctx) error {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to assign user role: " + err.Error()})
 	}
 	user.Roles = []domain.UserRole{{UserID: user.ID, Role: accountType}}
+
+	// If child details were provided on signup, immediately create persistent student record with IND-XXXXXX code
+	cleanChildName := strings.TrimSpace(req.ChildName)
+	if cleanChildName != "" && (accountType == domain.RoleParent || accountType == domain.RoleRelative) && h.parentRepo != nil {
+		cleanGrade := strings.TrimSpace(req.Grade)
+		if cleanGrade == "" {
+			cleanGrade = "10th"
+		}
+		if !strings.HasSuffix(cleanGrade, "th") && !strings.HasSuffix(cleanGrade, "st") && !strings.HasSuffix(cleanGrade, "nd") && !strings.HasSuffix(cleanGrade, "rd") {
+			cleanGrade = cleanGrade + "th"
+		}
+		_, _ = h.parentRepo.AddChild(c.Context(), user.ID, domain.ParentAddChildRequest{
+			Name:         cleanChildName,
+			Grade:        cleanGrade,
+			SchoolName:   strings.TrimSpace(req.SchoolName),
+			Relationship: accountType,
+		})
+	}
 
 	token, err := h.service.GenerateToken(domain.TokenPayload{
 		UserID: user.ID,

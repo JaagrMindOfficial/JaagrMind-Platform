@@ -114,6 +114,32 @@ func seedInitialAdmin(ctx context.Context, dbPool *pgxpool.Pool, authService dom
 	log.Println("[Seeder] Initial production superadmin successfully provisioned: admin@jaagrmind.com / admin@123")
 }
 
+// ensureDefaultV4Assessment guarantees that a default v4.0 assessment exists and is active.
+func ensureDefaultV4Assessment(ctx context.Context, dbPool *pgxpool.Pool) {
+	var count int
+	_ = dbPool.QueryRow(ctx, "SELECT COUNT(*) FROM assessments WHERE is_default = true").Scan(&count)
+	if count > 0 {
+		log.Println("[Seeder] Default v4.0 assessment is active and configured")
+		return
+	}
+
+	log.Println("[Seeder] No default assessment found. Seeding initial v4.0 assessment...")
+	_, err := dbPool.Exec(ctx, `
+		INSERT INTO assessments (
+			id, title, description, is_default, time_per_question, total_time,
+			inactivity_alert_time, inactivity_end_time, is_active, section_buckets
+		) VALUES (
+			'1dee0813-2269-478a-90e4-98ea6f031da4',
+			'Jaagr Mind Student Assessment v4.0',
+			'32-item, non-clinical reflection module designed to help students notice everyday patterns in attention, inner confidence, social interaction and digital choices.',
+			true, 30, 15, 40, 120, true, true
+		) ON CONFLICT (id) DO UPDATE SET is_default = true, is_active = true
+	`)
+	if err != nil {
+		log.Printf("[Seeder] Warning initializing default assessment: %v\n", err)
+	}
+}
+
 func main() {
 	loadEnv(".env")
 
@@ -178,6 +204,7 @@ func main() {
 	schoolRepo := repository.NewPostgresSchool(dbPool)
 	studentRepo := repository.NewPostgresStudent(dbPool)
 	assessmentRepo := repository.NewPostgresAssessment(dbPool)
+	checkinLinkRepo := repository.NewPostgresCheckinLink(dbPool)
 	inviteRepo := repository.NewPostgresInvite(dbPool)
 	ticketRepo := repository.NewPostgresTicket(dbPool)
 	schedPromoRepo := repository.NewPostgresScheduledPromotion(dbPool)
@@ -206,13 +233,14 @@ func main() {
 
 	// ── Initial Superadmin Seeder ─────────────────────────────
 	seedInitialAdmin(context.Background(), dbPool, authService)
+	ensureDefaultV4Assessment(context.Background(), dbPool)
 
 	// ── Handlers ──────────────────────────────────────────────
 	mobileHandler := handlers.NewMobileAPIHandler(mobileRepo, userRepo, authService, emailService, jwtSecret)
 
 	// ── Public Routes ─────────────────────────────────────────
-	handlers.SetupAuthRoutes(app, authService, userRepo, emailService, jwtSecret)
-	handlers.SetupGoogleOAuthRoutes(app, userRepo, authService, jwtSecret, frontendURL)
+	handlers.SetupAuthRoutes(app, authService, userRepo, parentRepo, emailService, jwtSecret)
+	handlers.SetupGoogleOAuthRoutes(app, userRepo, authService, parentRepo, jwtSecret, frontendURL)
 	handlers.SetupInviteRoutes(app, inviteRepo, userRepo, schoolRepo, authService, jwtSecret)
 	app.Get("/api/guides", func(c fiber.Ctx) error {
 		guides, err := guideRepo.GetAll(c.Context())
@@ -229,7 +257,7 @@ func main() {
 	handlers.SetupSchoolAPIRoutes(app, userRepo, schoolRepo, studentRepo, assessmentRepo, ticketRepo, schedPromoRepo, analyticsRepo, counselorRepo, eventRepo, parentRepo, authService, storageService, emailService, jwtSecret)
 
 	// ── Student Assessment API ────────────────────────────────
-	handlers.SetupStudentAPIRoutes(app, schoolRepo, studentRepo, assessmentRepo, authService, jwtSecret)
+	handlers.SetupStudentAPIRoutes(app, schoolRepo, studentRepo, assessmentRepo, checkinLinkRepo, authService, emailService, dbPool, jwtSecret)
 
 	// ── Parent & Guardian API ─────────────────────────────────
 	handlers.SetupParentAPIRoutes(app, parentRepo, userRepo, authService, jwtSecret)
@@ -254,7 +282,7 @@ func main() {
 	})
 	
 	// Delegate the rest to the AdminAPIHandler
-	handlers.SetupAdminAPIRoutes(adminAPI, schoolRepo, studentRepo, assessmentRepo, ticketRepo, analyticsRepo, userRepo, guideRepo, eventRepo, parentRepo, authService, emailService)
+	handlers.SetupAdminAPIRoutes(adminAPI, schoolRepo, studentRepo, assessmentRepo, checkinLinkRepo, ticketRepo, analyticsRepo, userRepo, guideRepo, eventRepo, parentRepo, authService, emailService)
 
 	// ── Care Desk API (superadmin & central counselor) ────────
 	careDeskAPI := app.Group("/api/care-desk", middleware.RoleGuard(jwtSecret, domain.RoleSuperAdmin, domain.RoleCounselor))

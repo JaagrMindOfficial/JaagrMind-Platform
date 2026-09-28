@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, Suspense } from "react";
+import { useEffect, useState, useRef, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/context/auth-context";
 import { Card, CardContent } from "@/components/ui/card";
@@ -11,28 +11,36 @@ function AuthCallbackContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { setAuthSession } = useAuth();
+  const processedRef = useRef(false);
 
   const [status, setStatus] = useState<"loading" | "success" | "error">("loading");
   const [errorMessage, setErrorMessage] = useState("");
   const [userName, setUserName] = useState("");
+  const [destination, setDestination] = useState<string>("/parent");
 
   useEffect(() => {
+    if (processedRef.current) return;
+
     const token = searchParams.get("token");
     const err = searchParams.get("error");
     const name = searchParams.get("name") || "";
     setUserName(name);
 
     if (err) {
+      processedRef.current = true;
       setStatus("error");
       setErrorMessage(decodeURIComponent(err));
       return;
     }
 
     if (!token) {
+      processedRef.current = true;
       setStatus("error");
       setErrorMessage("No authentication session token was returned from Google login.");
       return;
     }
+
+    processedRef.current = true;
 
     const processLogin = async () => {
       try {
@@ -49,24 +57,28 @@ function AuthCallbackContent() {
 
         const userData = await res.json();
         setAuthSession(token, userData);
+
+        // Determine destination based on user roles
+        const roles = userData.roles?.map((r: any) => r.role) || [];
+        let targetRoute = "/dashboard";
+        if (roles.includes("parent") || roles.includes("relative")) {
+          targetRoute = "/parent";
+        } else if (roles.includes("student")) {
+          targetRoute = "/student";
+        } else if (roles.includes("school_admin") || roles.includes("teacher")) {
+          targetRoute = "/school";
+        } else if (roles.includes("superadmin")) {
+          targetRoute = "/admin";
+        }
+
+        setDestination(targetRoute);
         setStatus("success");
 
-        // Route appropriately based on user role
-        const roles = userData.roles?.map((r: any) => r.role) || [];
+        // Use window.location.replace to perform a true, clean browser navigation.
+        // This eliminates RSC fetch aborts/NetworkError races and ensures fresh session hydration.
         setTimeout(() => {
-          if (roles.includes("student")) {
-            router.push("/student");
-          } else if (roles.includes("school_admin") || roles.includes("teacher")) {
-            router.push("/school");
-          } else if (roles.includes("superadmin")) {
-            router.push("/admin");
-          } else if (roles.includes("parent") || roles.includes("relative")) {
-            router.push("/parent");
-          } else {
-            // Default dashboard
-            router.push("/dashboard");
-          }
-        }, 1200);
+          window.location.replace(targetRoute);
+        }, 600);
       } catch (e: any) {
         setStatus("error");
         setErrorMessage(e.message || "Failed to complete authentication session.");
@@ -74,7 +86,7 @@ function AuthCallbackContent() {
     };
 
     processLogin();
-  }, [searchParams, router, setAuthSession]);
+  }, [searchParams, setAuthSession]);
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
@@ -109,6 +121,18 @@ function AuthCallbackContent() {
                   Identity verified. Redirecting to your dashboard...
                 </p>
               </div>
+              <div className="pt-3">
+                <Button
+                  onClick={() => {
+                    window.location.replace(destination);
+                  }}
+                  variant="default"
+                  className="text-xs gap-1.5 w-full cursor-pointer"
+                >
+                  <span>Continue to Dashboard</span>
+                  <ArrowRight className="h-3.5 w-3.5" />
+                </Button>
+              </div>
             </>
           )}
 
@@ -127,9 +151,11 @@ function AuthCallbackContent() {
               </div>
               <div className="pt-2">
                 <Button
-                  onClick={() => router.push("/login")}
+                  onClick={() => {
+                    window.location.href = "/login";
+                  }}
                   variant="outline"
-                  className="text-xs gap-1.5"
+                  className="text-xs gap-1.5 cursor-pointer"
                 >
                   <span>Return to Sign In</span>
                   <ArrowRight className="h-3.5 w-3.5" />

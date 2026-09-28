@@ -680,7 +680,8 @@ function SignupContent() {
                         variant="outline"
                         onClick={() => {
                           const apiBase = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
-                          window.location.href = `${apiBase}/api/auth/google/login?role=${independentRole}&intent=signup`;
+                          const origin = typeof window !== "undefined" ? window.location.origin : "";
+                          window.location.href = `${apiBase}/api/auth/google/login?role=${independentRole}&intent=signup&frontend_url=${encodeURIComponent(origin)}`;
                         }}
                         className="w-full flex items-center justify-center gap-2 h-8.5 border-border hover:bg-muted/50 font-semibold text-xs rounded-xl shadow-2xs cursor-pointer"
                       >

@@ -22,6 +22,7 @@ import (
 type GoogleOAuthHandler struct {
 	userRepo    domain.UserRepository
 	authService domain.AuthService
+	parentRepo  domain.ParentRepository
 	jwtSecret   string
 	frontendURL string
 	oauthConfig *oauth2.Config
@@ -31,6 +32,7 @@ func SetupGoogleOAuthRoutes(
 	app *fiber.App,
 	userRepo domain.UserRepository,
 	authService domain.AuthService,
+	parentRepo domain.ParentRepository,
 	jwtSecret string,
 	frontendURL string,
 ) {
@@ -45,6 +47,9 @@ func SetupGoogleOAuthRoutes(
 		if frontendURL == "" {
 			frontendURL = "http://localhost:3000"
 		}
+	}
+	if strings.Contains(frontendURL, ",") {
+		frontendURL = strings.TrimSpace(strings.Split(frontendURL, ",")[0])
 	}
 
 	conf := &oauth2.Config{
@@ -62,6 +67,7 @@ func SetupGoogleOAuthRoutes(
 	h := &GoogleOAuthHandler{
 		userRepo:    userRepo,
 		authService: authService,
+		parentRepo:  parentRepo,
 		jwtSecret:   jwtSecret,
 		frontendURL: strings.TrimRight(frontendURL, "/"),
 		oauthConfig: conf,
@@ -90,13 +96,32 @@ func (h *GoogleOAuthHandler) HandleLogin(c fiber.Ctx) error {
 	intent := strings.ToLower(strings.TrimSpace(c.Query("intent", "login")))
 	redirectTarget := c.Query("redirect", "/dashboard")
 
-	// Generate cryptographically signed state to prevent CSRF and persist role/intent
+	// Detect frontend origin dynamically so redirection returns to the exact originating host
+	frontendOrigin := strings.TrimRight(c.Query("frontend_url"), "/")
+	if frontendOrigin == "" {
+		if orig := c.Get("Origin"); orig != "" {
+			frontendOrigin = strings.TrimRight(orig, "/")
+		} else if ref := c.Get("Referer"); ref != "" {
+			if u, err := url.Parse(ref); err == nil && u.Scheme != "" && u.Host != "" {
+				frontendOrigin = fmt.Sprintf("%s://%s", u.Scheme, u.Host)
+			}
+		}
+	}
+	if frontendOrigin == "" {
+		frontendOrigin = h.frontendURL
+	}
+	if strings.Contains(frontendOrigin, ",") {
+		frontendOrigin = strings.TrimSpace(strings.Split(frontendOrigin, ",")[0])
+	}
+
+	// Generate cryptographically signed state to prevent CSRF and persist role/intent/origin
 	stateClaims := jwt.MapClaims{
-		"csrf":     uuid.NewString(),
-		"role":     role,
-		"intent":   intent,
-		"redirect": redirectTarget,
-		"exp":      time.Now().Add(15 * time.Minute).Unix(),
+		"csrf":            uuid.NewString(),
+		"role":            role,
+		"intent":          intent,
+		"redirect":        redirectTarget,
+		"frontend_origin": frontendOrigin,
+		"exp":             time.Now().Add(15 * time.Minute).Unix(),
 	}
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, stateClaims)
 	signedState, err := token.SignedString([]byte(h.jwtSecret))
@@ -115,9 +140,14 @@ func (h *GoogleOAuthHandler) HandleLogin(c fiber.Ctx) error {
 }
 
 func (h *GoogleOAuthHandler) HandleCallback(c fiber.Ctx) error {
+	targetFrontend := h.frontendURL
+	if strings.Contains(targetFrontend, ",") {
+		targetFrontend = strings.TrimSpace(strings.Split(targetFrontend, ",")[0])
+	}
+
 	// 1. Check for user cancellation or Google error query parameter
 	if googleErr := c.Query("error"); googleErr != "" {
-		redirectErr := fmt.Sprintf("%s/login?error=%s", h.frontendURL, url.QueryEscape("Google login was cancelled or encountered an error."))
+		redirectErr := fmt.Sprintf("%s/login?error=%s", targetFrontend, url.QueryEscape("Google login was cancelled or encountered an error."))
 		return c.Redirect().To(redirectErr)
 	}
 
@@ -125,7 +155,7 @@ func (h *GoogleOAuthHandler) HandleCallback(c fiber.Ctx) error {
 	stateStr := c.Query("state")
 
 	if code == "" || stateStr == "" {
-		redirectErr := fmt.Sprintf("%s/login?error=%s", h.frontendURL, url.QueryEscape("Missing OAuth authorization code or state."))
+		redirectErr := fmt.Sprintf("%s/login?error=%s", targetFrontend, url.QueryEscape("Missing OAuth authorization code or state."))
 		return c.Redirect().To(redirectErr)
 	}
 
@@ -137,15 +167,20 @@ func (h *GoogleOAuthHandler) HandleCallback(c fiber.Ctx) error {
 		return []byte(h.jwtSecret), nil
 	})
 	if err != nil || !parsedState.Valid {
-		redirectErr := fmt.Sprintf("%s/login?error=%s", h.frontendURL, url.QueryEscape("Invalid or expired OAuth state. Please try again."))
+		redirectErr := fmt.Sprintf("%s/login?error=%s", targetFrontend, url.QueryEscape("Invalid or expired OAuth state. Please try again."))
 		return c.Redirect().To(redirectErr)
 	}
 
 	claims, ok := parsedState.Claims.(jwt.MapClaims)
 	if !ok {
-		redirectErr := fmt.Sprintf("%s/login?error=%s", h.frontendURL, url.QueryEscape("Malformed OAuth state claims."))
+		redirectErr := fmt.Sprintf("%s/login?error=%s", targetFrontend, url.QueryEscape("Malformed OAuth state claims."))
 		return c.Redirect().To(redirectErr)
 	}
+
+	if fo, ok := claims["frontend_origin"].(string); ok && strings.TrimSpace(fo) != "" {
+		targetFrontend = strings.TrimRight(strings.TrimSpace(fo), "/")
+	}
+
 	suggestedRole, _ := claims["role"].(string)
 	if suggestedRole == "" {
 		suggestedRole = domain.RoleStudent
@@ -157,21 +192,21 @@ func (h *GoogleOAuthHandler) HandleCallback(c fiber.Ctx) error {
 
 	oauthToken, err := h.oauthConfig.Exchange(ctx, code)
 	if err != nil {
-		redirectErr := fmt.Sprintf("%s/login?error=%s", h.frontendURL, url.QueryEscape("Failed to exchange code with Google: "+err.Error()))
+		redirectErr := fmt.Sprintf("%s/login?error=%s", targetFrontend, url.QueryEscape("Failed to exchange code with Google: "+err.Error()))
 		return c.Redirect().To(redirectErr)
 	}
 
 	// 4. Fetch Google User Profile
 	userInfo, err := h.fetchGoogleUserInfo(ctx, oauthToken.AccessToken)
 	if err != nil {
-		redirectErr := fmt.Sprintf("%s/login?error=%s", h.frontendURL, url.QueryEscape("Failed to fetch Google profile: "+err.Error()))
+		redirectErr := fmt.Sprintf("%s/login?error=%s", targetFrontend, url.QueryEscape("Failed to fetch Google profile: "+err.Error()))
 		return c.Redirect().To(redirectErr)
 	}
 
 	// Guard: Internal operations accounts cannot use Google Sign-in.
 	normalizedEmail := strings.ToLower(strings.TrimSpace(userInfo.Email))
 	if strings.HasSuffix(normalizedEmail, "@jaagrmind.com") || strings.HasSuffix(normalizedEmail, "@jaagrmind.org") {
-		redirectErr := fmt.Sprintf("%s/internal-ops/signin?error=%s", h.frontendURL, url.QueryEscape("Internal operations accounts cannot sign in with Google. Please use your official email and password."))
+		redirectErr := fmt.Sprintf("%s/internal-ops/signin?error=%s", targetFrontend, url.QueryEscape("Internal operations accounts cannot sign in with Google. Please use your official email and password."))
 		return c.Redirect().To(redirectErr)
 	}
 
@@ -191,7 +226,7 @@ func (h *GoogleOAuthHandler) HandleCallback(c fiber.Ctx) error {
 
 	// Guard: Reject internal accounts trying to login via Google
 	if existingUser != nil && existingUser.IsInternal {
-		redirectErr := fmt.Sprintf("%s/internal-ops/signin?error=%s", h.frontendURL, url.QueryEscape("Internal operations accounts cannot sign in with Google. Please use your official email and password."))
+		redirectErr := fmt.Sprintf("%s/internal-ops/signin?error=%s", targetFrontend, url.QueryEscape("Internal operations accounts cannot sign in with Google. Please use your official email and password."))
 		return c.Redirect().To(redirectErr)
 	}
 
@@ -210,13 +245,13 @@ func (h *GoogleOAuthHandler) HandleCallback(c fiber.Ctx) error {
 			Roles:  roleList,
 		})
 		if err != nil {
-			redirectErr := fmt.Sprintf("%s/login?error=%s", h.frontendURL, url.QueryEscape("Failed to generate user session token."))
+			redirectErr := fmt.Sprintf("%s/login?error=%s", targetFrontend, url.QueryEscape("Failed to generate user session token."))
 			return c.Redirect().To(redirectErr)
 		}
 
 		redirectSuccess := fmt.Sprintf(
 			"%s/auth/callback?token=%s&status=existing&name=%s",
-			h.frontendURL,
+			targetFrontend,
 			url.QueryEscape(sessionToken),
 			url.QueryEscape(existingUser.Name),
 		)
@@ -236,11 +271,11 @@ func (h *GoogleOAuthHandler) HandleCallback(c fiber.Ctx) error {
 	setupJWT := jwt.NewWithClaims(jwt.SigningMethodHS256, setupClaims)
 	signedSetupToken, err := setupJWT.SignedString([]byte(h.jwtSecret))
 	if err != nil {
-		redirectErr := fmt.Sprintf("%s/login?error=%s", h.frontendURL, url.QueryEscape("Failed to generate setup token."))
+		redirectErr := fmt.Sprintf("%s/login?error=%s", targetFrontend, url.QueryEscape("Failed to generate setup token."))
 		return c.Redirect().To(redirectErr)
 	}
 
-	redirectNew := fmt.Sprintf("%s/auth/google/complete?setup_token=%s&is_new=true", h.frontendURL, url.QueryEscape(signedSetupToken))
+	redirectNew := fmt.Sprintf("%s/auth/google/complete?setup_token=%s&is_new=true", targetFrontend, url.QueryEscape(signedSetupToken))
 	return c.Redirect().To(redirectNew)
 }
 
@@ -376,6 +411,24 @@ func (h *GoogleOAuthHandler) HandleComplete(c fiber.Ctx) error {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to assign role: " + err.Error()})
 	}
 	createdUser.Roles = []domain.UserRole{{UserID: createdUser.ID, Role: accountType}}
+
+	// If child details were provided on signup, immediately create persistent student record with IND-XXXXXX code
+	cleanChildName := strings.TrimSpace(req.ChildName)
+	if cleanChildName != "" && (accountType == domain.RoleParent || accountType == domain.RoleRelative) && h.parentRepo != nil {
+		cleanGrade := strings.TrimSpace(req.Grade)
+		if cleanGrade == "" {
+			cleanGrade = "10th"
+		}
+		if !strings.HasSuffix(cleanGrade, "th") && !strings.HasSuffix(cleanGrade, "st") && !strings.HasSuffix(cleanGrade, "nd") && !strings.HasSuffix(cleanGrade, "rd") {
+			cleanGrade = cleanGrade + "th"
+		}
+		_, _ = h.parentRepo.AddChild(c.Context(), createdUser.ID, domain.ParentAddChildRequest{
+			Name:         cleanChildName,
+			Grade:        cleanGrade,
+			SchoolName:   strings.TrimSpace(req.SchoolName),
+			Relationship: accountType,
+		})
+	}
 
 	sessionToken, err := h.authService.GenerateToken(domain.TokenPayload{
 		UserID: createdUser.ID,

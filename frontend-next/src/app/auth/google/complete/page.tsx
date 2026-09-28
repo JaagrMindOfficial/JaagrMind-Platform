@@ -97,6 +97,7 @@ function GoogleCompleteContent() {
           name: name.trim(),
           account_type: accountType,
           child_name: childName.trim() || undefined,
+          grade: grade,
           school_name: schoolName.trim() || undefined,
           phone: phone.trim() || undefined,
         }),
@@ -108,7 +109,13 @@ function GoogleCompleteContent() {
       }
 
       setAuthSession(data.token, data.user);
-      router.push("/dashboard");
+
+      const roles = data.user?.roles?.map((r: any) => r.role) || [];
+      const destinationRoute = (roles.includes("parent") || roles.includes("relative") || accountType === "parent" || accountType === "relative")
+        ? "/parent"
+        : (roles.includes("student") ? "/student" : "/dashboard");
+
+      window.location.replace(destinationRoute);
     } catch (err: any) {
       setSubmitError(err.message || "Something went wrong.");
       setSubmitting(false);

@@ -65,7 +65,8 @@ function LoginContent() {
 
   const handleGoogleLogin = () => {
     const apiBase = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
-    window.location.href = `${apiBase}/api/auth/google/login?role=parent&intent=login`;
+    const origin = typeof window !== "undefined" ? window.location.origin : "";
+    window.location.href = `${apiBase}/api/auth/google/login?role=parent&intent=login&frontend_url=${encodeURIComponent(origin)}`;
   };
 
   const navActions = (

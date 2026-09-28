@@ -21,7 +21,7 @@ import {
   Phone,
   CheckCircle,
   BarChart3,
-  Sparkles,
+  Lightbulb,
   Copy,
   ArrowUpRight
 } from "lucide-react"
@@ -541,7 +541,7 @@ export default function AdminDashboardPage() {
                       <div className="rounded-lg border border-border/70 bg-muted/30 p-3 text-xs space-y-2">
                         <div className="flex items-center justify-between gap-2 flex-wrap">
                           <div className="flex items-center gap-1.5">
-                            <Sparkles className="h-3.5 w-3.5 text-sky-500 shrink-0" />
+                            <Lightbulb className="h-3.5 w-3.5 text-sky-500 shrink-0" />
                             <span className="font-semibold text-foreground">Asymmetry Insight:</span>
                             <span className="text-muted-foreground">{info.asymmetryRatio}</span>
                           </div>

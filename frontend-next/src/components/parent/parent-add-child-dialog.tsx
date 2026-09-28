@@ -16,7 +16,7 @@ import { Badge } from "@/components/ui/badge";
 import {
   UserPlus,
   School,
-  Sparkles,
+  Home,
   CheckCircle2,
   AlertCircle,
   GraduationCap,
@@ -210,7 +210,7 @@ export function ParentAddChildDialog({
                 : "border-border text-muted-foreground hover:text-foreground hover:bg-muted/40"
             }`}
           >
-            <Sparkles className="h-3.5 w-3.5" />
+            <Home className="h-3.5 w-3.5" />
             <span>Independent / Home</span>
           </button>
         </div>

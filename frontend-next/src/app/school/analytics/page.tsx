@@ -17,7 +17,7 @@ import {
   Users,
   FolderOpen,
   BarChart3,
-  Sparkles,
+  Wind,
   Zap,
   Eye,
   HeartHandshake,
@@ -386,7 +386,7 @@ export default function SchoolAnalyticsPage() {
             <CardContent className="p-4 sm:p-5 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
               <div className="flex items-start gap-3">
                 <div className="p-2.5 rounded-xl bg-sky-500/10 text-sky-600 dark:text-sky-400 shrink-0">
-                  <Sparkles className="h-5 w-5" />
+                  <TrendingUp className="h-5 w-5" />
                 </div>
                 <div className="space-y-1">
                   <div className="flex items-center gap-2">
@@ -503,7 +503,7 @@ export default function SchoolAnalyticsPage() {
                 <CardContent className="p-4 space-y-3">
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-semibold text-foreground flex items-center gap-1.5">
-                      <Sparkles className="h-3.5 w-3.5 text-amber-500" />
+                      <Wind className="h-3.5 w-3.5 text-amber-500" />
                       Calm & Stress Reset
                     </span>
                     <span className="text-sm font-bold text-amber-600 dark:text-amber-400">

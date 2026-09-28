@@ -17,7 +17,6 @@ import {
   HeartHandshake,
   FolderOpen,
   FileText,
-  Sparkles,
 } from "lucide-react"
 import { usePathname, useRouter } from "next/navigation"
 import { ThemeToggle } from "@/components/theme-toggle"

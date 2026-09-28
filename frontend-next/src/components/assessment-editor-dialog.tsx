@@ -14,7 +14,7 @@ import {
   ChevronUp, 
   ChevronDown, 
   Copy, 
-  Sparkles, 
+  FileText, 
   Clock, 
   AlertCircle, 
   CheckCircle2, 
@@ -24,7 +24,10 @@ import {
   Home,
   Building2,
   Palette,
-  ExternalLink
+  ExternalLink,
+  Leaf,
+  Wind,
+  Sun,
 } from "lucide-react"
 import { ADMIN_AVAILABLE_THEMES, AssessmentThemeId, useAssessmentTheme } from "@/lib/assessment-theme"
 
@@ -515,7 +518,7 @@ export function AssessmentEditorDialog({
         <DialogHeader className="px-6 py-4 border-b flex flex-row items-center justify-between space-y-0 bg-background shrink-0">
           <div className="flex items-center gap-3">
             <div className="h-9 w-9 rounded-lg bg-primary/10 text-primary flex items-center justify-center font-bold">
-              <Sparkles className="h-4 w-4" />
+              <FileText className="h-4 w-4" />
             </div>
             <div>
               <DialogTitle className="text-base font-semibold leading-none">
@@ -539,7 +542,13 @@ export function AssessmentEditorDialog({
               className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-xs bg-muted/40 hover:bg-muted/80 border-border/80 transition-colors cursor-pointer"
             >
               <Palette className="h-3 w-3 text-muted-foreground" />
-              <span>{ADMIN_AVAILABLE_THEMES.find(t => t.id === formData.theme)?.iconName || "🌿"}</span>
+              {formData.theme === "duo-green" ? (
+                <Leaf className="h-3.5 w-3.5 text-[#58cc02] shrink-0" />
+              ) : formData.theme === "spark-blue" ? (
+                <Wind className="h-3.5 w-3.5 text-[#1cb0f6] shrink-0" />
+              ) : (
+                <Sun className="h-3.5 w-3.5 text-[#ff9600] shrink-0" />
+              )}
               <span className="font-medium text-foreground">{ADMIN_AVAILABLE_THEMES.find(t => t.id === formData.theme)?.name || "Nature Garden"}</span>
             </button>
 
@@ -936,7 +945,15 @@ export function AssessmentEditorDialog({
                             }`}
                           >
                             <div className="flex items-start justify-between gap-2">
-                              <span className="text-2xl">{th.iconName}</span>
+                              <div className="p-2 rounded-lg bg-muted/60 border">
+                                {th.id === "duo-green" ? (
+                                  <Leaf className="h-5 w-5 text-[#58cc02]" />
+                                ) : th.id === "spark-blue" ? (
+                                  <Wind className="h-5 w-5 text-[#1cb0f6]" />
+                                ) : (
+                                  <Sun className="h-5 w-5 text-[#ff9600]" />
+                                )}
+                              </div>
                               <div className={`w-5 h-5 rounded-full border flex items-center justify-center ${
                                 isSelected ? "border-emerald-600 bg-emerald-600 text-white" : "border-border bg-background"
                               }`}>

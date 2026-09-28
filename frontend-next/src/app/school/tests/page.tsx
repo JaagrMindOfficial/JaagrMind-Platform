@@ -31,7 +31,7 @@ import {
   History,
   QrCode,
   Printer,
-  Sparkles,
+  Info,
   Download,
   AlertTriangle,
   Search,
@@ -1303,7 +1303,7 @@ export default function SchoolTestsPage() {
 
                 <div className="text-left w-full space-y-2 bg-background/90 p-3 rounded-lg border border-border/70 text-xs">
                   <div className="font-semibold text-foreground flex items-center gap-1.5">
-                    <Sparkles className="h-3.5 w-3.5 text-primary" />
+                    <Info className="h-3.5 w-3.5 text-primary" />
                     How Students Join in Class:
                   </div>
                   <ol className="list-decimal list-inside space-y-1 text-muted-foreground text-[11px] pl-1">

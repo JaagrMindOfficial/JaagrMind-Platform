@@ -7,7 +7,7 @@ import {
   CheckCircle2,
   Clock,
   FileText,
-  Sparkles,
+  Info,
   BookOpen,
   Play,
   RotateCcw,
@@ -313,7 +313,7 @@ export function ParentStandardCheckins({
                         <span>Start Check-in with {displayName}</span>
                       </Button>
                       <div className="neo-well p-2 rounded-lg text-[11px] text-muted-foreground flex items-center gap-2 justify-center">
-                        <Sparkles className="h-3 w-3 text-amber-500 shrink-0" />
+                        <Info className="h-3 w-3 text-sky-500 shrink-0" />
                         <span>Includes &quot;Get Set Ready!&quot; guidance before starting</span>
                       </div>
                     </div>

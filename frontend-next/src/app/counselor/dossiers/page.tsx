@@ -25,7 +25,6 @@ import {
   Minus,
   Activity,
   AlertTriangle,
-  Sparkles,
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { StudentDossierDialog, StudentProfileData } from "@/components/student-dossier-dialog";
@@ -250,7 +249,7 @@ export default function CounselorDossiersPage() {
               </div>
             </div>
             <div className="h-10 w-10 rounded-xl bg-amber-500/10 text-amber-600 flex items-center justify-center shrink-0">
-              <Sparkles className="h-5 w-5" />
+              <TrendingUp className="h-5 w-5" />
             </div>
           </CardContent>
         </Card>

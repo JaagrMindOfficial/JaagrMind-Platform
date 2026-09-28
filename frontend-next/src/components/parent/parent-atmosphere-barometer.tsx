@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Smile, Sun, CloudSun, Moon, BookOpen, Heart, CheckCircle2, Sparkles, RefreshCw } from "lucide-react";
+import { Smile, Sun, CloudSun, Moon, BookOpen, Heart, CheckCircle2, RefreshCw } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
 interface DailyPulseWell {
@@ -184,7 +184,7 @@ export function ParentAtmosphereBarometer({ atmosphere, childName }: EmotionalAt
           <div className="p-5 rounded-2xl bg-card border border-border/70 shadow-xs space-y-2 relative overflow-hidden">
             <div className="flex items-center justify-between">
               <span className="text-[11px] font-mono font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
-                <Sparkles className="h-3 w-3 text-amber-500" />
+                <BookOpen className="h-3 w-3 text-sky-500" />
                 This Week&apos;s Update for Parents
               </span>
               <span className={`text-[11px] font-bold flex items-center gap-1 ${hasCheckin ? "text-emerald-600 dark:text-emerald-400" : "text-muted-foreground"}`}>

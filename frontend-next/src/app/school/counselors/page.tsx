@@ -49,7 +49,6 @@ import {
   ArrowUpRight,
   TrendingUp,
   Inbox,
-  Sparkles,
   Lock,
 } from "lucide-react";
 import { useAuth } from "@/context/auth-context";

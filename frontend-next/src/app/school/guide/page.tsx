@@ -9,7 +9,6 @@ import {
   BookOpen,
   Search,
   ChevronRight,
-  Sparkles,
   HelpCircle,
   FileText,
   Clock,

@@ -20,7 +20,6 @@ import {
   Eye,
   HeartHandshake,
   Clock,
-  Sparkles,
   ArrowUpRight,
   CheckCircle2,
   Lightbulb,
@@ -327,7 +326,7 @@ export default function AdminAnalyticsPage() {
               <CardContent className="p-4 sm:p-5 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
                 <div className="flex items-start gap-3">
                   <div className="p-2.5 rounded-xl bg-sky-500/10 text-sky-600 dark:text-sky-400 shrink-0">
-                    <Sparkles className="h-5 w-5" />
+                    <TrendingUp className="h-5 w-5" />
                   </div>
                   <div className="space-y-1">
                     <div className="flex items-center gap-2">

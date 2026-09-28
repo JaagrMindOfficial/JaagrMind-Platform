@@ -15,7 +15,6 @@ import {
   Eye,
   CheckCircle2,
   AlertCircle,
-  Sparkles,
   RefreshCw,
   FileText
 } from "lucide-react"
@@ -192,7 +191,7 @@ export default function AdminPlatformGuidePage() {
       {/* Live Sync Banner */}
       <div className="p-3.5 bg-primary/10 border border-primary/20 rounded-xl flex items-center justify-between text-xs text-primary gap-3">
         <div className="flex items-center gap-2">
-          <Sparkles className="h-4 w-4 shrink-0" />
+          <BookOpen className="h-4 w-4 shrink-0" />
           <span>
             <strong>Direct Superadmin Publishing:</strong> Any edits saved here are stored directly in the database and appear instantly to school admins on their next guide view.
           </span>

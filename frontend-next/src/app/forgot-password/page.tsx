@@ -10,7 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { ShieldCheck, Mail, Phone, Lock, CheckCircle2, AlertTriangle, ArrowLeft, KeyRound, Sparkles } from "lucide-react"
+import { ShieldCheck, Mail, Phone, Lock, CheckCircle2, AlertTriangle, ArrowLeft, KeyRound } from "lucide-react"
 import { ThemeToggle } from "@/components/theme-toggle"
 
 export default function ForgotPasswordPage() {

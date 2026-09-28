@@ -12,7 +12,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
-  Sparkles,
+  Compass,
   CheckCircle2,
   Clock,
   ArrowRight,
@@ -281,7 +281,7 @@ export function ParentCheckinDialog({
                 </Badge>
               </div>
               <DialogTitle className="text-2xl font-black tracking-tight text-foreground flex items-center gap-2">
-                <Sparkles className={`h-6 w-6 ${isRetake ? "text-purple-500" : "text-amber-500"} shrink-0`} />
+                <Compass className={`h-6 w-6 ${isRetake ? "text-purple-500" : "text-amber-500"} shrink-0`} />
                 <span>{isRetake ? `Retake Check-in with ${preferredName}` : `Get Set Ready for ${preferredName}!`}</span>
               </DialogTitle>
               <DialogDescription className="text-xs text-muted-foreground">

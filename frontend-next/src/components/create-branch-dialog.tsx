@@ -20,7 +20,6 @@ import {
   Mail,
   CheckCircle2,
   AlertCircle,
-  Sparkles,
   Info,
 } from "lucide-react"
 import { api } from "@/lib/api"

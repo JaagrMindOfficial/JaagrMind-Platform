@@ -39,7 +39,6 @@ import {
   Calendar,
   Send,
   GraduationCap,
-  Sparkles,
   Activity,
   AlertTriangle,
   TrendingUp,

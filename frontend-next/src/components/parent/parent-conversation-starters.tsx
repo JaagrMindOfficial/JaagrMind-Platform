@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Copy, Check, Bookmark, Coffee, Moon, BookOpen, MessageSquare, RefreshCw, Sparkles, Lightbulb } from "lucide-react";
+import { Copy, Check, Bookmark, Coffee, Moon, BookOpen, MessageSquare, RefreshCw, Lightbulb, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 
@@ -132,8 +132,9 @@ export function ParentConversationStarters({ prompts, childName }: ParentConvers
                 <div className="space-y-2.5 pt-1">
                   {/* Avoid Box */}
                   <div className="p-3 rounded-xl neo-well text-[11px] border border-destructive/20">
-                    <span className="text-[10px] font-mono font-bold text-destructive uppercase tracking-wider block mb-1">
-                      ✕ Avoid saying in anger/habit:
+                    <span className="text-[10px] font-mono font-bold text-destructive uppercase tracking-wider flex items-center gap-1 mb-1">
+                      <XCircle className="h-3 w-3 shrink-0" />
+                      <span>Avoid saying in anger/habit:</span>
                     </span>
                     <p className="text-muted-foreground line-through decoration-destructive/50 italic leading-snug">
                       &ldquo;{prompt.avoid_saying}&rdquo;
@@ -142,8 +143,9 @@ export function ParentConversationStarters({ prompts, childName }: ParentConvers
 
                   {/* Say Box */}
                   <div className="p-3.5 rounded-xl bg-emerald-500/5 dark:bg-emerald-500/10 border border-emerald-500/30 text-xs shadow-2xs">
-                    <span className="text-[10px] font-mono font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider block mb-1">
-                      ✦ Try saying warmly instead:
+                    <span className="text-[10px] font-mono font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider flex items-center gap-1 mb-1">
+                      <Check className="h-3 w-3 text-emerald-500 shrink-0" />
+                      <span>Try saying warmly instead:</span>
                     </span>
                     <p className="text-foreground font-semibold leading-relaxed">
                       &ldquo;{prompt.try_saying}&rdquo;

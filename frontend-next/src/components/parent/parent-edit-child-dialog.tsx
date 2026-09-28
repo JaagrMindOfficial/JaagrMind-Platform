@@ -17,7 +17,7 @@ import {
   Pencil,
   AlertTriangle,
   School,
-  Sparkles,
+  Smile,
   CheckCircle2,
   AlertCircle,
   ShieldCheck,
@@ -188,7 +188,7 @@ export function ParentEditChildDialog({
             <div className="space-y-1.5 p-3 rounded-xl neo-well border border-border/70">
               <div className="flex items-center justify-between">
                 <label className="text-xs font-semibold text-foreground flex items-center gap-1.5">
-                  <Sparkles className="h-3.5 w-3.5 text-sky-500" />
+                  <Smile className="h-3.5 w-3.5 text-sky-500" />
                   <span>Home Nickname / Pet Name (Optional)</span>
                 </label>
                 <Badge variant="outline" className="text-[10px] text-muted-foreground">

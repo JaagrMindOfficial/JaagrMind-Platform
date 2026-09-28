@@ -13,7 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Target,
-  Sparkles,
+  Play,
   ShieldCheck,
   Zap,
   Heart,
@@ -203,7 +203,7 @@ export function ParentRegulationDossier({
                 onClick={onOpenCheckin}
                 className="text-xs h-9 gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold cursor-pointer shadow-xs"
               >
-                <Sparkles className="h-3.5 w-3.5" />
+                <Play className="h-3.5 w-3.5" />
                 <span>Start Check-in</span>
               </Button>
             )}
@@ -250,7 +250,7 @@ export function ParentRegulationDossier({
                   onClick={onOpenCheckin}
                   className="text-xs h-8 gap-1.5 mt-2 neo-well cursor-pointer"
                 >
-                  <Sparkles className="h-3 w-3 text-emerald-500" />
+                  <Play className="h-3 w-3 text-emerald-500" />
                   <span>Launch Reflection Now</span>
                 </Button>
               )}

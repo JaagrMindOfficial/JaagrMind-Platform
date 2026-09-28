@@ -8,7 +8,7 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import { Badge } from "@/components/ui/badge";
-import { Target, Sparkles, BookOpen, Lightbulb, CheckCircle2 } from "lucide-react";
+import { Target, Award, BookOpen, Lightbulb, CheckCircle2 } from "lucide-react";
 
 interface PillarScoresProps {
   pillars: {
@@ -142,7 +142,7 @@ export function ParentGrowthRadar({ pillars, childName }: PillarScoresProps) {
       <div className="space-y-3 pt-2 border-t border-border/40">
         <div className="space-y-1.5">
           <div className="flex items-center gap-1.5 text-xs font-bold text-foreground">
-            <Sparkles className="h-3.5 w-3.5 text-amber-500" />
+            <Award className="h-3.5 w-3.5 text-amber-500" />
             <span>Things {firstName} is Doing Great At</span>
           </div>
           <div className="flex flex-wrap gap-1.5">
@@ -151,9 +151,10 @@ export function ParentGrowthRadar({ pillars, childName }: PillarScoresProps) {
                 <Badge
                   key={idx}
                   variant="outline"
-                  className="text-[11px] font-semibold bg-secondary/50 border-border/80 text-foreground py-1 px-2.5 rounded-lg shadow-2xs"
+                  className="text-[11px] font-semibold bg-secondary/50 border-border/80 text-foreground py-1 px-2.5 rounded-lg shadow-2xs flex items-center gap-1.5"
                 >
-                  ✦ {power}
+                  <Award className="h-3 w-3 text-amber-500 shrink-0" />
+                  <span>{power}</span>
                 </Badge>
               ))
             ) : (

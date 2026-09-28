@@ -27,7 +27,8 @@ import {
   CheckCircle2,
   Clock,
   BarChart3,
-  Sparkles,
+  Zap,
+  Lightbulb,
   GitBranch,
   ArrowUpRight,
   TrendingDown,
@@ -476,7 +477,7 @@ export default function SchoolDashboardPage() {
         <CardContent className="p-4">
           <div className="flex items-center justify-between flex-wrap gap-3">
             <div className="flex items-center gap-2">
-              <Sparkles className="h-4 w-4 text-primary" />
+              <Zap className="h-4 w-4 text-primary" />
               <span className="text-xs font-semibold text-foreground uppercase tracking-wider">
                 Quick Actions
               </span>
@@ -882,7 +883,7 @@ export default function SchoolDashboardPage() {
         <CardHeader className="border-b border-border/40 pb-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <Sparkles className="h-4 w-4 text-primary" />
+              <Lightbulb className="h-4 w-4 text-primary" />
               <CardTitle className="text-base font-semibold">
                 Cohort-Level Suggested Action Guidance
               </CardTitle>

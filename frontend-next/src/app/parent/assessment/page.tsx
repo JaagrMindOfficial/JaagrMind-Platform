@@ -11,7 +11,6 @@ import { useAuth } from "@/context/auth-context";
 import { api } from "@/lib/api";
 import {
   ArrowLeft,
-  Sparkles,
   CheckCircle2,
   Loader2,
   AlertCircle,
@@ -263,16 +262,28 @@ function ParentAssessmentRunner() {
   return (
     <div className="h-screen max-h-screen overflow-hidden flex flex-col justify-between bg-background relative selection:bg-primary/20">
       {/* Top Header Bar */}
-      <div className="shrink-0 z-40 px-4 py-2 flex items-center justify-between">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => router.push("/parent")}
-          className="text-xs text-muted-foreground hover:text-foreground gap-1.5 cursor-pointer h-8 px-2.5"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          <span>Parent Dashboard</span>
-        </Button>
+      <div className="shrink-0 z-40 px-5 sm:px-7 py-3 flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <img
+            src="/JM-Dark.svg"
+            alt="JaagrMind"
+            className="h-8 sm:h-9 w-auto object-contain dark:hidden opacity-85 transition-opacity drop-shadow-xs select-none"
+          />
+          <img
+            src="/JM-White.svg"
+            alt="JaagrMind"
+            className="h-8 sm:h-9 w-auto object-contain hidden dark:block opacity-85 transition-opacity drop-shadow-[0_2px_12px_rgba(129,97,163,0.35)] select-none"
+          />
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => router.push("/parent")}
+            className="text-xs text-muted-foreground hover:text-foreground gap-1.5 cursor-pointer h-8 px-2.5"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            <span>Parent Dashboard</span>
+          </Button>
+        </div>
 
         <div className="flex items-center gap-3">
           {child && (
@@ -306,8 +317,9 @@ function ParentAssessmentRunner() {
             >
               <Card className="border shadow-sm">
                 <CardContent className="p-6 sm:p-8 space-y-5 text-center">
-                  <div className="h-14 w-14 bg-primary/10 text-primary rounded-full flex items-center justify-center mx-auto shadow-xs">
-                    <Sparkles className="h-7 w-7 text-primary" />
+                  <div className="h-14 w-14 rounded-2xl bg-slate-100 dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700/80 flex items-center justify-center mx-auto shadow-xs p-3">
+                    <img src="/JM-Dark.svg" alt="JaagrMind" className="h-full w-auto object-contain dark:hidden" />
+                    <img src="/JM-White.svg" alt="JaagrMind" className="h-full w-auto object-contain hidden dark:block" />
                   </div>
 
                   <div>

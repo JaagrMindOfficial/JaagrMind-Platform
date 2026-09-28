@@ -16,7 +16,8 @@ import {
   BookOpen, 
   Clock, 
   CheckCircle2, 
-  Sparkles,
+  Link2,
+  Palette,
   Building2,
   Home,
   Search,
@@ -25,6 +26,9 @@ import {
   ArrowUpRight,
   History,
   Presentation,
+  Leaf,
+  Wind,
+  Sun,
 } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
@@ -239,7 +243,7 @@ export default function AdminAssessmentsPage() {
         <div className="space-y-0.5">
           <div className="flex items-center gap-2">
             <span className="font-semibold text-sm text-foreground flex items-center gap-1.5">
-              <Sparkles className="h-4 w-4 text-emerald-500" />
+              <Link2 className="h-4 w-4 text-emerald-500" />
               Generate Random Check-in Link
             </span>
             <Badge variant="outline" className="text-[10px] px-2 py-0.5 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 font-medium">
@@ -276,7 +280,13 @@ export default function AdminAssessmentsPage() {
             onClick={() => setIsThemeSettingsOpen(true)}
             className="text-xs gap-1.5 border-emerald-500/40 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-500/10 cursor-pointer"
           >
-            <span>{theme.iconName}</span>
+            {theme.id === "duo-green" ? (
+              <Leaf className="h-3.5 w-3.5 text-[#58cc02] shrink-0" />
+            ) : theme.id === "spark-blue" ? (
+              <Wind className="h-3.5 w-3.5 text-[#1cb0f6] shrink-0" />
+            ) : (
+              <Sun className="h-3.5 w-3.5 text-[#ff9600] shrink-0" />
+            )}
             <span>Theme: {theme.name}</span>
           </Button>
           <Button
@@ -284,7 +294,7 @@ export default function AdminAssessmentsPage() {
             onClick={() => handleOpenGenerateLink(undefined)}
             className="text-xs gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer shadow-xs"
           >
-            <Sparkles className="h-3.5 w-3.5" />
+            <Link2 className="h-3.5 w-3.5" />
             <span>Generate Link</span>
           </Button>
         </div>
@@ -497,7 +507,7 @@ export default function AdminAssessmentsPage() {
                       onClick={() => handleOpenGenerateLink(a)}
                       className="text-xs h-8 text-emerald-700 dark:text-emerald-300 border-emerald-500/40 hover:bg-emerald-500/10 font-medium col-span-2 gap-1.5 cursor-pointer"
                     >
-                      <Sparkles className="h-3.5 w-3.5 text-emerald-500" /> Generate Direct Link
+                      <Link2 className="h-3.5 w-3.5 text-emerald-500" /> Generate Direct Link
                     </Button>
                     <Button 
                       variant="outline" 
@@ -628,7 +638,7 @@ export default function AdminAssessmentsPage() {
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-base">
-              <Sparkles className="h-4 w-4 text-emerald-500" />
+              <Palette className="h-4 w-4 text-emerald-500" />
               <span>Default Check-in Scenery &amp; Atmosphere</span>
             </DialogTitle>
           </DialogHeader>
@@ -648,7 +658,15 @@ export default function AdminAssessmentsPage() {
                   }`}
                 >
                   <div className="flex items-center gap-3">
-                    <span className="text-2xl">{th.iconName}</span>
+                    <div className="p-2 rounded-lg bg-muted/60 border shrink-0">
+                      {th.id === "duo-green" ? (
+                        <Leaf className="h-5 w-5 text-[#58cc02]" />
+                      ) : th.id === "spark-blue" ? (
+                        <Wind className="h-5 w-5 text-[#1cb0f6]" />
+                      ) : (
+                        <Sun className="h-5 w-5 text-[#ff9600]" />
+                      )}
+                    </div>
                     <div>
                       <div className="flex items-center gap-2">
                         <span className="text-xs font-bold text-foreground">{th.name}</span>

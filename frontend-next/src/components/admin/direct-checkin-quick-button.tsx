@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
-import { Sparkles, CheckCircle2, ArrowUpRight } from "lucide-react"
+import { Link2, CheckCircle2, ArrowUpRight } from "lucide-react"
 
 export function DirectCheckinQuickButton() {
   const [copied, setCopied] = useState(false)
@@ -33,7 +33,7 @@ export function DirectCheckinQuickButton() {
           </>
         ) : (
           <>
-            <Sparkles className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
+            <Link2 className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
             <span>Direct Check-in Link</span>
           </>
         )}

@@ -12,7 +12,8 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import {
-  Sparkles,
+  Link2,
+  Palette,
   Copy,
   CheckCircle2,
   ExternalLink,
@@ -25,7 +26,10 @@ import {
   Layers,
   RefreshCw,
   Share2,
-  AlertCircle
+  AlertCircle,
+  Leaf,
+  Wind,
+  Sun,
 } from "lucide-react"
 import QRCode from "qrcode"
 import { api } from "@/lib/api"
@@ -228,7 +232,7 @@ export function GenerateCheckinLinkDialog({
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2.5">
               <div className="h-9 w-9 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center font-bold">
-                <Sparkles className="h-5 w-5" />
+                <Link2 className="h-5 w-5" />
               </div>
               <div>
                 <DialogTitle className="text-lg font-semibold">Generate Random Check-in Link</DialogTitle>
@@ -546,7 +550,7 @@ export function GenerateCheckinLinkDialog({
                   <div className="space-y-2 pt-2 border-t">
                     <label className="text-xs font-semibold flex items-center justify-between">
                       <span className="flex items-center gap-1.5 text-foreground">
-                        <Sparkles className="h-3.5 w-3.5 text-emerald-500" />
+                        <Palette className="h-3.5 w-3.5 text-emerald-500" />
                         Check-in Scenery &amp; Atmosphere Theme
                       </span>
                       <span className="text-[10px] text-muted-foreground font-normal">
@@ -566,7 +570,13 @@ export function GenerateCheckinLinkDialog({
                         >
                           <div>
                             <div className="flex items-center gap-2">
-                              <span className="text-base">{th.iconName}</span>
+                              {th.id === "duo-green" ? (
+                                <Leaf className="h-4 w-4 text-[#58cc02] shrink-0" />
+                              ) : th.id === "spark-blue" ? (
+                                <Wind className="h-4 w-4 text-[#1cb0f6] shrink-0" />
+                              ) : (
+                                <Sun className="h-4 w-4 text-[#ff9600] shrink-0" />
+                              )}
                               <span className="text-xs font-bold text-foreground">{th.name}</span>
                             </div>
                             <p className="text-[10px] text-muted-foreground mt-1 leading-snug">
@@ -603,7 +613,7 @@ export function GenerateCheckinLinkDialog({
                         </>
                       ) : (
                         <>
-                          <Sparkles className="h-3.5 w-3.5" />
+                          <Link2 className="h-3.5 w-3.5" />
                           <span>Generate Random Link</span>
                         </>
                       )}

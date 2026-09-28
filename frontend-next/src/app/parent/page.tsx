@@ -22,7 +22,7 @@ import {
   Building2,
   Mail,
   Clock,
-  Sparkles,
+  Lightbulb,
   Pencil,
   School,
   MessageSquare,
@@ -207,7 +207,7 @@ export default function ParentDashboardPage() {
           <section className="space-y-6">
             <div className="rounded-xl border border-border/70 bg-card p-8 sm:p-12 text-center max-w-2xl mx-auto space-y-6 relative overflow-hidden shadow-xs">
               <div className="h-14 w-14 rounded-2xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mx-auto border border-emerald-500/20">
-                <Sparkles className="h-7 w-7" />
+                <HeartHandshake className="h-7 w-7" />
               </div>
               <div className="space-y-2">
                 <h2 className="text-2xl font-semibold tracking-tight text-foreground">
@@ -397,7 +397,7 @@ export default function ParentDashboardPage() {
                 <div className="flex flex-wrap items-center justify-between pb-3 border-b border-border/40 gap-3">
                   <div className="flex items-center gap-2.5">
                     <div className="p-2 rounded-xl bg-primary/10 text-primary">
-                      <Sparkles className="h-4 w-4" />
+                      <Lightbulb className="h-4 w-4" />
                     </div>
                     <div>
                       <h3 className="text-sm font-bold text-foreground">

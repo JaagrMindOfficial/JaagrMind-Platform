@@ -33,7 +33,6 @@ import {
   Loader2,
   ShieldCheck,
   MessageSquare,
-  Sparkles,
   Eye,
   ShieldAlert,
   Lock,

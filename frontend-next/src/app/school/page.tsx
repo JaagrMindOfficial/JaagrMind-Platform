@@ -22,6 +22,8 @@ import {
   MapPin,
   Phone,
   ShieldCheck,
+  AlertTriangle,
+  HeartHandshake,
   CheckCircle2,
   Clock,
   BarChart3,
@@ -374,6 +376,19 @@ export default function SchoolDashboardPage() {
               </Link>
             </>
           )}
+        </div>
+      </div>
+
+      {/* Aggregate-First Disclaimer Banner (Document 1, Section 7 & 15) */}
+      <div className="rounded-xl border border-sky-500/30 bg-sky-500/10 p-4 flex items-start gap-3.5 text-sky-950 dark:text-sky-200 shadow-2xs">
+        <ShieldCheck className="h-5 w-5 text-sky-600 dark:text-sky-400 shrink-0 mt-0.5" />
+        <div className="space-y-0.5">
+          <p className="text-xs font-semibold text-foreground">
+            Aggregate-First Student Reflection Platform
+          </p>
+          <p className="text-xs text-muted-foreground leading-relaxed">
+            This dashboard presents aggregate patterns from self-reported student check-ins. It is designed for workshop planning, cohort-level insights, and institutional self-reflection — not for individual diagnosis, labelling, or academic evaluation.
+          </p>
         </div>
       </div>
 
@@ -859,6 +874,105 @@ export default function SchoolDashboardPage() {
               </div>
             </div>
           )}
+        </CardContent>
+      </Card>
+
+      {/* Cohort-Level Suggested Action Guidance by 4 Domains (Document 1, Section 7) */}
+      <Card className="border-border shadow-none">
+        <CardHeader className="border-b border-border/40 pb-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Sparkles className="h-4 w-4 text-primary" />
+              <CardTitle className="text-base font-semibold">
+                Cohort-Level Suggested Action Guidance
+              </CardTitle>
+            </div>
+            <Badge variant="outline" className="font-mono text-[10px] text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border-emerald-500/20">
+              Workshop & Pedagogical Practice
+            </Badge>
+          </div>
+          <CardDescription className="text-xs mt-0.5">
+            Institutional strategies and classroom interventions mapped to the four core reflection domains.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="p-4 sm:p-5 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-xs">
+          {/* Domain A: Focus & Attention */}
+          <div className="p-4 rounded-xl bg-sky-500/5 border border-sky-500/20 space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="font-bold text-sky-700 dark:text-sky-300">Domain A: Focus & Attention</span>
+              <span className="text-[10px] font-mono text-muted-foreground">Study Rhythm</span>
+            </div>
+            <p className="text-muted-foreground leading-relaxed text-[11px]">
+              Implement study environment optimization, 25-minute Pomodoro focus sprints, and task initiation micro-steps before complex assignments.
+            </p>
+          </div>
+
+          {/* Domain B: Inner Confidence */}
+          <div className="p-4 rounded-xl bg-purple-500/5 border border-purple-500/20 space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="font-bold text-purple-700 dark:text-purple-300">Domain B: Inner Confidence</span>
+              <span className="text-[10px] font-mono text-muted-foreground">Self-Belief</span>
+            </div>
+            <p className="text-muted-foreground leading-relaxed text-[11px]">
+              Conduct exam anxiety normalization workshops, foster positive internal self-talk, and introduce low-stakes anonymous classroom question channels.
+            </p>
+          </div>
+
+          {/* Domain C: Social Interaction */}
+          <div className="p-4 rounded-xl bg-emerald-500/5 border border-emerald-500/20 space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="font-bold text-emerald-700 dark:text-emerald-300">Domain C: Social Interaction</span>
+              <span className="text-[10px] font-mono text-muted-foreground">Peer Belonging</span>
+            </div>
+            <p className="text-muted-foreground leading-relaxed text-[11px]">
+              Create peer support study buddies, structured group collaboration roles, and facilitate healthy boundary workshops against social drama fatigue.
+            </p>
+          </div>
+
+          {/* Domain D: Healthy Digital Habits */}
+          <div className="p-4 rounded-xl bg-amber-500/5 border border-amber-500/20 space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="font-bold text-amber-700 dark:text-amber-300">Domain D: Digital Habits</span>
+              <span className="text-[10px] font-mono text-muted-foreground">Rest & Sleep</span>
+            </div>
+            <p className="text-muted-foreground leading-relaxed text-[11px]">
+              Encourage evening digital sunset routines (devices away by 10 PM), sleep hygiene literacy, and classroom device-free focus intervals.
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Institutional Privacy & What NOT to Do with This Data (Document 1, Section 7 & 15) */}
+      <Card className="border-border shadow-none border-l-4 border-l-rose-500 bg-rose-500/5">
+        <CardContent className="p-5 space-y-3">
+          <div className="flex items-center gap-2">
+            <AlertTriangle className="h-4 w-4 text-rose-600 dark:text-rose-400" />
+            <h4 className="text-sm font-bold text-foreground">
+              Institutional Privacy & What NOT to Do with Check-in Data
+            </h4>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-[11px] text-muted-foreground">
+            <div className="space-y-1.5">
+              <p className="leading-relaxed flex items-start gap-1.5">
+                <span className="text-rose-600 font-bold">•</span>
+                <span><strong>No public disclosure:</strong> Never display individual student profiles or check-in choices in public or classroom presentations.</span>
+              </p>
+              <p className="leading-relaxed flex items-start gap-1.5">
+                <span className="text-rose-600 font-bold">•</span>
+                <span><strong>No academic penalties:</strong> Check-in results must never be used for academic grading, stream placement, eligibility, or disciplinary decisions.</span>
+              </p>
+            </div>
+            <div className="space-y-1.5">
+              <p className="leading-relaxed flex items-start gap-1.5">
+                <span className="text-rose-600 font-bold">•</span>
+                <span><strong>No deficit labels:</strong> Avoid deficit terminology (&quot;disorder&quot;, &quot;deficit&quot;, &quot;dysfunctional&quot;) with students and parents.</span>
+              </p>
+              <p className="leading-relaxed flex items-start gap-1.5">
+                <span className="text-rose-600 font-bold">•</span>
+                <span><strong>Minimum cell size privacy:</strong> Groups with fewer than 5 student submissions are automatically masked to safeguard individual confidentiality.</span>
+              </p>
+            </div>
+          </div>
         </CardContent>
       </Card>
 

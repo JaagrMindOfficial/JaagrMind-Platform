@@ -14,6 +14,7 @@ bin/
 backend-go/bin/
 backend-go/api
 /api
+*.tsbuildinfo
 
 # Logs
 logs/
@@ -77,3 +78,9 @@ schema.md
 current_chat_transcript_full.jsonl
 current_chat_transcript.jsonl
 current_chat_readable.md
+
+# Agent and AI assistant rules
+AGENTS.md
+GEMINI.md
+agents.md
+gemini.md

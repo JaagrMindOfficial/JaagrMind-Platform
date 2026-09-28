@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/context/auth-context";
-import { CheckCircle2, Lightbulb } from "lucide-react";
+import { CheckCircle2, Lightbulb, Sparkles } from "lucide-react";
 
 export default function ThankYouPage() {
   const router = useRouter();
@@ -72,9 +72,23 @@ export default function ThankYouPage() {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.6 }}
+          className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2"
         >
-          <Button size="lg" onClick={handleLogout} className="w-full sm:w-auto px-12 h-12 text-base">
-            Back to Login
+          <Button 
+            size="lg" 
+            onClick={() => router.push("/student/dashboard")} 
+            className="w-full sm:w-auto px-8 h-12 text-base font-semibold shadow-md bg-primary hover:bg-primary/90 text-primary-foreground gap-2"
+          >
+            <Sparkles className="h-5 w-5" />
+            View Reflection & Activities
+          </Button>
+          <Button 
+            size="lg" 
+            variant="outline" 
+            onClick={handleLogout} 
+            className="w-full sm:w-auto px-8 h-12 text-base"
+          >
+            Log Out
           </Button>
         </motion.div>
       </motion.div>

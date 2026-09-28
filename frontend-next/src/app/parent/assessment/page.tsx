@@ -273,7 +273,7 @@ function ParentAssessmentRunner() {
         </div>
       </div>
 
-      <div className="flex-1 flex items-center justify-center p-4 sm:p-6 my-auto">
+      <div className="flex-1 flex items-center justify-center p-3 sm:p-5 lg:p-6 my-auto w-full">
         <AnimatePresence mode="wait">
           {/* STEP 1: INSTRUCTIONS */}
           {flowStep === "instructions" && (
@@ -282,19 +282,19 @@ function ParentAssessmentRunner() {
               initial={{ opacity: 0, y: 15 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -15 }}
-              className="w-full max-w-xl"
+              className="w-full max-w-2xl mx-auto"
             >
               <Card className="border shadow-sm">
-                <CardContent className="p-8 sm:p-10 space-y-6 text-center">
-                  <div className="h-16 w-16 bg-primary/10 text-primary rounded-full flex items-center justify-center mx-auto shadow-xs">
-                    <Sparkles className="h-8 w-8 text-primary" />
+                <CardContent className="p-6 sm:p-8 space-y-5 text-center">
+                  <div className="h-14 w-14 bg-primary/10 text-primary rounded-full flex items-center justify-center mx-auto shadow-xs">
+                    <Sparkles className="h-7 w-7 text-primary" />
                   </div>
 
                   <div>
                     <h1 className="text-2xl font-semibold tracking-tight">
                       Standard Check-in for {displayName}
                     </h1>
-                    <p className="text-sm text-muted-foreground mt-1">
+                    <p className="text-xs text-muted-foreground mt-1">
                       {selectedAssessment.title} • {questionsList.length} items
                     </p>
                   </div>
@@ -303,7 +303,7 @@ function ParentAssessmentRunner() {
                     This check-in gathers longitudinal observations on focus balance, emotional regulation, and daily learning stamina. Sit together with {displayName} or let them complete it with your support.
                   </p>
 
-                  <div className="space-y-3 bg-muted/40 p-4 rounded-xl text-xs text-muted-foreground text-left border">
+                  <div className="space-y-2.5 bg-muted/40 p-4 rounded-xl text-xs text-muted-foreground text-left border">
                     <div className="flex gap-2">
                       <span className="font-semibold text-foreground">1.</span>
                       <span>Read each statement together and choose the response that best describes daily patterns.</span>
@@ -318,7 +318,7 @@ function ParentAssessmentRunner() {
                     </div>
                   </div>
 
-                  <label className="flex items-center justify-center gap-3 cursor-pointer pt-2">
+                  <label className="flex items-center justify-center gap-3 cursor-pointer pt-1">
                     <input
                       type="checkbox"
                       checked={consentChecked}
@@ -334,7 +334,7 @@ function ParentAssessmentRunner() {
                     size="lg"
                     disabled={!consentChecked}
                     onClick={() => setFlowStep("moodCheck")}
-                    className="w-full h-11 text-sm font-medium cursor-pointer"
+                    className="w-full h-10 text-sm font-medium cursor-pointer"
                   >
                     Continue to Mind Weather Check
                   </Button>
@@ -350,21 +350,22 @@ function ParentAssessmentRunner() {
               initial={{ opacity: 0, y: 15 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -15 }}
-              className="w-full max-w-xl"
+              className="w-full max-w-5xl xl:max-w-6xl mx-auto"
             >
               <Card className="border shadow-sm">
-                <CardContent className="p-6 sm:p-9 space-y-6">
+                <CardContent className="p-5 sm:p-7 space-y-4">
                   <MindWeatherCheck
                     value={mindWeather}
                     onChange={setMindWeather}
                   />
 
-                  <div className="flex gap-3 pt-4 border-t">
-                    <Button variant="outline" onClick={() => setFlowStep("instructions")}>
+                  <div className="flex gap-3 pt-3 border-t">
+                    <Button variant="outline" size="sm" onClick={() => setFlowStep("instructions")} className="h-9 px-4">
                       Back
                     </Button>
                     <Button
-                      className="flex-1 shadow-sm cursor-pointer"
+                      size="sm"
+                      className="flex-1 shadow-sm h-9 cursor-pointer"
                       disabled={!mindWeather.weather || !mindWeather.energyLevel || !mindWeather.sleepQuality}
                       onClick={() => setFlowStep("countdown")}
                     >
@@ -383,7 +384,7 @@ function ParentAssessmentRunner() {
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 1.05 }}
-              className="w-full max-w-md text-center"
+              className="w-full max-w-md text-center mx-auto"
             >
               <Card className="border shadow-sm p-6 sm:p-8 bg-card">
                 <CardContent className="p-0">
@@ -399,7 +400,7 @@ function ParentAssessmentRunner() {
               key="assessment"
               initial={{ opacity: 0, y: 15 }}
               animate={{ opacity: 1, y: 0 }}
-              className="w-full max-w-2xl space-y-5"
+              className="w-full max-w-4xl lg:max-w-5xl xl:max-w-6xl mx-auto space-y-3.5"
             >
               {/* Journey Timeline Station Bar */}
               <JourneyTimeline

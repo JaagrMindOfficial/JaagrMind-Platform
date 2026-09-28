@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -37,6 +38,8 @@ import {
   Building2,
   Layers,
   FolderOpen,
+  Presentation,
+  ShieldCheck,
 } from "lucide-react"
 import QRCode from "qrcode"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -467,12 +470,33 @@ export default function SchoolTestsPage() {
   }
 
   return (
-    <div className="space-y-8">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Active Check-ins</h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          Monitor check-ins assigned to your school, copy student direct links, and track completion progress.
-        </p>
+    <div className="space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight">Active Check-ins</h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            Monitor check-ins assigned to your school, copy student direct links, and track completion progress.
+          </p>
+        </div>
+        <Link href="/facilitator">
+          <Button className="gap-2 text-xs font-semibold bg-primary text-primary-foreground shadow-xs cursor-pointer">
+            <Presentation className="h-4 w-4" />
+            <span>Workshop Facilitator Mode</span>
+          </Button>
+        </Link>
+      </div>
+
+      {/* Aggregate-First Disclaimer Banner (Document 1, Section 7 & 15) */}
+      <div className="rounded-xl border border-sky-500/30 bg-sky-500/10 p-4 flex items-start gap-3.5 text-sky-950 dark:text-sky-200 shadow-2xs">
+        <ShieldCheck className="h-5 w-5 text-sky-600 dark:text-sky-400 shrink-0 mt-0.5" />
+        <div className="space-y-0.5">
+          <p className="text-xs font-semibold text-foreground">
+            Aggregate-First Student Reflection Platform
+          </p>
+          <p className="text-xs text-muted-foreground leading-relaxed">
+            This dashboard presents aggregate patterns from self-reported student check-ins. It is designed for workshop planning, cohort-level insights, and institutional self-reflection — not for individual diagnosis, labelling, or academic evaluation.
+          </p>
+        </div>
       </div>
 
       {loading ? (

@@ -19,12 +19,15 @@ import { CenteringBreath } from "@/components/assessment/centering-breath";
 import { JourneyTimeline } from "@/components/assessment/journey-timeline";
 import { ScenarioCard } from "@/components/assessment/scenario-card";
 import { ReflectionSnack } from "@/components/assessment/reflection-snack";
+import { AssessmentScenery } from "@/components/assessment/assessment-scenery";
+import { useAssessmentTheme } from "@/lib/assessment-theme";
 import { playCompletionSound } from "@/lib/assessment-sound";
 
 export default function PreviewAssessmentPage() {
   const params = useParams();
   const router = useRouter();
   const id = params?.id as string;
+  const { currentThemeId } = useAssessmentTheme();
 
   const [assessment, setAssessment] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -139,28 +142,37 @@ export default function PreviewAssessmentPage() {
   const isAllAnswered = Object.keys(answers).length === questionsList.length;
 
   return (
-    <div className="min-h-screen flex flex-col bg-background relative overflow-x-hidden selection:bg-primary/20">
+    <div className="h-screen max-h-screen overflow-hidden flex flex-col justify-between bg-background relative selection:bg-primary/20">
       {/* Top Preview Banner */}
-      <div className="sticky top-0 z-50 bg-amber-500/10 border-b border-amber-500/20 backdrop-blur-md px-4 py-2 flex items-center justify-between text-xs sm:text-sm">
-        <div className="flex items-center gap-2 text-amber-600 dark:text-amber-400 font-medium">
-          <Eye className="h-4 w-4" />
-          <span><strong>Preview Mode</strong> — Experience assessment as students see it. No responses will be saved.</span>
+      <div className="shrink-0 z-40 bg-amber-500/15 border-b border-amber-500/30 backdrop-blur-md px-4 py-1.5 flex items-center justify-between text-xs">
+        <div className="flex items-center gap-2 text-amber-800 dark:text-amber-300 font-medium">
+          <Eye className="h-3.5 w-3.5 shrink-0" />
+          <span><strong className="font-bold">Preview Mode</strong> — Experience assessment as students see it. No responses will be saved.</span>
         </div>
         <Button 
           variant="ghost" 
           size="sm" 
           onClick={() => router.back()}
-          className="h-7 text-xs text-amber-600 hover:text-amber-700 dark:text-amber-400"
+          className="h-6 text-xs text-amber-800 hover:text-amber-950 dark:text-amber-300 dark:hover:text-amber-100 font-semibold px-2 cursor-pointer"
         >
           <X className="h-3.5 w-3.5 mr-1" /> Exit Preview
         </Button>
       </div>
 
-      <div className="absolute top-12 right-6 z-40">
+      <div className="absolute top-10 right-4 z-40 flex items-center gap-2">
         <ThemeToggle />
       </div>
 
-      <div className="flex-1 flex items-center justify-center p-4 sm:p-6 my-auto">
+      {/* Dynamic Animated Scenery, Mascots & Ambient Foliage */}
+      <AssessmentScenery
+        themeId={currentThemeId}
+        questionIndex={currentIdx}
+        totalQuestions={questionsList.length || 1}
+        selectedAnswer={answers[currentIdx]}
+        isCompleted={flowStep === "completed"}
+      />
+
+      <div className="flex-1 flex flex-col items-center justify-center p-2 sm:p-3 my-auto w-full relative z-20 overflow-hidden">
         <AnimatePresence mode="wait">
           
           {/* 1. INSTRUCTIONS */}
@@ -170,10 +182,10 @@ export default function PreviewAssessmentPage() {
               initial={{ opacity: 0, y: 15 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -15 }}
-              className="w-full max-w-xl"
+              className="w-full max-w-2xl lg:max-w-3xl mx-auto"
             >
-              <Card className="border shadow-sm">
-                <CardContent className="p-8 sm:p-10 space-y-6">
+              <Card id="assessment-main-card" className="border shadow-sm">
+                <CardContent className="p-6 sm:p-8 space-y-5">
                   <div className="flex items-center gap-3">
                     <div className="h-10 w-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
                       <Sparkles className="h-5 w-5" />
@@ -188,7 +200,7 @@ export default function PreviewAssessmentPage() {
                     {assessment.description || "Take a few quiet minutes to answer honestly. There are no right or wrong choices."}
                   </p>
 
-                  <div className="space-y-3 bg-muted/40 p-4 rounded-xl text-xs text-muted-foreground leading-normal border">
+                  <div className="space-y-2.5 bg-muted/40 p-4 rounded-xl text-xs text-muted-foreground leading-normal border">
                     <div className="flex gap-2">
                       <span className="font-semibold text-foreground">1.</span>
                       <span>Read each statement and pick what best matches your school life.</span>
@@ -203,7 +215,7 @@ export default function PreviewAssessmentPage() {
                     </div>
                   </div>
 
-                  <label className="flex items-center gap-3 cursor-pointer pt-2">
+                  <label className="flex items-center gap-3 cursor-pointer pt-1">
                     <input
                       type="checkbox"
                       checked={consentChecked}
@@ -219,7 +231,7 @@ export default function PreviewAssessmentPage() {
                     size="lg"
                     disabled={!consentChecked}
                     onClick={() => setFlowStep("moodCheck")}
-                    className="w-full h-11"
+                    className="w-full h-10 text-sm font-medium"
                   >
                     Continue to Mood Check
                   </Button>
@@ -235,21 +247,22 @@ export default function PreviewAssessmentPage() {
               initial={{ opacity: 0, y: 15 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -15 }}
-              className="w-full max-w-xl"
+              className="w-full max-w-3xl lg:max-w-4xl mx-auto"
             >
               <Card className="border shadow-sm">
-                <CardContent className="p-6 sm:p-9 space-y-6">
+                <CardContent className="p-3.5 sm:p-4 space-y-3">
                   <MindWeatherCheck
                     value={mindWeather}
                     onChange={setMindWeather}
                   />
 
-                  <div className="flex gap-3 pt-4 border-t">
-                    <Button variant="outline" onClick={() => setFlowStep("instructions")}>
+                  <div className="flex gap-3 pt-2.5 border-t">
+                    <Button variant="outline" size="sm" onClick={() => setFlowStep("instructions")} className="h-9 px-4">
                       Back
                     </Button>
                     <Button
-                      className="flex-1 shadow-sm"
+                      size="sm"
+                      className="flex-1 shadow-sm h-9"
                       disabled={!mindWeather.weather || !mindWeather.energyLevel || !mindWeather.sleepQuality}
                       onClick={() => setFlowStep("countdown")}
                     >
@@ -268,7 +281,7 @@ export default function PreviewAssessmentPage() {
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 1.05 }}
-              className="w-full max-w-md text-center"
+              className="w-full max-w-md text-center mx-auto"
             >
               <Card className="border shadow-sm p-6 sm:p-8 bg-card">
                 <CardContent className="p-0">
@@ -284,7 +297,7 @@ export default function PreviewAssessmentPage() {
               key="questions"
               initial={{ opacity: 0, y: 15 }}
               animate={{ opacity: 1, y: 0 }}
-              className="w-full max-w-2xl space-y-5"
+              className="w-full max-w-2xl lg:max-w-3xl mx-auto space-y-2"
             >
               {/* Journey Timeline Station Bar */}
               <JourneyTimeline

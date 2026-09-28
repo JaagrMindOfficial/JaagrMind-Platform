@@ -19,6 +19,8 @@ export default function StudentLoginPage() {
 
   const [schoolInfo, setSchoolInfo] = useState<{ name: string | null; logo: string | null }>({ name: null, logo: null });
   const [accessId, setAccessId] = useState("");
+  const [directCode, setDirectCode] = useState("");
+  const [entryMode, setEntryMode] = useState<"school" | "passcode">("school");
   const [loginMethod, setLoginMethod] = useState<"roll_class" | "access_id">("roll_class");
   const [studentClass, setStudentClass] = useState("10");
   const [section, setSection] = useState("A");
@@ -36,9 +38,15 @@ export default function StudentLoginPage() {
     const schoolId = searchParams.get("school");
     const testId = searchParams.get("test");
     const paramAccessId = searchParams.get("accessId") || searchParams.get("access_id") || searchParams.get("roll");
+    const paramCode = searchParams.get("code") || searchParams.get("passcode");
 
     if (testId && typeof window !== "undefined") {
       sessionStorage.setItem("target_test_id", testId);
+    }
+
+    if (paramCode) {
+      setDirectCode(paramCode.toUpperCase());
+      setEntryMode("passcode");
     }
 
     if (paramAccessId) {
@@ -71,13 +79,61 @@ export default function StudentLoginPage() {
     }
   };
 
-  const handleSchoolSubmit = (e: React.FormEvent) => {
+  const handleSchoolSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!schoolCode.trim()) {
-      setError("Please enter a valid School Code");
+    const cleanCode = schoolCode.trim().toUpperCase();
+    if (!cleanCode) {
+      setError("Please enter a valid School Code or Student Passcode");
       return;
     }
-    router.push(`/student/login?school=${schoolCode.trim()}`);
+    // Auto-detect if user entered a direct passcode
+    if (cleanCode.startsWith("IND-") || cleanCode.startsWith("FAM-")) {
+      setLoading(true);
+      setError("");
+      try {
+        await studentLogin({ accessId: cleanCode, schoolId: "HOME", mobileNumber, email });
+        return;
+      } catch (err: any) {
+        setError(err.message || "Invalid Student Passcode. Please check and try again.");
+        setLoading(false);
+        return;
+      }
+    }
+    router.push(`/student/login?school=${cleanCode}`);
+  };
+
+  const handleDirectPasscodeSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const cleanPasscode = directCode.trim().toUpperCase();
+    if (!cleanPasscode) {
+      setError("Please enter your Student Passcode (e.g. IND-XXXXXX)");
+      return;
+    }
+
+    if (mobileNumber && !/^[0-9]{10}$/.test(mobileNumber)) {
+      setError("Please enter a valid 10-digit mobile number");
+      return;
+    }
+
+    if (email && !/^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/.test(email)) {
+      setError("Please enter a valid email address");
+      return;
+    }
+
+    setLoading(true);
+    setError("");
+
+    try {
+      await studentLogin({
+        accessId: cleanPasscode,
+        schoolId: "HOME",
+        mobileNumber,
+        email,
+      });
+    } catch (err: any) {
+      setError(err.message || "Invalid Student Passcode. Please verify and try again.");
+      setLoading(false);
+    }
   };
 
   const handleLoginSubmit = async (e: React.FormEvent) => {
@@ -217,23 +273,95 @@ export default function StudentLoginPage() {
 
             {/* Forms */}
             {step === "school" ? (
-              <form onSubmit={handleSchoolSubmit} className="space-y-4">
-                <div className="space-y-2 text-left">
-                  <label className="text-sm font-medium">School Code</label>
-                  <Input
-                    value={schoolCode}
-                    onChange={(e) => setSchoolCode(e.target.value.toUpperCase())}
-                    placeholder="e.g. OAKWOOD"
-                    required
-                    className="text-center tracking-widest uppercase font-mono"
-                  />
+              <div className="space-y-4">
+                {/* Method selector pills */}
+                <div className="grid grid-cols-2 gap-1 p-1 bg-muted/60 rounded-lg border border-border/60 text-xs">
+                  <button
+                    type="button"
+                    onClick={() => { setEntryMode("school"); setError(""); }}
+                    className={`py-1.5 px-2 rounded-md font-medium transition-all ${
+                      entryMode === "school"
+                        ? "bg-background text-foreground shadow-xs font-semibold"
+                        : "text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    School Code
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setEntryMode("passcode"); setError(""); }}
+                    className={`py-1.5 px-2 rounded-md font-medium transition-all ${
+                      entryMode === "passcode"
+                        ? "bg-background text-foreground shadow-xs font-semibold"
+                        : "text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    Student Passcode
+                  </button>
                 </div>
-                <Button type="submit" disabled={loading} className="w-full">
-                  {loading ? "Searching..." : "Continue"}
-                </Button>
+
+                {entryMode === "school" ? (
+                  <form onSubmit={handleSchoolSubmit} className="space-y-4">
+                    <div className="space-y-2 text-left">
+                      <label className="text-sm font-medium">School Code</label>
+                      <Input
+                        value={schoolCode}
+                        onChange={(e) => setSchoolCode(e.target.value.toUpperCase())}
+                        placeholder="e.g. OAKWOOD"
+                        required
+                        className="text-center tracking-widest uppercase font-mono"
+                      />
+                    </div>
+                    <Button type="submit" disabled={loading} className="w-full">
+                      {loading ? "Searching..." : "Continue"}
+                    </Button>
+                  </form>
+                ) : (
+                  <form onSubmit={handleDirectPasscodeSubmit} className="space-y-4">
+                    <div className="space-y-2 text-left">
+                      <div className="flex items-center justify-between">
+                        <label className="text-xs font-medium">Student Passcode *</label>
+                        <span className="text-[10px] text-muted-foreground">From parent portal or link</span>
+                      </div>
+                      <Input
+                        value={directCode}
+                        onChange={(e) => setDirectCode(e.target.value.toUpperCase())}
+                        placeholder="e.g. IND-091244"
+                        required
+                        className="text-center tracking-widest uppercase font-mono"
+                      />
+                    </div>
+
+                    <div className="space-y-2 text-left">
+                      <label className="text-xs font-medium">Mobile Number <span className="text-muted-foreground font-normal">(Optional)</span></label>
+                      <Input
+                        type="tel"
+                        value={mobileNumber}
+                        onChange={(e) => setMobileNumber(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                        placeholder="10-digit mobile number"
+                        className="h-9 text-xs"
+                      />
+                    </div>
+
+                    <div className="space-y-2 text-left">
+                      <label className="text-xs font-medium">Email <span className="text-muted-foreground font-normal">(Optional)</span></label>
+                      <Input
+                        type="email"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        placeholder="student@example.com"
+                        className="h-9 text-xs"
+                      />
+                    </div>
+
+                    <Button type="submit" disabled={loading} className="w-full">
+                      {loading ? "Signing in..." : "Log In & Start Assessment"}
+                    </Button>
+                  </form>
+                )}
 
                 <div className="pt-3 text-center text-xs text-muted-foreground border-t border-border/40 space-y-1.5">
-                  <p>Don&apos;t have a school code? Please contact your school wellness counselor or administration.</p>
+                  <p>Don&apos;t have a code? Please contact your school counselor or guardian.</p>
                   <Link
                     href="/login"
                     className="text-primary font-semibold hover:underline inline-block"
@@ -241,7 +369,7 @@ export default function StudentLoginPage() {
                     Parent or Staff Portal Sign In &rarr;
                   </Link>
                 </div>
-              </form>
+              </div>
             ) : (
               <form onSubmit={handleLoginSubmit} className="space-y-4">
                 {/* Method selector pills */}

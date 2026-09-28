@@ -30,6 +30,8 @@ import {
   FolderOpen,
   ArrowUpRight,
   ShieldCheck,
+  Copy,
+  Check,
 } from "lucide-react";
 
 export default function ParentDashboardPage() {
@@ -39,6 +41,7 @@ export default function ParentDashboardPage() {
   const [error, setError] = useState("");
   const [overview, setOverview] = useState<any>(null);
   const [selectedStudentId, setSelectedStudentId] = useState<string>("");
+  const [copiedLink, setCopiedLink] = useState(false);
 
   // Modals
   const [counselorModalOpen, setCounselorModalOpen] = useState(false);
@@ -170,6 +173,22 @@ export default function ParentDashboardPage() {
   };
   const isPlatformCounselor = counselor?.is_platform;
 
+  const handleCopyStudentLink = () => {
+    if (!activeChild) return;
+    const code = activeChild.access_id || activeChild.id;
+    let url = "";
+    if (typeof window !== "undefined") {
+      if (activeChild.school_code) {
+        url = `${window.location.origin}/student/login?school=${activeChild.school_code}&accessId=${code}`;
+      } else {
+        url = `${window.location.origin}/student/login?code=${code}`;
+      }
+      navigator.clipboard.writeText(url);
+      setCopiedLink(true);
+      setTimeout(() => setCopiedLink(false), 2500);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background flex flex-col antialiased">
       {/* Header Bar */}
@@ -243,6 +262,19 @@ export default function ParentDashboardPage() {
           </section>
         ) : (
           <>
+            {/* Non-Clinical Snapshot Disclaimer Banner (Document 1, Section 6 & 15) */}
+            <div className="rounded-xl border border-sky-500/30 bg-sky-500/10 p-4 flex items-start gap-3.5 text-sky-950 dark:text-sky-200 shadow-2xs">
+              <ShieldCheck className="h-5 w-5 text-sky-600 dark:text-sky-400 shrink-0 mt-0.5" />
+              <div className="space-y-0.5">
+                <p className="text-xs font-semibold text-foreground">
+                  Non-Clinical Student Reflection Snapshot
+                </p>
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  This check-in is a snapshot of self-reported experiences, not a clinical assessment. Use it to understand patterns, not to label.
+                </p>
+              </div>
+            </div>
+
             {/* Top Child Identity & Action Header */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div>
@@ -262,6 +294,11 @@ export default function ParentDashboardPage() {
                       Independent Study
                     </Badge>
                   )}
+                  {activeChild.access_id && (
+                    <Badge variant="secondary" className="font-mono text-xs px-2 py-0.5">
+                      Passcode: {activeChild.access_id}
+                    </Badge>
+                  )}
                 </div>
                 <p className="text-sm text-muted-foreground mt-1 flex items-center gap-3 flex-wrap">
                   <span>Welcome back, <span className="font-medium text-foreground">{overview.parent_name || "Parent"}</span></span>
@@ -272,6 +309,25 @@ export default function ParentDashboardPage() {
 
               {/* Quick Actions Bar */}
               <div className="flex items-center gap-2 flex-wrap">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleCopyStudentLink}
+                  className="text-xs h-8 gap-1.5 border-emerald-500/30 bg-emerald-500/5 hover:bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 font-medium cursor-pointer shadow-2xs"
+                  title="Copy direct check-in link for student"
+                >
+                  {copiedLink ? (
+                    <>
+                      <Check className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
+                      <span>Link Copied!</span>
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
+                      <span>Copy Check-in Link</span>
+                    </>
+                  )}
+                </Button>
                 <Button
                   variant="outline"
                   size="sm"
@@ -333,6 +389,77 @@ export default function ParentDashboardPage() {
                   }
                 }}
               />
+            </section>
+
+            {/* How to Use This Snapshot Guidance (Document 1, Section 6) */}
+            <section className="space-y-4">
+              <div className="rounded-xl border border-border/70 bg-card p-6 relative overflow-hidden transition-all shadow-xs space-y-5">
+                <div className="flex flex-wrap items-center justify-between pb-3 border-b border-border/40 gap-3">
+                  <div className="flex items-center gap-2.5">
+                    <div className="p-2 rounded-xl bg-primary/10 text-primary">
+                      <Sparkles className="h-4 w-4" />
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-bold text-foreground">
+                        How to Use This Snapshot at Home
+                      </h3>
+                      <p className="text-xs text-muted-foreground">
+                        Constructive, non-evaluative family practices for adolescent development.
+                      </p>
+                    </div>
+                  </div>
+                  <Badge variant="outline" className="text-[10px] font-mono text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border-emerald-500/20">
+                    Constructive Guidance
+                  </Badge>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* One Conversation to Start */}
+                  <div className="p-4 rounded-xl bg-sky-500/5 border border-sky-500/20 space-y-2.5">
+                    <span className="text-xs font-bold text-sky-700 dark:text-sky-300 flex items-center gap-1.5">
+                      <MessageSquare className="h-3.5 w-3.5" />
+                      One Conversation to Start
+                    </span>
+                    <blockquote className="text-xs text-foreground italic border-l-2 border-sky-500/40 pl-3 py-0.5 leading-relaxed">
+                      &ldquo;I noticed this may feel different in different situations. Does that sound right to you?&rdquo;
+                    </blockquote>
+                    <p className="text-[11px] text-muted-foreground leading-relaxed">
+                      Use open curiosity instead of interrogation. Invite {preferredName} to share which subjects or times of day feel most in flow versus high effort.
+                    </p>
+                  </div>
+
+                  {/* What This Does NOT Mean */}
+                  <div className="p-4 rounded-xl bg-muted/40 border border-border/60 space-y-2">
+                    <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                      <ShieldCheck className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
+                      What This Does NOT Mean
+                    </span>
+                    <ul className="text-[11px] text-muted-foreground space-y-1 leading-relaxed list-disc list-inside">
+                      <li><strong className="text-foreground font-medium">Not a clinical diagnosis:</strong> Does not label conditions or disorders.</li>
+                      <li><strong className="text-foreground font-medium">Not a fixed capability:</strong> Self-reports fluctuate with sleep, stress, and exams.</li>
+                      <li><strong className="text-foreground font-medium">Not a scorecard:</strong> There are no pass/fail marks or student rankings.</li>
+                    </ul>
+                  </div>
+                </div>
+
+                {/* Safety & Counselor Boundary */}
+                <div className="p-3.5 rounded-xl bg-muted/20 border border-border/40 flex items-center justify-between text-xs text-muted-foreground flex-wrap gap-2">
+                  <div className="flex items-center gap-2">
+                    <HeartHandshake className="h-4 w-4 text-sky-500 shrink-0" />
+                    <span className="text-[11px]">
+                      <strong>Safety boundary:</strong> If you have concerns about emotional wellbeing, consult the school counselor or a qualified health professional.
+                    </span>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => setCounselorModalOpen(true)}
+                    className="text-xs h-7 text-sky-600 dark:text-sky-400 hover:text-sky-700 hover:bg-sky-500/10 cursor-pointer font-medium"
+                  >
+                    Contact Counselor
+                  </Button>
+                </div>
+              </div>
             </section>
 
             {/* Direct Counselor & Care Support Row */}

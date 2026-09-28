@@ -14,12 +14,15 @@ import { CenteringBreath } from "@/components/assessment/centering-breath";
 import { JourneyTimeline } from "@/components/assessment/journey-timeline";
 import { ScenarioCard } from "@/components/assessment/scenario-card";
 import { ReflectionSnack } from "@/components/assessment/reflection-snack";
+import { AssessmentScenery } from "@/components/assessment/assessment-scenery";
+import { useAssessmentTheme } from "@/lib/assessment-theme";
 import { playCompletionSound } from "@/lib/assessment-sound";
 
 export default function StudentAssessmentPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user, logout, loading: authLoading } = useAuth();
+  const { currentThemeId } = useAssessmentTheme();
   
   // Steps: 'testSelect' | 'instructions' | 'moodCheck' | 'countdown' | 'assessment'
   const [flowStep, setFlowStep] = useState<"testSelect" | "instructions" | "moodCheck" | "countdown" | "assessment">("instructions");
@@ -244,21 +247,30 @@ export default function StudentAssessmentPage() {
   const isAllAnswered = Object.keys(answers).length === questionsList.length;
 
   return (
-    <div className="min-h-screen flex flex-col bg-background relative overflow-x-hidden selection:bg-primary/20">
-      <div className="absolute top-6 right-6 z-40 flex items-center gap-2">
+    <div className="h-screen max-h-screen overflow-hidden flex flex-col justify-between bg-background relative selection:bg-primary/20">
+      {/* Dynamic Animated Scenery, Mascots & Ambient Foliage */}
+      <AssessmentScenery
+        themeId={currentThemeId}
+        questionIndex={currentIdx}
+        totalQuestions={questionsList.length || 1}
+        selectedAnswer={answers[currentIdx]}
+        isCompleted={Boolean(selectedAssessment?.isCompleted || isAllAnswered)}
+      />
+
+      <div className="absolute top-4 right-4 z-40 flex items-center gap-2">
         <ThemeToggle />
         <Button
           variant="ghost"
           size="sm"
           onClick={() => logout("/student/login")}
-          className="text-xs text-muted-foreground hover:text-destructive gap-1.5 h-9 px-2.5 cursor-pointer"
+          className="text-xs text-muted-foreground hover:text-destructive gap-1.5 h-8 px-2.5 cursor-pointer"
         >
           <LogOut className="h-3.5 w-3.5" />
           <span>Exit</span>
         </Button>
       </div>
 
-      <div className="flex-1 flex items-center justify-center p-4 sm:p-6 my-auto">
+      <div className="flex-1 flex flex-col items-center justify-center p-2 sm:p-3 my-auto w-full relative z-20 overflow-hidden">
         <AnimatePresence mode="wait">
           
           {/* STEP 1: INSTRUCTIONS */}
@@ -268,16 +280,16 @@ export default function StudentAssessmentPage() {
               initial={{ opacity: 0, y: 15 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -15 }}
-              className="w-full max-w-xl"
+              className="w-full max-w-2xl mx-auto"
             >
-              <Card className="border shadow-sm">
-                <CardContent className="p-8 sm:p-10 space-y-6 text-center">
-                  <div className="h-16 w-16 bg-primary/10 text-primary rounded-full flex items-center justify-center mx-auto shadow-xs">
-                    <Sparkles className="h-8 w-8 text-primary" />
+              <Card id="assessment-main-card" className="border shadow-sm">
+                <CardContent className="p-6 sm:p-8 space-y-5 text-center">
+                  <div className="h-14 w-14 bg-primary/10 text-primary rounded-full flex items-center justify-center mx-auto shadow-xs">
+                    <Sparkles className="h-7 w-7 text-primary" />
                   </div>
                   <div>
                     <h1 className="text-2xl font-semibold tracking-tight">Welcome, {user?.name}!</h1>
-                    <p className="text-sm text-muted-foreground mt-1">
+                    <p className="text-xs text-muted-foreground mt-1">
                       {selectedAssessment.title} • {questionsList.length} items
                     </p>
                   </div>
@@ -286,7 +298,7 @@ export default function StudentAssessmentPage() {
                     This is a confidential space to share how you're experiencing school life. There are no right or wrong answers.
                   </p>
 
-                  <div className="space-y-3 bg-muted/40 p-4 rounded-xl text-xs text-muted-foreground text-left border">
+                  <div className="space-y-2.5 bg-muted/40 p-4 rounded-xl text-xs text-muted-foreground text-left border">
                     <div className="flex gap-2">
                       <span className="font-semibold text-foreground">1.</span>
                       <span>Read each statement and pick what best describes you.</span>
@@ -301,7 +313,7 @@ export default function StudentAssessmentPage() {
                     </div>
                   </div>
 
-                  <label className="flex items-center justify-center gap-3 cursor-pointer pt-2">
+                  <label className="flex items-center justify-center gap-3 cursor-pointer pt-1">
                     <input
                       type="checkbox"
                       checked={consentChecked}
@@ -317,7 +329,7 @@ export default function StudentAssessmentPage() {
                     size="lg"
                     disabled={!consentChecked}
                     onClick={() => setFlowStep("moodCheck")}
-                    className="w-full h-11 text-sm font-medium"
+                    className="w-full h-10 text-sm font-medium"
                   >
                     Continue to Mood Check
                   </Button>
@@ -333,21 +345,22 @@ export default function StudentAssessmentPage() {
               initial={{ opacity: 0, y: 15 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -15 }}
-              className="w-full max-w-xl"
+              className="w-full max-w-5xl xl:max-w-6xl mx-auto"
             >
               <Card className="border shadow-sm">
-                <CardContent className="p-6 sm:p-9 space-y-6">
+                <CardContent className="p-5 sm:p-7 space-y-4">
                   <MindWeatherCheck
                     value={mindWeather}
                     onChange={setMindWeather}
                   />
 
-                  <div className="flex gap-3 pt-4 border-t">
-                    <Button variant="outline" onClick={() => setFlowStep("instructions")}>
+                  <div className="flex gap-3 pt-3 border-t">
+                    <Button variant="outline" size="sm" onClick={() => setFlowStep("instructions")} className="h-9 px-4">
                       Back
                     </Button>
                     <Button
-                      className="flex-1 shadow-sm"
+                      size="sm"
+                      className="flex-1 shadow-sm h-9"
                       disabled={!mindWeather.weather || !mindWeather.energyLevel || !mindWeather.sleepQuality}
                       onClick={() => setFlowStep("countdown")}
                     >
@@ -366,7 +379,7 @@ export default function StudentAssessmentPage() {
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 1.05 }}
-              className="w-full max-w-md text-center"
+              className="w-full max-w-md text-center mx-auto"
             >
               <Card className="border shadow-sm p-6 sm:p-8 bg-card">
                 <CardContent className="p-0">
@@ -382,7 +395,7 @@ export default function StudentAssessmentPage() {
               key="assessment"
               initial={{ opacity: 0, y: 15 }}
               animate={{ opacity: 1, y: 0 }}
-              className="w-full max-w-2xl space-y-5"
+              className="w-full max-w-xl lg:max-w-2xl mx-auto space-y-2"
             >
               {/* Journey Timeline Station Bar */}
               <JourneyTimeline

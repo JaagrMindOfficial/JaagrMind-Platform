@@ -14,7 +14,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             <main className="flex-1 overflow-y-auto">
               <div className="h-12 border-b flex items-center justify-between px-4 sticky top-0 z-20 bg-background/80 backdrop-blur-sm">
                 <SidebarTrigger />
-                <ThemeToggle />
+                <div className="flex items-center gap-3">
+                  <ThemeToggle />
+                </div>
               </div>
               <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto">
                 {children}

@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -19,12 +20,18 @@ import {
   Building2,
   Home,
   Search,
-  Filter
+  Filter,
+  Copy,
+  ArrowUpRight,
+  History,
+  Presentation,
 } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { AssessmentEditorDialog, AssessmentFormData } from "@/components/assessment-editor-dialog"
 import { AssignSchoolsDialog } from "@/components/assign-schools-dialog"
+import { GenerateCheckinLinkDialog } from "@/components/admin/generate-checkin-link-dialog"
+import { ADMIN_AVAILABLE_THEMES, useAssessmentTheme } from "@/lib/assessment-theme"
 import { api } from "@/lib/api"
 
 interface Assessment {
@@ -51,6 +58,20 @@ export default function AdminAssessmentsPage() {
   const [searchQuery, setSearchQuery] = useState("")
   const [channelFilter, setChannelFilter] = useState<"all" | "schools" | "parents" | "specific">("all")
   const [statusFilter, setStatusFilter] = useState<"all" | "active" | "draft">("all")
+  const [copiedCheckin, setCopiedCheckin] = useState(false)
+
+  // Atmosphere Theme State
+  const { currentThemeId, theme, setThemeId } = useAssessmentTheme()
+  const [isThemeSettingsOpen, setIsThemeSettingsOpen] = useState(false)
+
+  // Generate Random Check-in Link Dialog State
+  const [isGenerateLinkOpen, setIsGenerateLinkOpen] = useState(false)
+  const [selectedAssessmentForLink, setSelectedAssessmentForLink] = useState<Assessment | undefined>(undefined)
+
+  const handleOpenGenerateLink = (a?: Assessment) => {
+    setSelectedAssessmentForLink(a)
+    setIsGenerateLinkOpen(true)
+  }
 
   // Editor Dialog State
   const [isEditorOpen, setIsEditorOpen] = useState(false)
@@ -213,6 +234,62 @@ export default function AdminAssessmentsPage() {
         <Button size="sm" onClick={handleOpenCreate}>
           <Plus className="mr-1.5 h-3.5 w-3.5" /> Create Check-in
         </Button>
+      </div>
+
+      {/* Dynamic Random Check-in Link Generator Card */}
+      <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/5 py-2.5 px-4 sm:px-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-2xs">
+        <div className="space-y-0.5">
+          <div className="flex items-center gap-2">
+            <span className="font-semibold text-sm text-foreground flex items-center gap-1.5">
+              <Sparkles className="h-4 w-4 text-emerald-500" />
+              Generate Random Check-in Link
+            </span>
+            <Badge variant="outline" className="text-[10px] px-2 py-0.5 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 font-medium">
+              Unique Per Candidate
+            </Badge>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Create secure, randomized check-in links for cohorts with automatic report delivery.
+          </p>
+        </div>
+        <div className="flex items-center gap-2 w-full sm:w-auto shrink-0 flex-wrap">
+          <Link href="/facilitator">
+            <Button
+              size="sm"
+              variant="outline"
+              className="text-xs gap-1.5 border-primary/40 text-primary hover:bg-primary/10 cursor-pointer"
+            >
+              <Presentation className="h-3.5 w-3.5" />
+              <span>Workshop Mode</span>
+            </Button>
+          </Link>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => handleOpenGenerateLink(undefined)}
+            className="text-xs gap-1.5 border-emerald-500/40 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-500/10 cursor-pointer"
+          >
+            <History className="h-3.5 w-3.5" />
+            <span>Active Links</span>
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setIsThemeSettingsOpen(true)}
+            className="text-xs gap-1.5 border-emerald-500/40 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-500/10 cursor-pointer"
+          >
+            <span>{theme.iconName}</span>
+            <span>Theme: {theme.name}</span>
+          </Button>
+          <Button
+            size="sm"
+            onClick={() => handleOpenGenerateLink(undefined)}
+            className="text-xs gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer shadow-xs"
+          >
+            <Sparkles className="h-3.5 w-3.5" />
+            <span>Generate Link</span>
+          </Button>
+        </div>
       </div>
 
       {/* Search and Channel Filters */}
@@ -419,6 +496,14 @@ export default function AdminAssessmentsPage() {
                     <Button 
                       variant="outline" 
                       size="sm" 
+                      onClick={() => handleOpenGenerateLink(a)}
+                      className="text-xs h-8 text-emerald-700 dark:text-emerald-300 border-emerald-500/40 hover:bg-emerald-500/10 font-medium col-span-2 gap-1.5 cursor-pointer"
+                    >
+                      <Sparkles className="h-3.5 w-3.5 text-emerald-500" /> Generate Direct Link
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
                       onClick={() => openAssignModal(a)}
                       className="text-xs h-8 text-primary border-primary/30 hover:bg-primary/10 hover:text-primary font-medium col-span-2"
                     >
@@ -531,6 +616,88 @@ export default function AdminAssessmentsPage() {
         onSuccess={() => fetchAssessments()}
         assessment={assigningAssessment}
       />
+
+      {/* Generate Random Check-in Link Dialog */}
+      <GenerateCheckinLinkDialog
+        open={isGenerateLinkOpen}
+        onOpenChange={setIsGenerateLinkOpen}
+        assessments={assessments}
+        defaultAssessmentId={selectedAssessmentForLink?.id}
+      />
+
+      {/* Platform Default Check-in Theme Settings Dialog */}
+      <Dialog open={isThemeSettingsOpen} onOpenChange={setIsThemeSettingsOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-base">
+              <Sparkles className="h-4 w-4 text-emerald-500" />
+              <span>Default Check-in Scenery &amp; Atmosphere</span>
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              Select the atmosphere theme for all student check-ins and generated links. Students will experience animated scenery, mascots, and styling based on your selection (they cannot change this theme).
+            </p>
+            <div className="space-y-2.5">
+              {ADMIN_AVAILABLE_THEMES.map((th) => (
+                <div
+                  key={th.id}
+                  onClick={() => setThemeId(th.id)}
+                  className={`p-3.5 rounded-2xl border-2 transition-all cursor-pointer flex items-center justify-between ${
+                    currentThemeId === th.id
+                      ? "border-emerald-500 bg-emerald-500/5 shadow-xs"
+                      : "border-border/60 hover:border-border hover:bg-muted/30"
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <span className="text-2xl">{th.iconName}</span>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-bold text-foreground">{th.name}</span>
+                        {currentThemeId === th.id && (
+                          <Badge variant="outline" className="text-[10px] bg-emerald-500/10 text-emerald-600 border-emerald-500/30">
+                            Active Default
+                          </Badge>
+                        )}
+                      </div>
+                      <p className="text-[11px] text-muted-foreground mt-0.5">{th.subtitle}</p>
+                    </div>
+                  </div>
+                  <div className={`w-7 h-7 rounded-full border-2 flex items-center justify-center ${
+                    currentThemeId === th.id
+                      ? "border-emerald-500 bg-emerald-500 text-white"
+                      : "border-border"
+                  }`}>
+                    {currentThemeId === th.id && <CheckCircle2 className="h-3.5 w-3.5" />}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="pt-2 flex justify-between items-center border-t">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-xs"
+                onClick={() => setIsThemeSettingsOpen(false)}
+              >
+                Close
+              </Button>
+              <Button
+                size="sm"
+                className="text-xs gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer"
+                onClick={() => {
+                  setIsThemeSettingsOpen(false)
+                  window.open(`/preview/assessment/default?theme=${currentThemeId}`, "_blank")
+                }}
+              >
+                <Eye className="h-3.5 w-3.5" />
+                <span>Live Preview Theme</span>
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

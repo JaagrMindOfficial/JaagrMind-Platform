@@ -21,7 +21,9 @@ import {
   Phone,
   CheckCircle,
   BarChart3,
-  Sparkles
+  Sparkles,
+  Copy,
+  ArrowUpRight
 } from "lucide-react"
 import Link from "next/link"
 import { useTheme } from "next-themes"
@@ -247,6 +249,8 @@ export default function AdminDashboardPage() {
           </Link>
         </div>
       </div>
+
+
 
       {/* Top 6 KPI Metric Cards in 3x2 Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">

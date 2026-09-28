@@ -22,8 +22,11 @@ import {
   Layers, 
   Search,
   Home,
-  Building2
+  Building2,
+  Palette,
+  ExternalLink
 } from "lucide-react"
+import { ADMIN_AVAILABLE_THEMES, AssessmentThemeId, useAssessmentTheme } from "@/lib/assessment-theme"
 
 export interface QuestionOption {
   label: string
@@ -63,6 +66,8 @@ export interface AssessmentFormData {
   publish_to_schools?: boolean
   publish_to_parents?: boolean
   auto_assign_schools?: boolean
+  custom_sections?: any
+  theme?: AssessmentThemeId
 }
 
 interface AssessmentEditorDialogProps {
@@ -98,6 +103,7 @@ export function AssessmentEditorDialog({
   initialData,
   onSave,
 }: AssessmentEditorDialogProps) {
+  const { currentThemeId, setThemeId } = useAssessmentTheme()
   const [mode, setMode] = useState<"visual" | "json">("visual")
   const [activeTab, setActiveTab] = useState<"questions" | "settings" | "buckets">("questions")
   const [sectionFilter, setSectionFilter] = useState("ALL")
@@ -121,6 +127,7 @@ export function AssessmentEditorDialog({
     publish_to_schools: true,
     publish_to_parents: true,
     auto_assign_schools: true,
+    theme: "duo-green",
   })
 
   const [jsonText, setJsonText] = useState("")
@@ -191,6 +198,8 @@ export function AssessmentEditorDialog({
       publish_to_schools: initialData?.publish_to_schools ?? true,
       publish_to_parents: initialData?.publish_to_parents ?? true,
       auto_assign_schools: initialData?.auto_assign_schools ?? true,
+      custom_sections: initialData?.custom_sections,
+      theme: (initialData?.theme || initialData?.custom_sections?.theme || currentThemeId || "duo-green") as AssessmentThemeId,
     }
 
     setFormData(data)
@@ -201,7 +210,7 @@ export function AssessmentEditorDialog({
     setActiveTab("questions")
     setSectionFilter("ALL")
     setSearchQuery("")
-  }, [open, initialData])
+  }, [open, initialData, currentThemeId])
 
   function getSectionName(code: string): string {
     const found = DEFAULT_SECTIONS.find(s => s.code === code)
@@ -243,6 +252,8 @@ export function AssessmentEditorDialog({
         publish_to_schools: parsed.publish_to_schools ?? formData.publish_to_schools,
         publish_to_parents: parsed.publish_to_parents ?? formData.publish_to_parents,
         auto_assign_schools: parsed.auto_assign_schools ?? formData.auto_assign_schools,
+        custom_sections: parsed.custom_sections || formData.custom_sections,
+        theme: (parsed.theme || parsed.custom_sections?.theme || formData.theme || "duo-green") as AssessmentThemeId,
       })
       setJsonError(null)
       setMode("visual")
@@ -464,10 +475,20 @@ export function AssessmentEditorDialog({
       return
     }
 
+    const finalTheme = currentData.theme || "duo-green"
+    const payload: AssessmentFormData = {
+      ...currentData,
+      theme: finalTheme,
+      custom_sections: {
+        ...(typeof currentData.custom_sections === "object" && currentData.custom_sections !== null ? currentData.custom_sections : {}),
+        theme: finalTheme,
+      },
+    }
+
     setValidationErrors([])
     setSaving(true)
     try {
-      await onSave(currentData)
+      await onSave(payload)
       onOpenChange(false)
     } catch (err: any) {
       console.error(err)
@@ -506,8 +527,22 @@ export function AssessmentEditorDialog({
             </div>
           </div>
 
-          {/* Mode Switcher Buttons */}
+          {/* Theme Quick Indicator & Mode Switcher Buttons */}
           <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                if (mode !== "visual") handleSwitchToVisual()
+                setActiveTab("settings")
+              }}
+              title="Click to configure theme in Settings"
+              className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-xs bg-muted/40 hover:bg-muted/80 border-border/80 transition-colors cursor-pointer"
+            >
+              <Palette className="h-3 w-3 text-muted-foreground" />
+              <span>{ADMIN_AVAILABLE_THEMES.find(t => t.id === formData.theme)?.iconName || "🌿"}</span>
+              <span className="font-medium text-foreground">{ADMIN_AVAILABLE_THEMES.find(t => t.id === formData.theme)?.name || "Nature Garden"}</span>
+            </button>
+
             <div className="flex items-center p-0.5 rounded-lg border bg-muted/40">
               <Button
                 type="button"
@@ -567,13 +602,14 @@ export function AssessmentEditorDialog({
                 <button
                   type="button"
                   onClick={() => setActiveTab("settings")}
-                  className={`pb-1 border-b-2 transition-colors ${
+                  className={`pb-1 border-b-2 transition-colors flex items-center gap-1.5 ${
                     activeTab === "settings" 
                       ? "border-primary text-primary font-semibold" 
                       : "border-transparent text-muted-foreground hover:text-foreground"
                   }`}
                 >
-                  Assessment Settings & Timers
+                  <Palette className="h-3 w-3" />
+                  <span>Atmosphere Theme &amp; Settings</span>
                 </button>
                 <button
                   type="button"
@@ -847,6 +883,77 @@ export function AssessmentEditorDialog({
                           Active (Visible to schools and available for assignment)
                         </label>
                       </div>
+                    </div>
+                  </div>
+
+                  {/* Theme / Atmosphere Configuration */}
+                  <div className="space-y-3 border-t pt-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                          <Palette className="h-3.5 w-3.5 text-emerald-500" />
+                          Check-in Atmosphere &amp; Scenery Theme
+                        </h3>
+                        <p className="text-[11px] text-muted-foreground mt-0.5">
+                          Select the visual atmosphere, animated companions, and color tones experienced during this check-in.
+                        </p>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="text-[11px] h-7 gap-1 border-emerald-500/30 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/10 cursor-pointer"
+                        onClick={() => {
+                          window.open(`/preview/assessment/${formData.id || "default"}?theme=${formData.theme || "duo-green"}`, "_blank")
+                        }}
+                      >
+                        <ExternalLink className="h-3 w-3" />
+                        <span>Preview Theme</span>
+                      </Button>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      {ADMIN_AVAILABLE_THEMES.map((th) => {
+                        const isSelected = (formData.theme || "duo-green") === th.id
+                        return (
+                          <div
+                            key={th.id}
+                            onClick={() => {
+                              setFormData({
+                                ...formData,
+                                theme: th.id,
+                                custom_sections: {
+                                  ...(typeof formData.custom_sections === "object" && formData.custom_sections !== null ? formData.custom_sections : {}),
+                                  theme: th.id,
+                                },
+                              })
+                              setThemeId(th.id)
+                            }}
+                            className={`p-3.5 rounded-xl border-2 text-left cursor-pointer transition-all flex flex-col justify-between ${
+                              isSelected
+                                ? "border-emerald-500 bg-emerald-500/10 ring-2 ring-emerald-500/20 shadow-xs"
+                                : "border-border/70 hover:border-border hover:bg-muted/40"
+                            }`}
+                          >
+                            <div className="flex items-start justify-between gap-2">
+                              <span className="text-2xl">{th.iconName}</span>
+                              <div className={`w-5 h-5 rounded-full border flex items-center justify-center ${
+                                isSelected ? "border-emerald-600 bg-emerald-600 text-white" : "border-border bg-background"
+                              }`}>
+                                {isSelected && <CheckCircle2 className="h-3 w-3" />}
+                              </div>
+                            </div>
+                            <div className="mt-2.5">
+                              <div className="font-bold text-xs text-foreground flex items-center gap-1.5">
+                                {th.name}
+                              </div>
+                              <div className="text-[11px] text-muted-foreground mt-0.5 leading-snug">
+                                {th.subtitle}
+                              </div>
+                            </div>
+                          </div>
+                        )
+                      })}
                     </div>
                   </div>
 

@@ -97,6 +97,27 @@ func (r *postgresStudent) GetByAccessID(ctx context.Context, schoolID, accessID 
 	return &s, nil
 }
 
+func (r *postgresStudent) GetByDirectCode(ctx context.Context, code string) (*domain.Student, error) {
+	code = strings.TrimSpace(code)
+	if code == "" {
+		return nil, fmt.Errorf("access code is required")
+	}
+
+	var s domain.Student
+	err := r.db.QueryRow(ctx, `
+		SELECT id, COALESCE(school_id::text, ''), access_id, COALESCE(roll_number, ''), COALESCE(stream, ''), name, grade, COALESCE(section, ''), COALESCE(mobile_number, ''), COALESCE(email, ''), COALESCE(academic_year, '2025-2026'), is_active, created_at
+		FROM students
+		WHERE access_id ILIKE $1 OR id::text = $1
+		LIMIT 1
+	`, code).Scan(
+		&s.ID, &s.SchoolID, &s.AccessID, &s.RollNumber, &s.Stream, &s.Name, &s.Grade, &s.Section, &s.MobileNumber, &s.Email, &s.AcademicYear, &s.IsActive, &s.CreatedAt,
+	)
+	if err != nil {
+		return nil, err
+	}
+	return &s, nil
+}
+
 func (r *postgresStudent) GetByClassAndRoll(ctx context.Context, schoolID, grade, section, rollNumber, stream string) (*domain.Student, error) {
 	cleanGrade := strings.TrimSpace(grade)
 	cleanSection := strings.ToUpper(strings.TrimSpace(section))

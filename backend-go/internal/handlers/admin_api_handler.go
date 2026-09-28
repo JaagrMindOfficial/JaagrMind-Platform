@@ -1,43 +1,48 @@
 package handlers
 
 import (
+	"crypto/rand"
 	"fmt"
+	"os"
 	"strings"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/gofiber/fiber/v3"
 	"github.com/jaagrmind/platform-api/internal/core/domain"
+	"github.com/jaagrmind/platform-api/internal/middleware"
 	"github.com/jaagrmind/platform-api/internal/utils"
 )
 
 type AdminAPIHandler struct {
-	schoolRepo    domain.SchoolRepository
-	studentRepo   domain.StudentRepository
-	assessRepo    domain.AssessmentRepository
-	ticketRepo    domain.TicketRepository
-	analyticsRepo domain.AnalyticsRepository
-	userRepo      domain.UserRepository
-	guideRepo     domain.GuideRepository
-	eventRepo     domain.EventRepository
-	parentRepo    domain.ParentRepository
-	authSvc       domain.AuthService
-	emailSvc      utils.EmailService
+	schoolRepo      domain.SchoolRepository
+	studentRepo     domain.StudentRepository
+	assessRepo      domain.AssessmentRepository
+	checkinLinkRepo domain.CheckinLinkRepository
+	ticketRepo      domain.TicketRepository
+	analyticsRepo   domain.AnalyticsRepository
+	userRepo        domain.UserRepository
+	guideRepo       domain.GuideRepository
+	eventRepo       domain.EventRepository
+	parentRepo      domain.ParentRepository
+	authSvc         domain.AuthService
+	emailSvc        utils.EmailService
 }
 
-func SetupAdminAPIRoutes(app fiber.Router, schoolRepo domain.SchoolRepository, studentRepo domain.StudentRepository, assessRepo domain.AssessmentRepository, ticketRepo domain.TicketRepository, analyticsRepo domain.AnalyticsRepository, userRepo domain.UserRepository, guideRepo domain.GuideRepository, eventRepo domain.EventRepository, parentRepo domain.ParentRepository, authSvc domain.AuthService, emailSvc utils.EmailService) {
+func SetupAdminAPIRoutes(app fiber.Router, schoolRepo domain.SchoolRepository, studentRepo domain.StudentRepository, assessRepo domain.AssessmentRepository, checkinLinkRepo domain.CheckinLinkRepository, ticketRepo domain.TicketRepository, analyticsRepo domain.AnalyticsRepository, userRepo domain.UserRepository, guideRepo domain.GuideRepository, eventRepo domain.EventRepository, parentRepo domain.ParentRepository, authSvc domain.AuthService, emailSvc utils.EmailService) {
 	handler := &AdminAPIHandler{
-		schoolRepo:    schoolRepo,
-		studentRepo:   studentRepo,
-		assessRepo:    assessRepo,
-		ticketRepo:    ticketRepo,
-		analyticsRepo: analyticsRepo,
-		userRepo:      userRepo,
-		guideRepo:     guideRepo,
-		eventRepo:     eventRepo,
-		parentRepo:    parentRepo,
-		authSvc:       authSvc,
-		emailSvc:      emailSvc,
+		schoolRepo:      schoolRepo,
+		studentRepo:     studentRepo,
+		assessRepo:      assessRepo,
+		checkinLinkRepo: checkinLinkRepo,
+		ticketRepo:      ticketRepo,
+		analyticsRepo:   analyticsRepo,
+		userRepo:        userRepo,
+		guideRepo:       guideRepo,
+		eventRepo:       eventRepo,
+		parentRepo:      parentRepo,
+		authSvc:         authSvc,
+		emailSvc:        emailSvc,
 	}
 
 	// Parent Inquiries (JaagrMind & School Inquiries)
@@ -88,6 +93,11 @@ func SetupAdminAPIRoutes(app fiber.Router, schoolRepo domain.SchoolRepository, s
 	app.Delete("/assessments/:id", handler.DeleteAssessment)
 	app.Get("/assessments/:id/schools", handler.GetAssessmentSchools)
 	app.Post("/assessments/:id/assign-schools", handler.AssignAssessmentToSchools)
+
+	// Check-in Direct Links (Random Link Generation & Management)
+	app.Get("/checkin-links", handler.GetCheckinLinks)
+	app.Post("/checkin-links", handler.CreateCheckinLink)
+	app.Delete("/checkin-links/:id", handler.DeleteCheckinLink)
 
 	// Tickets
 	app.Get("/tickets", handler.GetTickets)
@@ -1607,6 +1617,120 @@ func (h *AdminAPIHandler) DeleteAdminCounselor(c fiber.Ctx) error {
 		"message": "Counselor removed successfully and access revoked",
 	})
 }
+
+// ── Direct Check-in Links Management (Random Token Generation) ─────────────
+
+func generateRandomCheckinCode() string {
+	const charset = "23456789abcdefghjkmnpqrstuvwxyz"
+	b := make([]byte, 8)
+	_, _ = rand.Read(b)
+	for i := range b {
+		b[i] = charset[int(b[i])%len(charset)]
+	}
+	return "chk_" + string(b)
+}
+
+func (h *AdminAPIHandler) GetCheckinLinks(c fiber.Ctx) error {
+	if h.checkinLinkRepo == nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Checkin link repository not initialized"})
+	}
+
+	links, err := h.checkinLinkRepo.GetAll(c.Context())
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+	}
+
+	frontendURL := os.Getenv("FRONTEND_BASE_URL")
+	if frontendURL == "" {
+		frontendURL = "http://localhost:3000"
+	}
+	frontendURL = strings.TrimRight(frontendURL, "/")
+
+	for i := range links {
+		links[i].FullURL = fmt.Sprintf("%s/checkin/%s", frontendURL, links[i].Code)
+	}
+
+	return c.JSON(links)
+}
+
+func (h *AdminAPIHandler) CreateCheckinLink(c fiber.Ctx) error {
+	if h.checkinLinkRepo == nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"message": "Checkin link repository not initialized"})
+	}
+
+	var req domain.CreateCheckinLinkRequest
+	if err := c.Bind().Body(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"message": "Invalid request payload"})
+	}
+
+	code := generateRandomCheckinCode()
+	maxUses := req.MaxUses
+	if maxUses <= 0 {
+		maxUses = 1
+	}
+
+	var expiresAt *time.Time
+	if req.ExpiresInDays > 0 {
+		exp := time.Now().AddDate(0, 0, req.ExpiresInDays)
+		expiresAt = &exp
+	}
+
+	var assessID *string
+	if req.AssessmentID != "" {
+		assessID = &req.AssessmentID
+	}
+
+	adminID := middleware.ExtractUserID(c)
+	var createdBy *string
+	if adminID != "" {
+		createdBy = &adminID
+	}
+
+	link := domain.CheckinLink{
+		Code:           code,
+		AssessmentID:   assessID,
+		Label:          strings.TrimSpace(req.Label),
+		CandidateName:  strings.TrimSpace(req.CandidateName),
+		CandidateEmail: strings.TrimSpace(req.CandidateEmail),
+		CreatedBy:      createdBy,
+		ExpiresAt:      expiresAt,
+		MaxUses:        maxUses,
+		UseCount:       0,
+		Status:         "active",
+	}
+
+	created, err := h.checkinLinkRepo.Create(c.Context(), link)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"message": "Failed to create checkin link: " + err.Error()})
+	}
+
+	frontendURL := os.Getenv("FRONTEND_BASE_URL")
+	if frontendURL == "" {
+		frontendURL = "http://localhost:3000"
+	}
+	frontendURL = strings.TrimRight(frontendURL, "/")
+	created.FullURL = fmt.Sprintf("%s/checkin/%s", frontendURL, created.Code)
+
+	return c.Status(fiber.StatusCreated).JSON(created)
+}
+
+func (h *AdminAPIHandler) DeleteCheckinLink(c fiber.Ctx) error {
+	if h.checkinLinkRepo == nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"message": "Checkin link repository not initialized"})
+	}
+
+	id := c.Params("id")
+	if id == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"message": "ID is required"})
+	}
+
+	if err := h.checkinLinkRepo.Delete(c.Context(), id); err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"message": "Failed to delete checkin link"})
+	}
+
+	return c.JSON(fiber.Map{"message": "Checkin link deleted successfully"})
+}
+
 
 
 

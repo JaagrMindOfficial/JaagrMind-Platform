@@ -429,8 +429,27 @@ func AutoMigrate(ctx context.Context, db *pgxpool.Pool) error {
 			created_at TIMESTAMPTZ DEFAULT NOW()
 		);
 
+		-- ── 28. Check-in Links Table (Randomly Generated Direct Links) ──────────
+		CREATE TABLE IF NOT EXISTS checkin_links (
+			id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+			code TEXT UNIQUE NOT NULL,
+			assessment_id UUID REFERENCES assessments(id) ON DELETE SET NULL,
+			label TEXT DEFAULT '',
+			candidate_name TEXT DEFAULT '',
+			candidate_email TEXT DEFAULT '',
+			created_by UUID REFERENCES users(id) ON DELETE SET NULL,
+			expires_at TIMESTAMPTZ,
+			max_uses INTEGER DEFAULT 1,
+			use_count INTEGER DEFAULT 0,
+			status TEXT DEFAULT 'active',
+			last_used_at TIMESTAMPTZ,
+			created_at TIMESTAMPTZ DEFAULT NOW(),
+			updated_at TIMESTAMPTZ DEFAULT NOW()
+		);
+
 		-- ── Incremental Column Migrations ──────────────────────────────────────
 		ALTER TABLE password_resets ADD COLUMN IF NOT EXISTS phone TEXT;
+		ALTER TABLE student_results ADD COLUMN IF NOT EXISTS checkin_link_code TEXT;
 
 		CREATE TABLE IF NOT EXISTS cached_analytics (
 			key TEXT PRIMARY KEY,

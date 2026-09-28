@@ -22,6 +22,7 @@ type EmailService interface {
 	SendInquiryMeetingScheduledEmail(toEmail, parentName, studentName, counselorName, meetingDate, meetingTime, meetingLink string) error
 	SendTicketUpdateEmail(toEmail, ticketSubject, status, responseNotes string) error
 	SendTestEmail(toEmail, subject, content string) error
+	SendDirectAssessmentReportEmail(toEmail, recipientName, skillName, patternText, contextText, activityTitle, activityInstruction, activityDesc string) error
 }
 
 type resendEmailService struct {
@@ -557,3 +558,62 @@ func (s *resendEmailService) SendSchoolProvisionedEmail(toEmail, schoolName, adm
 	}
 	return nil
 }
+
+func (s *resendEmailService) SendDirectAssessmentReportEmail(toEmail, recipientName, skillName, patternText, contextText, activityTitle, activityInstruction, activityDesc string) error {
+	name := strings.TrimSpace(recipientName)
+	if name == "" {
+		name = "there"
+	}
+
+	htmlBody := fmt.Sprintf(`
+		<div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; padding: 28px; color: #1e293b; background-color: #ffffff; border-radius: 12px; border: 1px solid #e2e8f0; line-height: 1.6;">
+			<div style="margin-bottom: 24px; border-bottom: 1px solid #f1f5f9; padding-bottom: 16px;">
+				<h2 style="color: #0f172a; margin: 0 0 6px 0; font-size: 22px; font-weight: 700;">Jaagr Mind • Personal Reflection</h2>
+				<p style="color: #64748b; font-size: 14px; margin: 0;">A gentle, non-clinical snapshot of your everyday patterns</p>
+			</div>
+
+			<p style="font-size: 15px; margin-top: 0;">Hello %s,</p>
+			<p style="font-size: 15px; color: #334155;">
+				Thank you for taking the time to complete your Jaagr Mind reflection check-in. Here is something you might notice about yourself:
+			</p>
+
+			<div style="margin: 20px 0; padding: 20px; background-color: #f8fafc; border-left: 4px solid #0284c7; border-radius: 8px;">
+				<div style="font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: #0284c7; margin-bottom: 8px;">What You Might Notice</div>
+				<p style="font-size: 15px; color: #1e293b; margin: 0 0 12px 0;"><strong>%s</strong></p>
+				<p style="font-size: 14px; color: #475569; margin: 0;">%s</p>
+			</div>
+
+			<div style="margin: 20px 0; padding: 20px; background-color: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px;">
+				<div style="font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: #16a34a; margin-bottom: 6px;">Skill to Explore: %s</div>
+				<p style="font-size: 14px; color: #166534; margin: 0 0 10px 0;">This could be a useful skill to explore. You don’t need to be good at it already.</p>
+				<div style="background-color: #ffffff; padding: 12px 16px; border-radius: 6px; border: 1px solid #dcfce7;">
+					<div style="font-weight: 600; font-size: 14px; color: #14532d;">Try This 2-Minute Practice: %s</div>
+					<p style="font-size: 13px; color: #334155; margin: 4px 0 0 0;">%s — %s</p>
+				</div>
+			</div>
+
+			<p style="font-size: 14px; color: #64748b; font-style: italic; margin-top: 24px;">
+				"There’s nothing to fix here. This is simply a chance to notice what works for you and try something new."
+			</p>
+
+			<div style="margin-top: 32px; padding-top: 16px; border-top: 1px solid #e2e8f0; font-size: 12px; color: #94a3b8; line-height: 1.5;">
+				<strong>Important Note:</strong> This reflection is not therapy, diagnosis, personality testing, or a measure of mental health. It does not label you or prescribe treatment. If you are concerned about your wellbeing or safety, please reach out to a trusted professional or support service.
+			</div>
+		</div>
+	`, name, patternText, contextText, skillName, activityTitle, activityInstruction, activityDesc)
+
+	params := &resend.SendEmailRequest{
+		From:    s.from,
+		To:      []string{toEmail},
+		Subject: "Your Jaagr Mind Personal Reflection & Recommended Practice",
+		Html:    htmlBody,
+	}
+
+	_, err := s.client.Emails.Send(params)
+	if err != nil {
+		fmt.Printf("[RESEND-ERROR] Failed to send direct assessment report email to %s: %v\n", toEmail, err)
+		return err
+	}
+	return nil
+}
+

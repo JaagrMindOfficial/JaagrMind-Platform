@@ -85,6 +85,7 @@ type StudentRepository interface {
 	GetByID(ctx context.Context, id string) (*Student, error)
 	GetBySchool(ctx context.Context, schoolID string) ([]Student, error)
 	GetByAccessID(ctx context.Context, schoolID, accessID string) (*Student, error)
+	GetByDirectCode(ctx context.Context, code string) (*Student, error)
 	GetByClassAndRoll(ctx context.Context, schoolID, grade, section, rollNumber, stream string) (*Student, error)
 	Create(ctx context.Context, schoolID string, req CreateStudentRequest) (*Student, error)
 	Update(ctx context.Context, id string, req CreateStudentRequest) (*Student, error)

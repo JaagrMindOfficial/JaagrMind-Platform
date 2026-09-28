@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { useAuth } from "@/context/auth-context";
 import { api } from "@/lib/api";
-import { BookOpen, LogOut, Sparkles, CheckCircle2, Compass, ArrowRight } from "lucide-react";
+import { BookOpen, LogOut, CheckCircle2, Compass, ArrowRight } from "lucide-react";
 import { MindWeatherCheck, type MindWeatherState } from "@/components/assessment/mind-weather-check";
 import { CenteringBreath } from "@/components/assessment/centering-breath";
 import { JourneyTimeline } from "@/components/assessment/journey-timeline";
@@ -309,6 +309,20 @@ export default function StudentAssessmentPage() {
         isCompleted={Boolean(selectedAssessment?.isCompleted || isAllAnswered)}
       />
 
+      {/* Upper Left JM Brand Logo - Submerged Brand Mark */}
+      <div className="absolute top-4 left-5 sm:left-7 z-40 flex items-center pointer-events-none select-none">
+        <img
+          src="/JM-Dark.svg"
+          alt="JaagrMind"
+          className="h-8 sm:h-9 w-auto object-contain dark:hidden opacity-85 transition-opacity drop-shadow-xs"
+        />
+        <img
+          src="/JM-White.svg"
+          alt="JaagrMind"
+          className="h-8 sm:h-9 w-auto object-contain hidden dark:block opacity-85 transition-opacity drop-shadow-[0_2px_12px_rgba(129,97,163,0.35)]"
+        />
+      </div>
+
       <div className="absolute top-4 right-4 z-40 flex items-center gap-2">
         <ThemeToggle />
         <Button
@@ -334,10 +348,11 @@ export default function StudentAssessmentPage() {
               exit={{ opacity: 0, y: -15 }}
               className="w-full max-w-2xl mx-auto"
             >
-              <Card id="assessment-main-card" className="border shadow-sm">
+              <Card id="assessment-instructions-card" className="border shadow-sm">
                 <CardContent className="p-6 sm:p-8 space-y-5 text-center">
-                  <div className="h-14 w-14 bg-primary/10 text-primary rounded-full flex items-center justify-center mx-auto shadow-xs">
-                    <Sparkles className="h-7 w-7 text-primary" />
+                  <div className="h-14 w-14 rounded-2xl bg-slate-100 dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700/80 flex items-center justify-center mx-auto shadow-xs p-3">
+                    <img src="/JM-Dark.svg" alt="JaagrMind" className="h-full w-auto object-contain dark:hidden" />
+                    <img src="/JM-White.svg" alt="JaagrMind" className="h-full w-auto object-contain hidden dark:block" />
                   </div>
                   <div>
                     <h1 className="text-2xl font-semibold tracking-tight">Welcome, {user?.name}!</h1>

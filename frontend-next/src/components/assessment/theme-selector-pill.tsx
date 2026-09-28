@@ -1,13 +1,20 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Sparkles, Palette } from "lucide-react";
+import { Palette, Leaf, Wind, Sun } from "lucide-react";
 import { useState } from "react";
 import {
   useAssessmentTheme,
   ASSESSMENT_THEMES,
   type AssessmentThemeId,
 } from "@/lib/assessment-theme";
+
+function ThemeIconRender({ id, className = "h-3.5 w-3.5" }: { id: AssessmentThemeId; className?: string }) {
+  if (id === "duo-green") return <Leaf className={`${className} text-[#58cc02]`} />;
+  if (id === "spark-blue") return <Wind className={`${className} text-[#1cb0f6]`} />;
+  if (id === "sunny-amber") return <Sun className={`${className} text-[#ff9600]`} />;
+  return <Leaf className={`${className} text-[#58cc02]`} />;
+}
 
 export function ThemeSelectorPill() {
   const { currentThemeId, setThemeId } = useAssessmentTheme();
@@ -24,7 +31,7 @@ export function ThemeSelectorPill() {
         className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border-2 border-b-3 border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-bold text-slate-700 dark:text-slate-200 shadow-xs cursor-pointer hover:border-slate-400 active:border-b-2 active:translate-y-[1px] transition-all"
         title="Change Playful Assessment Theme"
       >
-        <span>{activeConfig.iconName}</span>
+        <ThemeIconRender id={activeConfig.id} className="h-3.5 w-3.5 shrink-0" />
         <span className="hidden sm:inline font-mono">{activeConfig.name}</span>
         <Palette className="h-3 w-3 text-muted-foreground ml-0.5" />
       </motion.button>
@@ -61,7 +68,7 @@ export function ThemeSelectorPill() {
                   }`}
                 >
                   <div className="flex items-center gap-2">
-                    <span className="text-sm">{theme.iconName}</span>
+                    <ThemeIconRender id={theme.id} className="h-3.5 w-3.5 shrink-0" />
                     <span>{theme.name}</span>
                   </div>
                   <span

@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import { motion } from "framer-motion";
-import { Sparkles, ArrowRight } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { playStepSound } from "@/lib/assessment-sound";
@@ -47,8 +47,9 @@ export function ReflectionSnack({
     >
       <Card className="border shadow-md text-center p-6 sm:p-10 bg-card">
         <CardContent className="space-y-6">
-          <div className="h-14 w-14 rounded-2xl bg-primary/10 text-primary mx-auto flex items-center justify-center shadow-inner">
-            <Sparkles className="h-7 w-7" />
+          <div className="h-14 w-14 rounded-2xl bg-purple-500/10 border border-purple-500/20 mx-auto flex items-center justify-center p-3 shadow-xs">
+            <img src="/JM-Dark.svg" alt="JaagrMind" className="h-full w-auto object-contain dark:hidden" />
+            <img src="/JM-White.svg" alt="JaagrMind" className="h-full w-auto object-contain hidden dark:block" />
           </div>
 
           <div className="space-y-3">

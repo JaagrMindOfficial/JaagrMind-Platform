@@ -6,7 +6,8 @@ import {
   CheckCircle2,
   ChevronLeft,
   ChevronRight,
-  Sparkles,
+  Award,
+  Compass,
   Loader2,
   AlertCircle,
   Lightbulb,
@@ -85,7 +86,7 @@ export function ScenarioCard({
       return {
         label: "FOCUS & ATTENTION",
         icon: Target,
-        badgeClass: "bg-sky-500/10 text-sky-600 dark:text-sky-400 border-sky-500/20",
+        badgeClass: "bg-sky-500/10 text-sky-600 dark:text-sky-300 border-sky-500/20 dark:border-sky-500/40 dark:bg-sky-950/40",
         activeBorder: "border-sky-500 ring-2 ring-sky-500/20",
         activeBg: "bg-sky-500/5 dark:bg-sky-500/10",
         bubbleActive: "bg-sky-500 border-sky-500",
@@ -94,8 +95,8 @@ export function ScenarioCard({
     } else if (sec === "B" || name.includes("confidence") || name.includes("grounding")) {
       return {
         label: "INNER CONFIDENCE",
-        icon: Sparkles,
-        badgeClass: "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20",
+        icon: Award,
+        badgeClass: "bg-amber-500/10 text-amber-600 dark:text-amber-300 border-amber-500/20 dark:border-amber-500/40 dark:bg-amber-950/40",
         activeBorder: "border-amber-500 ring-2 ring-amber-500/20",
         activeBg: "bg-amber-500/5 dark:bg-amber-500/10",
         bubbleActive: "bg-amber-500 border-amber-500",
@@ -105,7 +106,7 @@ export function ScenarioCard({
       return {
         label: "SOCIAL INTERACTION",
         icon: Users,
-        badgeClass: "bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20",
+        badgeClass: "bg-rose-500/10 text-rose-600 dark:text-rose-300 border-rose-500/20 dark:border-rose-500/40 dark:bg-rose-950/40",
         activeBorder: "border-rose-500 ring-2 ring-rose-500/20",
         activeBg: "bg-rose-500/5 dark:bg-rose-500/10",
         bubbleActive: "bg-rose-500 border-rose-500",
@@ -115,7 +116,7 @@ export function ScenarioCard({
       return {
         label: "HEALTHY DIGITAL HABITS",
         icon: Smartphone,
-        badgeClass: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20",
+        badgeClass: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-300 border-emerald-500/20 dark:border-emerald-500/40 dark:bg-emerald-950/40",
         activeBorder: "border-emerald-500 ring-2 ring-emerald-500/20",
         activeBg: "bg-emerald-500/5 dark:bg-emerald-500/10",
         bubbleActive: "bg-emerald-500 border-emerald-500",
@@ -184,7 +185,7 @@ export function ScenarioCard({
       className="w-full"
     >
       {/* Duolingo-inspired chunky 3D sticker container */}
-      <Card id="assessment-main-card" className="border-2 border-b-[5px] border-slate-200 dark:border-slate-800 border-b-slate-300 dark:border-b-slate-700 rounded-3xl overflow-hidden flex flex-col justify-between bg-card w-full shadow-sm transition-all">
+      <Card id="assessment-main-card" data-assessment-main-card="true" className="border-2 border-b-[5px] border-slate-200 dark:border-slate-800 border-b-slate-300 dark:border-b-slate-700 rounded-3xl overflow-hidden flex flex-col justify-between bg-white dark:bg-slate-900/95 w-full shadow-lg transition-all">
         <CardContent className="p-3.5 sm:p-4 space-y-2 sm:space-y-2.5 flex-1 flex flex-col justify-center">
           {/* Header Metadata & Reassurance Tip */}
           <div className="space-y-1.5 text-left">
@@ -195,26 +196,26 @@ export function ScenarioCard({
                   <span>{domainTheme.label}</span>
                 </div>
                 {question.phase && (
-                  <Badge variant="outline" className="text-[10px] font-semibold bg-muted/40 border-2 border-slate-200 dark:border-slate-700 rounded-lg px-2 py-0 text-foreground">
+                  <Badge variant="outline" className="text-[10px] font-semibold bg-slate-100 dark:bg-slate-800 border-2 border-slate-200 dark:border-slate-700 rounded-lg px-2 py-0 text-slate-700 dark:text-slate-200">
                     {question.phase}
                   </Badge>
                 )}
               </div>
 
-              <span className="text-[11px] font-mono font-semibold text-muted-foreground bg-muted/50 px-2 py-0.5 rounded-md border border-border/50">
+              <span className="text-[11px] font-mono font-bold text-slate-600 dark:text-slate-200 bg-slate-100 dark:bg-slate-800 px-2.5 py-1 rounded-md border border-slate-200 dark:border-slate-700">
                 Question {questionIndex + 1} of {totalQuestions}
               </span>
             </div>
 
             {/* Reassurance Tip Callout - Compact Duolingo sticker banner */}
-            <div className="py-1.5 px-3 rounded-xl bg-amber-500/10 border-2 border-b-3 border-amber-500/25 flex items-center gap-2 text-[11px] text-amber-900 dark:text-amber-200 font-medium">
-              <Lightbulb className="h-3.5 w-3.5 text-amber-500 shrink-0" />
+            <div className="py-2 px-3.5 rounded-xl bg-amber-500/10 dark:bg-amber-950/40 border-2 border-b-3 border-amber-500/25 dark:border-amber-500/35 flex items-center gap-2 text-[11px] text-amber-900 dark:text-amber-200 font-medium">
+              <Lightbulb className="h-4 w-4 text-amber-500 dark:text-amber-400 shrink-0" />
               <span>There are no right or wrong answers — just your honest experience.</span>
             </div>
 
             {/* Statement Text - 2 to 3 lines cleanly */}
             <div className="pt-0.5">
-              <h2 className="text-base sm:text-lg font-bold tracking-tight text-foreground leading-snug line-clamp-3">
+              <h2 className="text-base sm:text-lg font-bold tracking-tight text-slate-900 dark:text-white leading-snug line-clamp-3">
                 <span className="font-mono mr-2" style={{ color: theme.primary }}>{questionIndex + 1}.</span>
                 {question.text}
               </h2>
@@ -224,16 +225,16 @@ export function ScenarioCard({
           {/* Friendly Guidance Hint - Tactile Buttony Capsule Box matching Theme Color */}
           <div className="w-full pt-1 pb-0.5 flex items-center justify-center">
             <div
-              className="inline-flex items-center gap-2.5 px-5 py-1.5 rounded-full border-2 border-b-[3.5px] shadow-xs select-none transition-all duration-300"
+              className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border-2 border-b-[3px] shadow-xs select-none transition-all duration-300 bg-primary/10 dark:bg-slate-800/90"
               style={{
                 borderColor: theme.primary,
                 borderBottomColor: theme.primaryDark,
-                backgroundColor: `color-mix(in srgb, ${theme.primary} 22%, var(--background))`,
               }}
             >
-              <span className="text-base leading-none">
-                ✨
-              </span>
+              <Compass
+                className="h-4 w-4 shrink-0 transition-transform group-hover:scale-110"
+                style={{ color: theme.primary }}
+              />
               <span className="text-xs sm:text-[13px] font-bold tracking-tight text-slate-900 dark:text-slate-100">
                 Choose what feels most true for you
               </span>
@@ -265,7 +266,7 @@ export function ScenarioCard({
                       className={`w-11 h-11 sm:w-13 sm:h-13 rounded-full flex items-center justify-center text-sm sm:text-base font-extrabold transition-all cursor-pointer relative select-none ${
                         isSelected
                           ? `${theme.activeRadioClass} scale-105 active:translate-y-[2px] active:border-b-2`
-                          : "border-2 border-b-4 border-slate-200 dark:border-slate-700 border-b-slate-300 dark:border-b-slate-600 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:border-slate-300 dark:hover:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-750 active:border-b-2 active:translate-y-[2px]"
+                          : "border-2 border-b-4 border-slate-200 dark:border-slate-700 border-b-slate-300 dark:border-b-slate-600 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-100 hover:border-slate-300 dark:hover:border-slate-500 hover:bg-slate-50 dark:hover:bg-slate-750 active:border-b-2 active:translate-y-[2px]"
                       } ${isKeyActive ? `ring-4 ${theme.ringColor} scale-105` : ""}`}
                     >
                       {/* Top subtle shine bubble for 3D sticker look */}
@@ -279,8 +280,8 @@ export function ScenarioCard({
                     <div className="mt-1.5 space-y-0.5 max-w-[115px]">
                       <p className={`text-[11px] sm:text-xs leading-tight transition-colors line-clamp-2 ${
                         isSelected
-                          ? "font-bold text-foreground"
-                          : "font-semibold text-slate-700 dark:text-slate-200 group-hover:text-foreground"
+                          ? "font-bold text-slate-900 dark:text-white"
+                          : "font-semibold text-slate-700 dark:text-slate-200 group-hover:text-slate-900 dark:group-hover:text-white"
                       }`}>
                         {opt.label}
                       </p>
@@ -307,7 +308,7 @@ export function ScenarioCard({
               <button
                 type="button"
                 onClick={() => setShowNoteInput(true)}
-                className="text-[11px] text-slate-600 dark:text-slate-300 hover:text-foreground flex items-center gap-1.5 cursor-pointer font-semibold transition-colors px-2 py-0.5 rounded-lg hover:bg-muted/50"
+                className="text-[11px] text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white flex items-center gap-1.5 cursor-pointer font-semibold transition-colors px-2 py-0.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800"
               >
                 <MessageSquare className="h-3 w-3 text-slate-500 dark:text-slate-400" />
                 <span>Want to add context?</span>
@@ -349,7 +350,7 @@ export function ScenarioCard({
         )}
 
         {/* Footer Navigation with Duolingo 3D Pressable Buttons */}
-        <div className="border-t-2 border-slate-200/80 dark:border-slate-800 py-2.5 px-4 sm:px-6 flex justify-between items-center bg-muted/20">
+        <div className="border-t-2 border-slate-200/80 dark:border-slate-800 py-2.5 px-4 sm:px-6 flex justify-between items-center bg-slate-50/80 dark:bg-slate-950/70">
           <Button
             variant="outline"
             size="sm"
@@ -358,14 +359,14 @@ export function ScenarioCard({
               playStepSound();
               onPrev();
             }}
-            className="text-xs h-9 px-4 rounded-xl border-2 border-b-4 border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 active:border-b-2 active:translate-y-[2px] font-bold cursor-pointer transition-all"
+            className="text-xs h-9 px-4 rounded-xl border-2 border-b-4 border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 active:border-b-2 active:translate-y-[2px] font-bold cursor-pointer transition-all disabled:opacity-40 disabled:cursor-not-allowed"
           >
             <ChevronLeft className="h-4 w-4 mr-1" /> Previous
           </Button>
 
           <div className="hidden sm:flex items-center gap-2 text-[10px] text-slate-600 dark:text-slate-300 font-mono font-medium">
             <span>Press</span>
-            <kbd className="px-1.5 py-0.5 rounded bg-muted border-2 border-b-3 border-slate-300 dark:border-slate-700 text-[9px] font-bold text-foreground">Enter</kbd>
+            <kbd className="px-1.5 py-0.5 rounded bg-white dark:bg-slate-800 border-2 border-b-3 border-slate-300 dark:border-slate-600 text-[9px] font-bold text-slate-800 dark:text-slate-100">Enter</kbd>
             <span>{isLastQuestion ? "to finish & submit" : "to continue"} • Or press 1–4</span>
           </div>
 
@@ -376,10 +377,10 @@ export function ScenarioCard({
                 playStepSound();
                 onNext();
               }}
-              className={`h-9 px-5 text-xs font-bold rounded-xl min-w-[150px] cursor-pointer transition-all uppercase tracking-wider flex items-center justify-center gap-2 ${
+              className={`h-9 px-5 text-xs font-bold rounded-xl min-w-[150px] transition-all uppercase tracking-wider flex items-center justify-center gap-2 ${
                 selectedIndex === undefined || isSubmitting
-                  ? "opacity-50 cursor-not-allowed bg-slate-300 dark:bg-slate-700 text-slate-500 border-2 border-slate-400"
-                  : theme.buttonClass
+                  ? "cursor-not-allowed bg-slate-200/90 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border-2 border-b-4 border-slate-300 dark:border-slate-700"
+                  : `${theme.buttonClass} cursor-pointer`
               }`}
             >
               {isSubmitting ? (
@@ -390,7 +391,7 @@ export function ScenarioCard({
               ) : (
                 <span className="flex items-center gap-1.5">
                   <span>Finish &amp; View Reflection</span>
-                  <Sparkles className="h-3.5 w-3.5" />
+                  <Award className="h-3.5 w-3.5" />
                 </span>
               )}
             </button>
@@ -401,10 +402,10 @@ export function ScenarioCard({
                 playStepSound();
                 onNext();
               }}
-              className={`h-9 px-5 text-xs font-bold rounded-xl min-w-[120px] cursor-pointer transition-all uppercase tracking-wider flex items-center justify-center gap-2 ${
+              className={`h-9 px-5 text-xs font-bold rounded-xl min-w-[120px] transition-all uppercase tracking-wider flex items-center justify-center gap-2 ${
                 selectedIndex === undefined || isSubmitting
-                  ? "opacity-50 cursor-not-allowed bg-slate-300 dark:bg-slate-700 text-slate-500 border-2 border-slate-400"
-                  : theme.buttonClass
+                  ? "cursor-not-allowed bg-slate-200/90 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border-2 border-b-4 border-slate-300 dark:border-slate-700"
+                  : `${theme.buttonClass} cursor-pointer`
               }`}
             >
               <span>Continue</span>

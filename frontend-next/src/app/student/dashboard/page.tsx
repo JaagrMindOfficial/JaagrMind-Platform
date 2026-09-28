@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { 
-  Sparkles, 
+  LayoutGrid, 
   Compass, 
   Play, 
   ArrowRight, 
@@ -97,7 +97,7 @@ export default function StudentDashboardPage() {
   };
 
   const bucketTabs = [
-    { key: "ALL", label: "All Activities", icon: Sparkles },
+    { key: "ALL", label: "All Activities", icon: LayoutGrid },
     { key: "ATTN_STABILITY", label: "Focus & Attention", icon: Brain },
     { key: "LOAD_REGULATION", label: "Calm & Reset", icon: Smile },
     { key: "SELF_SAFETY", label: "Inner Grounding", icon: Heart },
@@ -245,7 +245,7 @@ export default function StudentDashboardPage() {
         <div className="space-y-6 pt-4">
           <div className="space-y-1">
             <h2 className="text-xl font-bold tracking-tight text-foreground flex items-center gap-2">
-              <Sparkles className="h-5 w-5 text-amber-500" /> Jaagr Mind Practice Sanctuary
+              <Compass className="h-5 w-5 text-emerald-600 dark:text-emerald-400" /> Jaagr Mind Practice Sanctuary
             </h2>
             <p className="text-xs sm:text-sm text-muted-foreground">
               Optional 2-minute micro-practices to explore whenever you feel like it. No timer pressure, streaks, or scores.
@@ -327,7 +327,7 @@ export default function StudentDashboardPage() {
 
             <div className="p-6 rounded-2xl bg-primary/5 border border-primary/20 text-center space-y-4">
               <div className="h-16 w-16 mx-auto rounded-full bg-primary/10 flex items-center justify-center text-primary">
-                <Sparkles className="h-8 w-8 animate-pulse" />
+                <Compass className="h-8 w-8 text-primary" />
               </div>
               <p className="text-base font-medium text-foreground leading-relaxed">
                 "{activePracticeModal.instruction}"

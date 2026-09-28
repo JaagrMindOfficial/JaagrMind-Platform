@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Volume2, VolumeX, Check, Compass, Sparkles, BookOpen, Layers } from "lucide-react";
+import { Volume2, VolumeX, Check, Compass, Award, BookOpen, Layers } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { getSoundEnabled, setSoundEnabled } from "@/lib/assessment-sound";
 import { useState, useEffect } from "react";
@@ -17,7 +17,7 @@ interface JourneyTimelineProps {
 const PHASES = [
   { id: "notice", label: "Notice", subtitle: "Be aware of your actions", icon: Compass },
   { id: "reflect", label: "Reflect", subtitle: "Explore what feels true", icon: Layers },
-  { id: "takeaway", label: "Takeaway", subtitle: "Insights & next steps", icon: Sparkles },
+  { id: "takeaway", label: "Takeaway", subtitle: "Insights & next steps", icon: Award },
 ];
 
 export function JourneyTimeline({ currentIdx, totalCount, currentPhase }: JourneyTimelineProps) {
@@ -58,7 +58,7 @@ export function JourneyTimeline({ currentIdx, totalCount, currentPhase }: Journe
                     ? "bg-white dark:bg-slate-900 shadow-sm font-bold active:border-b-2 active:translate-y-[2px]"
                     : isDone
                     ? "bg-[#58cc02]/15 text-[#46a302] dark:text-[#58cc02] border-[#58cc02]/40 border-b-[#46a302] font-semibold"
-                    : "text-slate-600 dark:text-slate-300 bg-slate-100/90 dark:bg-slate-800/90 border-slate-200 dark:border-slate-700 border-b-slate-300 dark:border-b-slate-600 font-medium"
+                    : "text-slate-600 dark:text-slate-300 bg-slate-100/90 dark:bg-slate-900/80 border-slate-200 dark:border-slate-800 border-b-slate-300 dark:border-b-slate-700 font-medium"
                 }`}
                 style={
                   isActive
@@ -94,7 +94,7 @@ export function JourneyTimeline({ currentIdx, totalCount, currentPhase }: Journe
             size="sm"
             type="button"
             onClick={toggleSound}
-            className="h-8 px-2.5 text-xs text-slate-700 dark:text-slate-200 hover:text-foreground cursor-pointer rounded-xl border border-slate-200 dark:border-slate-700 hover:border-slate-300 bg-white/70 dark:bg-slate-800/70 font-semibold"
+            className="h-8 px-2.5 text-xs text-slate-700 dark:text-slate-200 hover:text-slate-900 dark:hover:text-white cursor-pointer rounded-xl border border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600 bg-white/70 dark:bg-slate-900/80 font-semibold"
             title={soundOn ? "Mute soothing sound" : "Enable soothing chime feedback"}
           >
             {soundOn ? (
@@ -111,13 +111,13 @@ export function JourneyTimeline({ currentIdx, totalCount, currentPhase }: Journe
 
       {/* Duolingo Capsule Progress Bar with Top Gloss Reflection */}
       <div className="space-y-1.5">
-        <div className="flex justify-between items-center text-[11px] font-bold text-slate-700 dark:text-slate-300">
+        <div className="flex justify-between items-center text-[11px] font-bold text-slate-800 dark:text-slate-100">
           <span className="tracking-wide">Question {currentIdx + 1} of {totalCount}</span>
-          <span className="font-mono text-primary bg-primary/10 px-2 py-0.5 rounded-full border border-primary/20">
+          <span className="font-mono text-primary dark:text-[#58cc02] bg-primary/10 dark:bg-[#58cc02]/20 px-2.5 py-0.5 rounded-full border border-primary/20 dark:border-[#58cc02]/30 font-bold">
             {progressPercent}% Complete
           </span>
         </div>
-        <div className="h-3.5 sm:h-4 w-full bg-slate-200/90 dark:bg-slate-800 rounded-full p-0.5 border-2 border-slate-300/80 dark:border-slate-700 shadow-inner overflow-hidden">
+        <div className="h-3.5 sm:h-4 w-full bg-slate-200/90 dark:bg-slate-900 rounded-full p-0.5 border-2 border-slate-300/80 dark:border-slate-800 shadow-inner overflow-hidden">
           <motion.div
             className="h-full rounded-full relative overflow-hidden shadow-xs transition-all"
             style={{

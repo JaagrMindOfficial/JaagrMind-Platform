@@ -9,7 +9,6 @@ import { Badge } from "@/components/ui/badge";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { api } from "@/lib/api";
 import { 
-  Sparkles, 
   Award, 
   Eye,
   X
@@ -178,6 +177,20 @@ export default function PreviewAssessmentPage() {
         </Button>
       </div>
 
+      {/* Upper Left JM Brand Logo - Submerged Brand Mark */}
+      <div className="absolute top-9 left-5 sm:left-7 z-40 flex items-center pointer-events-none select-none">
+        <img
+          src="/JM-Dark.svg"
+          alt="JaagrMind"
+          className="h-8 sm:h-9 w-auto object-contain dark:hidden opacity-85 transition-opacity drop-shadow-xs"
+        />
+        <img
+          src="/JM-White.svg"
+          alt="JaagrMind"
+          className="h-8 sm:h-9 w-auto object-contain hidden dark:block opacity-85 transition-opacity drop-shadow-[0_2px_12px_rgba(129,97,163,0.35)]"
+        />
+      </div>
+
       <div className="absolute top-10 right-4 z-40 flex items-center gap-2">
         <ThemeToggle />
       </div>
@@ -203,11 +216,12 @@ export default function PreviewAssessmentPage() {
               exit={{ opacity: 0, y: -15 }}
               className="w-full max-w-2xl lg:max-w-3xl mx-auto"
             >
-              <Card id="assessment-main-card" className="border shadow-sm">
+              <Card id="assessment-instructions-card" className="border shadow-sm">
                 <CardContent className="p-6 sm:p-8 space-y-5">
                   <div className="flex items-center gap-3">
-                    <div className="h-10 w-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
-                      <Sparkles className="h-5 w-5" />
+                    <div className="h-10 w-10 rounded-xl bg-slate-100 dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700/80 flex items-center justify-center p-2 shrink-0 shadow-xs">
+                      <img src="/JM-Dark.svg" alt="JaagrMind" className="h-full w-auto object-contain dark:hidden" />
+                      <img src="/JM-White.svg" alt="JaagrMind" className="h-full w-auto object-contain hidden dark:block" />
                     </div>
                     <div>
                       <h1 className="text-xl font-semibold tracking-tight">{assessment.title}</h1>

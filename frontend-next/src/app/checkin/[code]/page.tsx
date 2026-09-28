@@ -10,7 +10,6 @@ import { Badge } from "@/components/ui/badge";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { api } from "@/lib/api";
 import {
-  Sparkles,
   Award,
   ArrowRight,
   User,
@@ -20,6 +19,7 @@ import {
   Clock,
   ShieldCheck,
   Compass,
+  Lightbulb,
 } from "lucide-react";
 import { MindWeatherCheck, type MindWeatherState } from "@/components/assessment/mind-weather-check";
 import { CenteringBreath } from "@/components/assessment/centering-breath";
@@ -290,11 +290,19 @@ export default function DynamicCheckinPage() {
   return (
     <div className="h-screen max-h-screen overflow-hidden flex flex-col justify-between bg-background relative selection:bg-primary/20">
       {/* Top Header Bar */}
-      <div className="shrink-0 z-40 px-4 py-2 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <img src="/LightColorLogo.svg" alt="JaagrMind" className="h-7 w-auto dark:hidden" />
-          <img src="/DarkColorLogo.svg" alt="JaagrMind" className="h-7 w-auto hidden dark:block" />
-          <span className="text-xs font-semibold text-muted-foreground hidden sm:inline">• Candidate Check-in</span>
+      <div className="shrink-0 z-40 px-5 sm:px-7 py-3 flex items-center justify-between">
+        <div className="flex items-center gap-2 select-none">
+          <img
+            src="/JM-Dark.svg"
+            alt="JaagrMind"
+            className="h-8 sm:h-9 w-auto object-contain dark:hidden opacity-85 transition-opacity drop-shadow-xs"
+          />
+          <img
+            src="/JM-White.svg"
+            alt="JaagrMind"
+            className="h-8 sm:h-9 w-auto object-contain hidden dark:block opacity-85 transition-opacity drop-shadow-[0_2px_12px_rgba(129,97,163,0.35)]"
+          />
+          <span className="text-xs font-semibold text-muted-foreground/80 hidden sm:inline ml-1.5">• Candidate Check-in</span>
         </div>
         <div className="flex items-center gap-2">
           <ThemeToggle />
@@ -325,8 +333,9 @@ export default function DynamicCheckinPage() {
               <Card className="border shadow-sm">
                 <CardContent className="p-6 sm:p-8 space-y-5">
                   <div className="flex items-center gap-3">
-                    <div className="h-10 w-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
-                      <Sparkles className="h-5 w-5" />
+                    <div className="h-10 w-10 rounded-xl bg-slate-100 dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700/80 flex items-center justify-center p-2 shrink-0 shadow-xs">
+                      <img src="/JM-Dark.svg" alt="JaagrMind" className="h-full w-auto object-contain dark:hidden" />
+                      <img src="/JM-White.svg" alt="JaagrMind" className="h-full w-auto object-contain hidden dark:block" />
                     </div>
                     <div>
                       <h1 className="text-xl font-semibold tracking-tight">
@@ -563,8 +572,9 @@ export default function DynamicCheckinPage() {
                       <p className="text-xs text-muted-foreground leading-relaxed">
                         {recommendedActivity.description}
                       </p>
-                      <div className="p-2.5 rounded-lg bg-background border text-xs text-foreground font-medium">
-                        💡 {recommendedActivity.instruction}
+                      <div className="p-2.5 rounded-lg bg-background border text-xs text-foreground font-medium flex items-center gap-2">
+                        <Lightbulb className="h-4 w-4 text-amber-500 shrink-0" />
+                        <span>{recommendedActivity.instruction}</span>
                       </div>
                     </div>
                   )}

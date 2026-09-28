@@ -7,7 +7,7 @@ import {
   CloudRain,
   Zap,
   Moon,
-  Sparkles,
+  Smile,
   Coffee,
   Smartphone,
 } from "lucide-react";
@@ -71,7 +71,7 @@ const energyBars = [
 ];
 
 const sleepOptions = [
-  { id: "deep" as const, label: "Deep & Restful", note: "Woke recharged", icon: Sparkles, iconColor: "text-amber-500" },
+  { id: "deep" as const, label: "Deep & Restful", note: "Woke recharged", icon: Smile, iconColor: "text-amber-500" },
   { id: "average" as const, label: "Normal Sleep", note: "Steady waking", icon: Coffee, iconColor: "text-amber-600 dark:text-amber-400" },
   { id: "broken" as const, label: "Broken Sleep", note: "Woke up often", icon: Moon, iconColor: "text-indigo-500 dark:text-indigo-400" },
   { id: "late" as const, label: "Late Screen", note: "Slept very short", icon: Smartphone, iconColor: "text-sky-500" },

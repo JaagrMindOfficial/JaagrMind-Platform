@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/context/auth-context";
-import { CheckCircle2, Lightbulb, Sparkles } from "lucide-react";
+import { CheckCircle2, Lightbulb, Compass } from "lucide-react";
 
 export default function ThankYouPage() {
   const router = useRouter();
@@ -79,7 +79,7 @@ export default function ThankYouPage() {
             onClick={() => router.push("/student/dashboard")} 
             className="w-full sm:w-auto px-8 h-12 text-base font-semibold shadow-md bg-primary hover:bg-primary/90 text-primary-foreground gap-2"
           >
-            <Sparkles className="h-5 w-5" />
+            <Compass className="h-5 w-5" />
             View Reflection & Activities
           </Button>
           <Button 

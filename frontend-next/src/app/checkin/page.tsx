@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { ThemeToggle } from "@/components/theme-toggle"
-import { Sparkles, ArrowRight, KeyRound, ShieldCheck, Home } from "lucide-react"
+import { Compass, ArrowRight, KeyRound, ShieldCheck, Home } from "lucide-react"
 
 function CheckinRootContent() {
   const router = useRouter()
@@ -64,7 +64,7 @@ function CheckinRootContent() {
           <Card className="border shadow-lg rounded-2xl overflow-hidden">
             <div className="bg-gradient-to-r from-sky-500/10 via-indigo-500/10 to-teal-500/10 p-8 text-center space-y-3 border-b">
               <Badge variant="outline" className="bg-background/80 text-primary border-primary/20 px-3 py-1 text-xs font-medium">
-                <Sparkles className="h-3.5 w-3.5 mr-1" />
+                <Compass className="h-3.5 w-3.5 mr-1" />
                 Personalized Reflection
               </Badge>
               <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">

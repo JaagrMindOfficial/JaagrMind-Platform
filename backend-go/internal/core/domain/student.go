@@ -58,8 +58,9 @@ type StudentLoginResponse struct {
 		Logo     string `json:"logo"`
 		SchoolID string `json:"schoolId"`
 	} `json:"school"`
-	Role  string `json:"role"`
-	Token string `json:"token"`
+	Role         string `json:"role"`
+	Token        string `json:"token"`
+	HasCompleted bool   `json:"has_completed"`
 }
 
 type StudentWithSchool struct {

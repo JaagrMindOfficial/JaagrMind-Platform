@@ -185,16 +185,20 @@ func (h *StudentAPIHandler) StudentLogin(c fiber.Ctx) error {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"message": "Failed to generate token"})
 	}
 
+	results, _ := h.assessRepo.GetResultsByStudent(c.Context(), student.ID, "")
+	hasCompleted := len(results) > 0
+
 	res := domain.StudentLoginResponse{
-		ID:         student.ID,
-		AccessID:   student.AccessID,
-		RollNumber: student.RollNumber,
-		Stream:     student.Stream,
-		Name:       student.Name,
-		Class:      student.Grade,
-		Section:    student.Section,
-		Role:       "student",
-		Token:      token,
+		ID:           student.ID,
+		AccessID:     student.AccessID,
+		RollNumber:   student.RollNumber,
+		Stream:       student.Stream,
+		Name:         student.Name,
+		Class:        student.Grade,
+		Section:      student.Section,
+		Role:         "student",
+		Token:        token,
+		HasCompleted: hasCompleted,
 	}
 	if school != nil {
 		res.School.Name = school.Name
@@ -289,6 +293,10 @@ func (h *StudentAPIHandler) GetAssessment(c fiber.Ctx) error {
 	isCompleted := false
 	if studentID != "" {
 		results, _ := h.assessRepo.GetResultsByStudent(c.Context(), studentID, target.ID)
+		if len(results) == 0 {
+			// Also check if student has any completed results overall
+			results, _ = h.assessRepo.GetResultsByStudent(c.Context(), studentID, "")
+		}
 		for _, r := range results {
 			if r.Status != "archived" {
 				isCompleted = true

@@ -226,7 +226,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUserSessionCookies(data.token, studentUser);
     setUser(studentUser);
     
-    router.push("/student");
+    if (data.has_completed || data.hasCompleted) {
+      router.push("/student/dashboard");
+    } else {
+      router.push("/student");
+    }
   };
 
   const setAuthSession = useCallback((token: string, userData: User) => {

@@ -380,6 +380,26 @@ func (r *postgresAssessment) SubmitResult(ctx context.Context, result domain.Stu
 		origin = "school"
 	}
 
+	cleanSchoolID := result.SchoolID
+	if cleanSchoolID != "" {
+		var validSchoolID string
+		if err := r.db.QueryRow(ctx, `SELECT id::text FROM schools WHERE id = $1::uuid`, cleanSchoolID).Scan(&validSchoolID); err != nil {
+			cleanSchoolID = "" // School ID does not exist in schools table; set to NULL to prevent FK violation
+		}
+	}
+
+	cleanAssessID := result.AssessmentID
+	if cleanAssessID == "" || cleanAssessID == "default" {
+		_ = r.db.QueryRow(ctx, `SELECT id::text FROM assessments WHERE is_default = true LIMIT 1`).Scan(&cleanAssessID)
+	} else {
+		var validAssessID string
+		if err := r.db.QueryRow(ctx, `SELECT id::text FROM assessments WHERE id = $1::uuid`, cleanAssessID).Scan(&validAssessID); err != nil {
+			_ = r.db.QueryRow(ctx, `SELECT id::text FROM assessments WHERE is_default = true LIMIT 1`).Scan(&cleanAssessID)
+		} else {
+			cleanAssessID = validAssessID
+		}
+	}
+
 	_, err := r.db.Exec(ctx, `
 		INSERT INTO student_results (
 			student_id, school_id, assessment_id, status, total_score,
@@ -387,8 +407,8 @@ func (r *postgresAssessment) SubmitResult(ctx context.Context, result domain.Stu
 			assigned_bucket, answers, mood, time_taken, behavioral_diagnostics,
 			pathway_track_id, pathway_track_name, primary_bucket, secondary_bucket, is_balance_mode, origin
 		)
-		VALUES ($1, NULLIF($2, '')::uuid, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)
-	`, result.StudentID, result.SchoolID, result.AssessmentID, result.Status, result.TotalScore,
+		VALUES ($1, NULLIF($2, '')::uuid, $3::uuid, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)
+	`, result.StudentID, cleanSchoolID, cleanAssessID, result.Status, result.TotalScore,
 		sectionScoresJSON, sectionBucketsJSON, result.PrimarySkillArea, result.SecondarySkillArea,
 		result.AssignedBucket, answersJSON, moodJSON, result.TimeTaken, diagJSON,
 		result.PathwayTrackID, result.PathwayTrackName, result.PrimaryBucket, result.SecondaryBucket, result.IsBalanceMode, origin)

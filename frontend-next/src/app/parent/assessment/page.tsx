@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, Suspense } from "react";
+import { useState, useEffect, useRef, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { Card, CardContent } from "@/components/ui/card";
@@ -10,26 +10,27 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { useAuth } from "@/context/auth-context";
 import { api } from "@/lib/api";
 import {
-  BookOpen,
   ArrowLeft,
   Sparkles,
   CheckCircle2,
-  Trophy,
   Loader2,
-  ShieldCheck,
   AlertCircle,
+  Activity,
 } from "lucide-react";
 import { MindWeatherCheck, type MindWeatherState } from "@/components/assessment/mind-weather-check";
 import { CenteringBreath } from "@/components/assessment/centering-breath";
 import { JourneyTimeline } from "@/components/assessment/journey-timeline";
 import { ScenarioCard } from "@/components/assessment/scenario-card";
 import { ReflectionSnack } from "@/components/assessment/reflection-snack";
-import { playCompletionSound } from "@/lib/assessment-sound";
+import { AssessmentScenery } from "@/components/assessment/assessment-scenery";
+import { useAssessmentTheme } from "@/lib/assessment-theme";
+import { playCompletionSound, playSelectSound, playStepSound } from "@/lib/assessment-sound";
 
 function ParentAssessmentRunner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user, loading: authLoading } = useAuth();
+  const { currentThemeId } = useAssessmentTheme();
 
   const childId = searchParams.get("childId") || "";
   const testId = searchParams.get("test") || searchParams.get("assessmentId") || "";
@@ -56,12 +57,13 @@ function ParentAssessmentRunner() {
 
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState("");
   const [submissionResult, setSubmissionResult] = useState<{
-    score: number;
+    score?: number;
     assigned_bucket: string;
     message: string;
   } | null>(null);
-  const [countdownSeconds, setCountdownSeconds] = useState(4);
+  const answersRef = useRef<{ [key: number]: number }>({});
 
   // Authenticate parent
   useEffect(() => {
@@ -137,22 +139,36 @@ function ParentAssessmentRunner() {
   };
 
   const handleAnswerSelect = (optionIdx: number) => {
+    playSelectSound(optionIdx);
+    answersRef.current[currentIdx] = optionIdx;
     setAnswers((prev) => ({ ...prev, [currentIdx]: optionIdx }));
 
-    // Midway reflection break
-    const midpoint = Math.floor(questionsList.length / 2);
-    if (currentIdx + 1 === midpoint && currentIdx + 1 < questionsList.length && !showReflection) {
-      setShowReflection(true);
-    } else if (currentIdx < questionsList.length - 1) {
+    const nextIdx = currentIdx + 1;
+    const totalQ = questionsList.length > 0 ? questionsList.length : 32;
+
+    // Trigger pause at station checkpoints (every 8 questions) or midpoint
+    const isCheckpoint = (nextIdx === 8 || nextIdx === 16 || nextIdx === 24 || nextIdx === Math.floor(totalQ / 2));
+    if (isCheckpoint && nextIdx < totalQ && !showReflection) {
       setTimeout(() => {
-        setCurrentIdx((prev) => prev + 1);
+        setShowReflection(true);
       }, 250);
+    } else if (currentIdx < totalQ - 1) {
+      setTimeout(() => {
+        setCurrentIdx((prev) => Math.min(prev + 1, totalQ - 1));
+      }, 250);
+    } else {
+      // Last question: Auto-submit check-in seamlessly with keyboard or mouse selection
+      setTimeout(() => {
+        submitAssessment();
+      }, 350);
     }
   };
 
   const handleNext = () => {
-    if (currentIdx < questionsList.length - 1) {
-      setCurrentIdx((prev) => prev + 1);
+    playStepSound();
+    const totalQ = questionsList.length > 0 ? questionsList.length : 32;
+    if (currentIdx < totalQ - 1) {
+      setCurrentIdx((prev) => Math.min(prev + 1, totalQ - 1));
     } else {
       submitAssessment();
     }
@@ -160,7 +176,8 @@ function ParentAssessmentRunner() {
 
   const handlePrev = () => {
     if (currentIdx > 0) {
-      setCurrentIdx((prev) => prev - 1);
+      playStepSound();
+      setCurrentIdx((prev) => Math.max(0, prev - 1));
     }
   };
 
@@ -168,17 +185,19 @@ function ParentAssessmentRunner() {
     if (!selectedAssessment || submitting) return;
 
     setSubmitting(true);
+    setSubmitError("");
     playCompletionSound();
 
     try {
       const assessmentId =
-        selectedAssessment.id || selectedAssessment._id || selectedAssessment.assessmentId || testId;
+        selectedAssessment.id || selectedAssessment._id || selectedAssessment.assessmentId || testId || "default";
       const timeTaken = Math.max(30, Math.round((Date.now() - startTime) / 1000));
 
+      const mergedAnswers = { ...answers, ...answersRef.current };
       const formattedAnswers = questionsList.map((q, idx) => ({
         questionIndex: idx,
-        selectedOption: answers[idx] !== undefined ? answers[idx] : 0,
-        value: answers[idx] !== undefined ? answers[idx] + 1 : 1,
+        selectedOption: mergedAnswers[idx] !== undefined ? mergedAnswers[idx] : 0,
+        value: mergedAnswers[idx] !== undefined ? mergedAnswers[idx] + 1 : 1,
       }));
 
       const res = await api.post<{
@@ -194,26 +213,16 @@ function ParentAssessmentRunner() {
       });
 
       setSubmissionResult({
-        score: res?.score ?? 85,
+        score: res?.score,
         assigned_bucket: res?.assigned_bucket || "Skill Stable",
         message: res?.message || "Check-in completed successfully!",
       });
 
       setFlowStep("completed");
-
-      // Auto-redirect timer
-      let timeLeft = 4;
-      const timer = setInterval(() => {
-        timeLeft -= 1;
-        setCountdownSeconds(timeLeft);
-        if (timeLeft <= 0) {
-          clearInterval(timer);
-          router.push("/parent");
-        }
-      }, 1000);
     } catch (err: any) {
       console.error("Submission failed", err);
-      alert(err.message || "Check-in submission failed. Please try again.");
+      setSubmitError(err?.response?.data?.error || err?.response?.data?.message || err?.message || "Check-in submission failed. Please try again.");
+    } finally {
       setSubmitting(false);
     }
   };
@@ -246,18 +255,20 @@ function ParentAssessmentRunner() {
     );
   }
 
-  const currentQ = questionsList[currentIdx];
+  const totalCount = questionsList.length > 0 ? questionsList.length : 32;
+  const safeIdx = Math.min(Math.max(0, currentIdx), Math.max(0, questionsList.length - 1));
+  const currentQ = questionsList[safeIdx];
   const displayName = child?.name || "Your Child";
 
   return (
-    <div className="min-h-screen flex flex-col bg-background relative overflow-x-hidden selection:bg-primary/20">
+    <div className="h-screen max-h-screen overflow-hidden flex flex-col justify-between bg-background relative selection:bg-primary/20">
       {/* Top Header Bar */}
-      <div className="w-full max-w-4xl mx-auto px-4 pt-6 pb-2 flex items-center justify-between z-30">
+      <div className="shrink-0 z-40 px-4 py-2 flex items-center justify-between">
         <Button
           variant="ghost"
           size="sm"
           onClick={() => router.push("/parent")}
-          className="text-xs text-muted-foreground hover:text-foreground gap-1.5 cursor-pointer"
+          className="text-xs text-muted-foreground hover:text-foreground gap-1.5 cursor-pointer h-8 px-2.5"
         >
           <ArrowLeft className="h-4 w-4" />
           <span>Parent Dashboard</span>
@@ -273,7 +284,16 @@ function ParentAssessmentRunner() {
         </div>
       </div>
 
-      <div className="flex-1 flex items-center justify-center p-3 sm:p-5 lg:p-6 my-auto w-full">
+      {/* Dynamic Animated Scenery, Mascots & Ambient Foliage (Exact preview experience) */}
+      <AssessmentScenery
+        themeId={currentThemeId}
+        questionIndex={currentIdx}
+        totalQuestions={totalCount}
+        selectedAnswer={answers[currentIdx]}
+        isCompleted={flowStep === "completed"}
+      />
+
+      <div className="flex-1 flex flex-col items-center justify-center p-2 sm:p-3 my-auto w-full relative z-20 overflow-hidden">
         <AnimatePresence mode="wait">
           {/* STEP 1: INSTRUCTIONS */}
           {flowStep === "instructions" && (
@@ -282,7 +302,7 @@ function ParentAssessmentRunner() {
               initial={{ opacity: 0, y: 15 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -15 }}
-              className="w-full max-w-2xl mx-auto"
+              className="w-full max-w-2xl lg:max-w-3xl mx-auto"
             >
               <Card className="border shadow-sm">
                 <CardContent className="p-6 sm:p-8 space-y-5 text-center">
@@ -350,16 +370,16 @@ function ParentAssessmentRunner() {
               initial={{ opacity: 0, y: 15 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -15 }}
-              className="w-full max-w-5xl xl:max-w-6xl mx-auto"
+              className="w-full max-w-3xl lg:max-w-4xl mx-auto"
             >
               <Card className="border shadow-sm">
-                <CardContent className="p-5 sm:p-7 space-y-4">
+                <CardContent className="p-3.5 sm:p-4 space-y-3">
                   <MindWeatherCheck
                     value={mindWeather}
                     onChange={setMindWeather}
                   />
 
-                  <div className="flex gap-3 pt-3 border-t">
+                  <div className="flex gap-3 pt-2.5 border-t">
                     <Button variant="outline" size="sm" onClick={() => setFlowStep("instructions")} className="h-9 px-4">
                       Back
                     </Button>
@@ -394,28 +414,28 @@ function ParentAssessmentRunner() {
             </motion.div>
           )}
 
-          {/* STEP 4: ASSESSMENT QUESTIONS */}
+          {/* STEP 4: ASSESSMENT QUESTIONS (Matching Preview Layout & Width) */}
           {flowStep === "assessment" && currentQ && (
             <motion.div
               key="assessment"
               initial={{ opacity: 0, y: 15 }}
               animate={{ opacity: 1, y: 0 }}
-              className="w-full max-w-4xl lg:max-w-5xl xl:max-w-6xl mx-auto space-y-3.5"
+              className="w-full max-w-2xl lg:max-w-3xl mx-auto space-y-2"
             >
               {/* Journey Timeline Station Bar */}
               <JourneyTimeline
                 currentIdx={currentIdx}
-                totalCount={questionsList.length}
+                totalCount={totalCount}
                 currentPhase={currentQ.phase}
               />
 
-              {/* Reflection Snack or Scenario Card */}
+              {/* In-Between Pause Reflection Window or Scenario Card */}
               {showReflection ? (
                 <ReflectionSnack
-                  title={`Checkpoint • Station ${Math.min(4, Math.floor((currentIdx / questionsList.length) * 4) + 1)}`}
+                  title={`Checkpoint • Station ${Math.min(4, Math.floor((currentIdx / totalCount) * 4) + 1)}`}
                   onContinue={() => {
                     setShowReflection(false);
-                    if (currentIdx < questionsList.length - 1) {
+                    if (currentIdx < totalCount - 1) {
                       setCurrentIdx((prev) => prev + 1);
                     }
                   }}
@@ -424,29 +444,30 @@ function ParentAssessmentRunner() {
                 <ScenarioCard
                   question={currentQ}
                   questionIndex={currentIdx}
-                  totalQuestions={questionsList.length}
+                  totalQuestions={totalCount}
                   selectedIndex={answers[currentIdx]}
                   onSelectOption={handleAnswerSelect}
                   onNext={handleNext}
                   onPrev={handlePrev}
-                  isLastQuestion={currentIdx === questionsList.length - 1}
+                  isLastQuestion={currentIdx === totalCount - 1}
+                  isSubmitting={submitting}
+                  errorMessage={submitError}
                 />
               )}
             </motion.div>
           )}
 
-          {/* STEP 5: COMPLETED CELEBRATION */}
+          {/* STEP 5: CELEBRATORY THANK YOU SCREEN (Permanent, with action buttons) */}
           {flowStep === "completed" && submissionResult && (
             <motion.div
               key="completed"
-              initial={{ opacity: 0, scale: 0.92 }}
+              initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
-              className="w-full max-w-lg text-center"
+              className="w-full max-w-2xl lg:max-w-3xl mx-auto space-y-4"
             >
-              <Card className="border border-emerald-500/30 bg-card shadow-lg overflow-hidden">
-                <div className="h-2 bg-gradient-to-r from-emerald-500 via-sky-500 to-indigo-500" />
-                <CardContent className="p-8 sm:p-10 space-y-6">
-                  <div className="h-16 w-16 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 rounded-full flex items-center justify-center mx-auto ring-8 ring-emerald-500/5">
+              <Card className="border shadow-sm overflow-hidden bg-card">
+                <div className="bg-gradient-to-r from-emerald-500/10 via-teal-500/10 to-sky-500/10 p-6 sm:p-8 text-center space-y-2 border-b">
+                  <div className="h-16 w-16 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 rounded-full flex items-center justify-center mx-auto mb-1 ring-8 ring-emerald-500/5">
                     <CheckCircle2 className="h-8 w-8" />
                   </div>
 
@@ -455,43 +476,65 @@ function ParentAssessmentRunner() {
                       Check-in Successfully Recorded
                     </Badge>
                     <h2 className="text-2xl font-bold text-foreground">
-                      Great Job, {displayName}!
+                      Thank You! Great Job, {displayName}!
                     </h2>
                     <p className="text-xs text-muted-foreground mt-1">
                       {submissionResult.message}
                     </p>
                   </div>
+                </div>
 
-                  <div className="grid grid-cols-2 gap-3 p-4 rounded-xl bg-muted/40 border border-border/60 text-left">
-                    <div>
+                <CardContent className="p-6 sm:p-8 space-y-6">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-4 rounded-xl bg-muted/40 border border-border/60 text-left">
+                    <div className="space-y-0.5">
                       <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground block">
-                        Composite Score
+                        Check-in Status
                       </span>
-                      <span className="text-2xl font-bold text-foreground">
-                        {submissionResult.score}%
+                      <span className="text-sm sm:text-base font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
+                        <CheckCircle2 className="h-4 w-4 shrink-0" />
+                        Complete ({totalCount} of {totalCount} Items)
+                      </span>
+                      <span className="text-[11px] text-muted-foreground block">
+                        Non-clinical developmental snapshot
                       </span>
                     </div>
-                    <div>
+                    <div className="space-y-0.5">
                       <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground block">
-                        Assigned Pathway
+                        Assigned Growth Rhythm
                       </span>
-                      <span className="text-sm font-semibold text-sky-600 dark:text-sky-400">
+                      <span className="text-sm sm:text-base font-bold text-sky-600 dark:text-sky-400">
                         {submissionResult.assigned_bucket}
+                      </span>
+                      <span className="text-[11px] text-muted-foreground block">
+                        Tailored personal support & reflection
                       </span>
                     </div>
                   </div>
 
-                  <p className="text-xs text-muted-foreground">
-                    Redirecting back to Parent Dashboard in <span className="font-bold text-foreground">{countdownSeconds}s</span>...
+                  <p className="text-xs text-muted-foreground text-center">
+                    Responses have been securely linked to {displayName}&apos;s continuous developmental growth radar.
                   </p>
 
-                  <Button
-                    size="lg"
-                    onClick={() => router.push("/parent")}
-                    className="w-full text-sm font-medium bg-gradient-to-r from-sky-600 to-indigo-600 hover:from-sky-500 hover:to-indigo-500 text-white shadow-sm cursor-pointer"
-                  >
-                    Return to Parent Dashboard Now
-                  </Button>
+                  <div className="flex flex-col sm:flex-row gap-3 pt-2">
+                    <Button
+                      size="lg"
+                      onClick={() => router.push("/parent")}
+                      className="flex-1 text-xs font-semibold cursor-pointer"
+                    >
+                      Return to Parent Dashboard
+                    </Button>
+                    {childId && (
+                      <Button
+                        size="lg"
+                        variant="outline"
+                        onClick={() => router.push(`/parent?childId=${childId}`)}
+                        className="flex-1 text-xs font-semibold gap-1.5 cursor-pointer"
+                      >
+                        <Activity className="h-4 w-4 text-primary" />
+                        <span>View Growth Radar</span>
+                      </Button>
+                    )}
+                  </div>
                 </CardContent>
               </Card>
             </motion.div>

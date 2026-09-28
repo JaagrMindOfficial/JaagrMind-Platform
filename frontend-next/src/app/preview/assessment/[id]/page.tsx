@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { Card, CardContent } from "@/components/ui/card";
@@ -21,7 +21,7 @@ import { ScenarioCard } from "@/components/assessment/scenario-card";
 import { ReflectionSnack } from "@/components/assessment/reflection-snack";
 import { AssessmentScenery } from "@/components/assessment/assessment-scenery";
 import { useAssessmentTheme } from "@/lib/assessment-theme";
-import { playCompletionSound } from "@/lib/assessment-sound";
+import { playCompletionSound, playSelectSound, playStepSound } from "@/lib/assessment-sound";
 
 export default function PreviewAssessmentPage() {
   const params = useParams();
@@ -46,6 +46,7 @@ export default function PreviewAssessmentPage() {
   const [questionsList, setQuestionsList] = useState<any[]>([]);
   const [currentIdx, setCurrentIdx] = useState(0);
   const [answers, setAnswers] = useState<{ [key: number]: number }>({});
+  const answersRef = useRef<{ [key: number]: number }>({});
   const [showReflection, setShowReflection] = useState(false);
 
   useEffect(() => {
@@ -92,22 +93,37 @@ export default function PreviewAssessmentPage() {
   };
 
   const handleAnswerSelect = (optionIdx: number) => {
+    playSelectSound(optionIdx);
+    answersRef.current[currentIdx] = optionIdx;
     setAnswers((prev) => ({ ...prev, [currentIdx]: optionIdx }));
 
-    // Check if reflection is triggered at the halfway mark
-    const midpoint = Math.floor(questionsList.length / 2);
-    if (currentIdx + 1 === midpoint && currentIdx + 1 < questionsList.length && !showReflection) {
-      setShowReflection(true);
-    } else if (currentIdx < questionsList.length - 1) {
+    const nextIdx = currentIdx + 1;
+    const totalQ = questionsList.length > 0 ? questionsList.length : 32;
+
+    // Trigger pause at station checkpoints (every 8 questions) or midpoint
+    const isCheckpoint = (nextIdx === 8 || nextIdx === 16 || nextIdx === 24 || nextIdx === Math.floor(totalQ / 2));
+    if (isCheckpoint && nextIdx < totalQ && !showReflection) {
       setTimeout(() => {
-        setCurrentIdx((prev) => prev + 1);
+        setShowReflection(true);
       }, 250);
+    } else if (currentIdx < totalQ - 1) {
+      setTimeout(() => {
+        setCurrentIdx((prev) => Math.min(prev + 1, totalQ - 1));
+      }, 250);
+    } else {
+      // Last question: Auto-complete preview smoothly on selection
+      setTimeout(() => {
+        playCompletionSound();
+        setFlowStep("completed");
+      }, 350);
     }
   };
 
   const handleNext = () => {
-    if (currentIdx < questionsList.length - 1) {
-      setCurrentIdx((prev) => prev + 1);
+    playStepSound();
+    const totalQ = questionsList.length > 0 ? questionsList.length : 32;
+    if (currentIdx < totalQ - 1) {
+      setCurrentIdx((prev) => Math.min(prev + 1, totalQ - 1));
     } else {
       playCompletionSound();
       setFlowStep("completed");
@@ -116,7 +132,8 @@ export default function PreviewAssessmentPage() {
 
   const handlePrev = () => {
     if (currentIdx > 0) {
-      setCurrentIdx((prev) => prev - 1);
+      playStepSound();
+      setCurrentIdx((prev) => Math.max(0, prev - 1));
     }
   };
 
@@ -137,7 +154,9 @@ export default function PreviewAssessmentPage() {
     );
   }
 
-  const currentQ = questionsList[currentIdx];
+  const totalCount = questionsList.length > 0 ? questionsList.length : 32;
+  const safeIdx = Math.min(Math.max(0, currentIdx), Math.max(0, questionsList.length - 1));
+  const currentQ = questionsList[safeIdx];
   const progressPercent = questionsList.length > 0 ? Math.round(((currentIdx + 1) / questionsList.length) * 100) : 0;
   const isAllAnswered = Object.keys(answers).length === questionsList.length;
 

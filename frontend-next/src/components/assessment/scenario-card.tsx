@@ -366,7 +366,7 @@ export function ScenarioCard({
           <div className="hidden sm:flex items-center gap-2 text-[10px] text-slate-600 dark:text-slate-300 font-mono font-medium">
             <span>Press</span>
             <kbd className="px-1.5 py-0.5 rounded bg-muted border-2 border-b-3 border-slate-300 dark:border-slate-700 text-[9px] font-bold text-foreground">Enter</kbd>
-            <span>to continue • Or press 1–4</span>
+            <span>{isLastQuestion ? "to finish & submit" : "to continue"} • Or press 1–4</span>
           </div>
 
           {isLastQuestion ? (

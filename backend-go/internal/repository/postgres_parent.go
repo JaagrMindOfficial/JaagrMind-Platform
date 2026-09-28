@@ -1536,15 +1536,20 @@ func (r *postgresParent) SubmitStudentCheckin(ctx context.Context, parentID stri
 		return nil, fmt.Errorf("child not linked to parent profile")
 	}
 
-	// 2. Fetch assessment
+	// 2. Fetch assessment (fallback to default if invalid/empty/default)
 	var title string
 	var questionsJSON []byte
-	err = r.db.QueryRow(ctx, `
-		SELECT title, questions FROM assessments WHERE id = $1::uuid
-	`, req.AssessmentID).Scan(&title, &questionsJSON)
-	if err != nil {
-		return nil, fmt.Errorf("assessment not found")
+	assessID := req.AssessmentID
+	if assessID != "" && assessID != "default" {
+		_ = r.db.QueryRow(ctx, `SELECT id::text, title, questions FROM assessments WHERE id = $1::uuid`, assessID).Scan(&assessID, &title, &questionsJSON)
 	}
+	if len(questionsJSON) == 0 {
+		err = r.db.QueryRow(ctx, `SELECT id::text, title, questions FROM assessments WHERE is_default = true LIMIT 1`).Scan(&assessID, &title, &questionsJSON)
+		if err != nil {
+			return nil, fmt.Errorf("assessment not found")
+		}
+	}
+	req.AssessmentID = assessID
 
 	var questions []struct {
 		Section string `json:"section"`
@@ -1634,8 +1639,11 @@ func (r *postgresParent) SubmitStudentCheckin(ctx context.Context, parentID stri
 
 	// 4. Save into student_results (ALWAYS INSERT to preserve full longitudinal attempt history)
 	scIDStr := ""
-	if schoolID != nil {
-		scIDStr = *schoolID
+	if schoolID != nil && *schoolID != "" {
+		var validSchoolID string
+		if err := r.db.QueryRow(ctx, `SELECT id::text FROM schools WHERE id = $1::uuid`, *schoolID).Scan(&validSchoolID); err == nil {
+			scIDStr = validSchoolID
+		}
 	}
 
 	_, err = r.db.Exec(ctx, `

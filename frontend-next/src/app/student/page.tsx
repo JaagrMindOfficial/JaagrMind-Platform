@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { Card, CardContent } from "@/components/ui/card";
@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { useAuth } from "@/context/auth-context";
 import { api } from "@/lib/api";
-import { BookOpen, LogOut, Sparkles, CheckCircle2 } from "lucide-react";
+import { BookOpen, LogOut, Sparkles, CheckCircle2, Compass, ArrowRight } from "lucide-react";
 import { MindWeatherCheck, type MindWeatherState } from "@/components/assessment/mind-weather-check";
 import { CenteringBreath } from "@/components/assessment/centering-breath";
 import { JourneyTimeline } from "@/components/assessment/journey-timeline";
@@ -16,7 +16,7 @@ import { ScenarioCard } from "@/components/assessment/scenario-card";
 import { ReflectionSnack } from "@/components/assessment/reflection-snack";
 import { AssessmentScenery } from "@/components/assessment/assessment-scenery";
 import { useAssessmentTheme } from "@/lib/assessment-theme";
-import { playCompletionSound } from "@/lib/assessment-sound";
+import { playCompletionSound, playSelectSound, playStepSound } from "@/lib/assessment-sound";
 
 export default function StudentAssessmentPage() {
   const router = useRouter();
@@ -39,6 +39,7 @@ export default function StudentAssessmentPage() {
   const [currentIdx, setCurrentIdx] = useState(0);
   const [answers, setAnswers] = useState<{ [key: number]: number }>({});
   const [showReflection, setShowReflection] = useState(false);
+  const answersRef = useRef<{ [key: number]: number }>({});
 
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -65,7 +66,21 @@ export default function StudentAssessmentPage() {
 
       if (list.length > 0) {
         const pending = list.find((t: any) => !t.isCompleted);
+        if (!pending && list.some((t: any) => t.isCompleted)) {
+          router.replace("/student/dashboard");
+          return;
+        }
         selectTest(pending || list[0]);
+      } else {
+        try {
+          const dashData = await api.get<any>("/api/student/dashboard");
+          if (dashData?.has_completed) {
+            router.replace("/student/dashboard");
+            return;
+          }
+        } catch {
+          // Continue to empty state
+        }
       }
     } catch (err) {
       console.error("Failed to fetch assessment", err);
@@ -105,22 +120,36 @@ export default function StudentAssessmentPage() {
   };
 
   const handleAnswerSelect = (optionIdx: number) => {
+    playSelectSound(optionIdx);
+    answersRef.current[currentIdx] = optionIdx;
     setAnswers((prev) => ({ ...prev, [currentIdx]: optionIdx }));
 
-    // Trigger reflection pause at halfway point
-    const midpoint = Math.floor(questionsList.length / 2);
-    if (currentIdx + 1 === midpoint && currentIdx + 1 < questionsList.length && !showReflection) {
-      setShowReflection(true);
-    } else if (currentIdx < questionsList.length - 1) {
+    const nextIdx = currentIdx + 1;
+    const totalQ = questionsList.length > 0 ? questionsList.length : 32;
+
+    // Trigger reflection pause at station checkpoints (every 8 questions) or midpoint
+    const isCheckpoint = (nextIdx === 8 || nextIdx === 16 || nextIdx === 24 || nextIdx === Math.floor(totalQ / 2));
+    if (isCheckpoint && nextIdx < totalQ && !showReflection) {
       setTimeout(() => {
-        setCurrentIdx((prev) => prev + 1);
+        setShowReflection(true);
       }, 250);
+    } else if (currentIdx < totalQ - 1) {
+      setTimeout(() => {
+        setCurrentIdx((prev) => Math.min(prev + 1, totalQ - 1));
+      }, 250);
+    } else {
+      // Last question: Auto-submit smoothly on selection
+      setTimeout(() => {
+        submitAssessment();
+      }, 350);
     }
   };
 
   const handleNext = () => {
-    if (currentIdx < questionsList.length - 1) {
-      setCurrentIdx((prev) => prev + 1);
+    playStepSound();
+    const totalQ = questionsList.length > 0 ? questionsList.length : 32;
+    if (currentIdx < totalQ - 1) {
+      setCurrentIdx((prev) => Math.min(prev + 1, totalQ - 1));
     } else {
       submitAssessment();
     }
@@ -128,7 +157,8 @@ export default function StudentAssessmentPage() {
 
   const handlePrev = () => {
     if (currentIdx > 0) {
-      setCurrentIdx((prev) => prev - 1);
+      playStepSound();
+      setCurrentIdx((prev) => Math.max(0, prev - 1));
     }
   };
 
@@ -142,12 +172,13 @@ export default function StudentAssessmentPage() {
     try {
       const assessmentId = selectedAssessment.assessmentId || selectedAssessment.id || selectedAssessment._id;
       
-      // Format answers
+      // Format answers with merged latest ref
+      const mergedAnswers = { ...answers, ...answersRef.current };
       const formattedAnswers = questionsList.map((q, idx) => ({
         questionIndex: idx,
         section: q.section || "A",
-        selectedOption: answers[idx] !== undefined ? answers[idx] : 0,
-        value: answers[idx] !== undefined ? answers[idx] + 1 : 1,
+        selectedOption: mergedAnswers[idx] !== undefined ? mergedAnswers[idx] : 0,
+        value: mergedAnswers[idx] !== undefined ? mergedAnswers[idx] + 1 : 1,
       }));
 
       await api.post("/api/student/assessment/submit", {
@@ -175,17 +206,28 @@ export default function StudentAssessmentPage() {
     );
   }
 
+  useEffect(() => {
+    if (selectedAssessment?.isCompleted) {
+      router.replace("/student/dashboard");
+    }
+  }, [selectedAssessment, router]);
+
   if (tests.length === 0 || !selectedAssessment) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center p-4 text-center">
         <BookOpen className="h-10 w-10 text-muted-foreground/50 mb-4" />
         <h2 className="text-xl font-semibold mb-2">No Active Check-ins</h2>
         <p className="text-sm text-muted-foreground max-w-sm mb-6">
-          You do not have any pending assessments right now. Please check back later or ask your school counselor.
+          You do not have any pending assessments right now. You can visit your student wellness dashboard to view reflections and activities.
         </p>
-        <Button variant="outline" onClick={() => logout("/student/login")}>
-          <LogOut className="h-4 w-4 mr-2" /> Logout
-        </Button>
+        <div className="flex flex-col sm:flex-row gap-3 w-full max-w-xs">
+          <Button className="w-full bg-primary" onClick={() => router.push("/student/dashboard")}>
+            <Compass className="h-4 w-4 mr-2" /> Student Dashboard
+          </Button>
+          <Button variant="outline" className="w-full" onClick={() => logout("/student/login")}>
+            <LogOut className="h-4 w-4 mr-2" /> Logout
+          </Button>
+        </div>
       </div>
     );
   }
@@ -219,30 +261,40 @@ export default function StudentAssessmentPage() {
               {selectedAssessment.title}
             </h1>
             <p className="text-sm text-muted-foreground leading-relaxed">
-              Your responses have been recorded and securely shared with your school's counseling team.
+              Your responses have been recorded and your personal wellness insights are ready.
             </p>
           </div>
 
           <div className="p-4 rounded-xl bg-muted/40 border text-xs text-muted-foreground space-y-1.5 text-left">
-            <p className="font-semibold text-foreground">Need to retake this check-in?</p>
+            <p className="font-semibold text-foreground">Looking for your reflections & exercises?</p>
             <p className="leading-relaxed">
-              Retakes can only be authorized and unlocked by your school counselor or administrator. Please reach out to them if you submitted by mistake or need a fresh session.
+              You can explore your personalized activities, wellness tips, and past milestones anytime on your student dashboard.
             </p>
           </div>
 
-          <Button
-            variant="outline"
-            className="w-full"
-            onClick={() => logout("/student/login")}
-          >
-            <LogOut className="h-4 w-4 mr-2" /> Sign Out
-          </Button>
+          <div className="space-y-3 pt-2">
+            <Button
+              className="w-full bg-primary shadow-sm hover:opacity-95"
+              onClick={() => router.push("/student/dashboard")}
+            >
+              <Compass className="h-4 w-4 mr-2" /> Go to Student Dashboard & Reflections
+            </Button>
+            <Button
+              variant="outline"
+              className="w-full"
+              onClick={() => logout("/student/login")}
+            >
+              <LogOut className="h-4 w-4 mr-2" /> Sign Out
+            </Button>
+          </div>
         </div>
       </div>
     );
   }
 
-  const currentQ = questionsList[currentIdx];
+  const totalCount = questionsList.length > 0 ? questionsList.length : 32;
+  const safeIdx = Math.min(Math.max(0, currentIdx), Math.max(0, questionsList.length - 1));
+  const currentQ = questionsList[safeIdx];
   const progressPercent = questionsList.length > 0 ? Math.round(((currentIdx + 1) / questionsList.length) * 100) : 0;
   const isAllAnswered = Object.keys(answers).length === questionsList.length;
 
@@ -395,7 +447,7 @@ export default function StudentAssessmentPage() {
               key="assessment"
               initial={{ opacity: 0, y: 15 }}
               animate={{ opacity: 1, y: 0 }}
-              className="w-full max-w-xl lg:max-w-2xl mx-auto space-y-2"
+              className="w-full max-w-2xl lg:max-w-3xl mx-auto space-y-2"
             >
               {/* Journey Timeline Station Bar */}
               <JourneyTimeline

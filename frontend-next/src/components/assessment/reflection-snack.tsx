@@ -58,7 +58,7 @@ export function ReflectionSnack({
             <h2 className="text-xl sm:text-2xl font-semibold tracking-tight text-foreground">
               Take a breath. You're doing great.
             </h2>
-            <p className="text-sm text-muted-foreground max-w-md mx-auto leading-relaxed border-l-2 border-primary/40 pl-3.5 py-1 text-left bg-muted/20 rounded-r-lg italic">
+            <p className="text-sm text-slate-700 dark:text-slate-200 max-w-md mx-auto leading-relaxed border-l-2 border-primary/40 pl-3.5 py-1 text-left bg-muted/40 rounded-r-lg italic">
               "{chosenInsight}"
             </p>
           </div>
@@ -74,7 +74,7 @@ export function ReflectionSnack({
             >
               Continue Journey <ArrowRight className="h-4 w-4" />
             </Button>
-            <span className="block text-[10px] text-muted-foreground/60 font-mono mt-2">
+            <span className="block text-[10px] text-slate-600 dark:text-slate-300 font-mono mt-2 font-medium">
               Press Spacebar or Enter to continue
             </span>
           </div>

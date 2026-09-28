@@ -1,10 +1,12 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Volume2, VolumeX, Sun, BookOpen, Zap, Moon } from "lucide-react";
+import { Volume2, VolumeX, Check, Compass, Sparkles, BookOpen, Layers } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { getSoundEnabled, setSoundEnabled } from "@/lib/assessment-sound";
 import { useState, useEffect } from "react";
+
+import { useAssessmentTheme, ASSESSMENT_THEMES } from "@/lib/assessment-theme";
 
 interface JourneyTimelineProps {
   currentIdx: number;
@@ -12,15 +14,16 @@ interface JourneyTimelineProps {
   currentPhase?: string;
 }
 
-const STATIONS = [
-  { id: "arrival", label: "Arrival", icon: Sun },
-  { id: "classroom", label: "Classroom", icon: BookOpen },
-  { id: "friction", label: "Pressure", icon: Zap },
-  { id: "recharge", label: "Recharge", icon: Moon },
+const PHASES = [
+  { id: "notice", label: "Notice", subtitle: "Be aware of your actions", icon: Compass },
+  { id: "reflect", label: "Reflect", subtitle: "Explore what feels true", icon: Layers },
+  { id: "takeaway", label: "Takeaway", subtitle: "Insights & next steps", icon: Sparkles },
 ];
 
 export function JourneyTimeline({ currentIdx, totalCount, currentPhase }: JourneyTimelineProps) {
   const [soundOn, setSoundOn] = useState(false);
+  const { currentThemeId } = useAssessmentTheme();
+  const theme = ASSESSMENT_THEMES[currentThemeId] || ASSESSMENT_THEMES["duo-green"];
 
   useEffect(() => {
     setSoundOn(getSoundEnabled());
@@ -34,71 +37,100 @@ export function JourneyTimeline({ currentIdx, totalCount, currentPhase }: Journe
 
   const progressPercent = totalCount > 0 ? Math.round(((currentIdx + 1) / totalCount) * 100) : 0;
   
-  // Estimate station based on question index ratio (0..3)
-  const activeStationIdx = totalCount > 0 ? Math.min(3, Math.floor((currentIdx / totalCount) * 4)) : 0;
+  // Phase 1 (Q1-11), Phase 2 (Q12-24), Phase 3 (Q25-32)
+  const activePhaseIdx = totalCount > 0 ? (currentIdx < 11 ? 0 : currentIdx < 24 ? 1 : 2) : 0;
 
   return (
     <div className="w-full space-y-3">
-      {/* Top Station Bar with Sound Toggle */}
-      <div className="flex items-center justify-between gap-2 text-xs">
-        <div className="flex items-center gap-1.5 overflow-x-auto py-1">
-          {STATIONS.map((stn, idx) => {
-            const isActive = idx === activeStationIdx;
-            const isDone = idx < activeStationIdx;
+      {/* Top 3-Phase Stepper with Sound Toggle (Duolingo 3D Sticker Pills) */}
+      <div className="flex items-center justify-between gap-3 text-xs">
+        <div className="flex items-center gap-2 overflow-x-auto py-1">
+          {PHASES.map((p, idx) => {
+            const isActive = idx === activePhaseIdx;
+            const isDone = idx < activePhaseIdx;
             return (
-              <div
-                key={stn.id}
-                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium transition-all ${
+              <motion.div
+                key={p.id}
+                whileHover={{ scale: 1.04 }}
+                whileTap={{ scale: 0.96 }}
+                className={`flex items-center gap-2 px-3.5 py-1.5 rounded-2xl text-xs transition-all border-2 border-b-4 ${
                   isActive
-                    ? "bg-primary text-primary-foreground shadow-sm font-semibold"
+                    ? "bg-white dark:bg-slate-900 shadow-sm font-bold active:border-b-2 active:translate-y-[2px]"
                     : isDone
-                    ? "bg-muted/80 text-foreground"
-                    : "text-muted-foreground/60 opacity-60"
+                    ? "bg-[#58cc02]/15 text-[#46a302] dark:text-[#58cc02] border-[#58cc02]/40 border-b-[#46a302] font-semibold"
+                    : "text-slate-600 dark:text-slate-300 bg-slate-100/90 dark:bg-slate-800/90 border-slate-200 dark:border-slate-700 border-b-slate-300 dark:border-b-slate-600 font-medium"
                 }`}
+                style={
+                  isActive
+                    ? {
+                        borderColor: theme.primaryDark,
+                        borderBottomColor: theme.primaryDark,
+                        color: theme.primary,
+                      }
+                    : {}
+                }
               >
-                <stn.icon className="h-3 w-3 shrink-0" />
-                <span className="hidden sm:inline">{stn.label}</span>
-              </div>
+                <div
+                  className={`h-4 w-4 rounded-full flex items-center justify-center text-[10px] font-bold ${
+                    isDone
+                      ? "bg-[#58cc02] text-white"
+                      : isActive
+                      ? "text-white"
+                      : "bg-slate-300 dark:bg-slate-700 text-slate-700 dark:text-slate-200"
+                  }`}
+                  style={isActive ? { backgroundColor: theme.primary } : {}}
+                >
+                  {isDone ? <Check className="h-2.5 w-2.5" /> : idx + 1}
+                </div>
+                <span>{p.label}</span>
+              </motion.div>
             );
           })}
         </div>
 
-        <div className="flex items-center gap-3 shrink-0">
+        <div className="flex items-center gap-2 shrink-0">
           <Button
             variant="ghost"
             size="sm"
             type="button"
             onClick={toggleSound}
-            className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground gap-1.5"
-            title={soundOn ? "Mute tactile chimes" : "Enable tactile chimes"}
+            className="h-8 px-2.5 text-xs text-slate-700 dark:text-slate-200 hover:text-foreground cursor-pointer rounded-xl border border-slate-200 dark:border-slate-700 hover:border-slate-300 bg-white/70 dark:bg-slate-800/70 font-semibold"
+            title={soundOn ? "Mute soothing sound" : "Enable soothing chime feedback"}
           >
             {soundOn ? (
-              <>
-                <Volume2 className="h-3.5 w-3.5 text-primary" />
-                <span className="text-[10px] hidden md:inline font-mono">Sound ON</span>
-              </>
+              <Volume2 className="h-3.5 w-3.5 text-primary" />
             ) : (
-              <>
-                <VolumeX className="h-3.5 w-3.5 text-muted-foreground" />
-                <span className="text-[10px] hidden md:inline font-mono">Muted</span>
-              </>
+              <VolumeX className="h-3.5 w-3.5 opacity-60" />
             )}
+            <span className="hidden sm:inline ml-1.5 text-[11px] font-medium">
+              {soundOn ? "Sound On" : "Sound Off"}
+            </span>
           </Button>
-
-          <span className="text-[11px] font-mono text-muted-foreground font-medium">
-            {progressPercent}%
-          </span>
         </div>
       </div>
 
-      {/* Progress Track */}
-      <div className="h-1.5 w-full bg-muted/60 rounded-full overflow-hidden relative">
-        <motion.div
-          className="h-full bg-gradient-to-r from-primary to-sky-400 rounded-full"
-          initial={false}
-          animate={{ width: `${progressPercent}%` }}
-          transition={{ duration: 0.35, ease: "easeOut" }}
-        />
+      {/* Duolingo Capsule Progress Bar with Top Gloss Reflection */}
+      <div className="space-y-1.5">
+        <div className="flex justify-between items-center text-[11px] font-bold text-slate-700 dark:text-slate-300">
+          <span className="tracking-wide">Question {currentIdx + 1} of {totalCount}</span>
+          <span className="font-mono text-primary bg-primary/10 px-2 py-0.5 rounded-full border border-primary/20">
+            {progressPercent}% Complete
+          </span>
+        </div>
+        <div className="h-3.5 sm:h-4 w-full bg-slate-200/90 dark:bg-slate-800 rounded-full p-0.5 border-2 border-slate-300/80 dark:border-slate-700 shadow-inner overflow-hidden">
+          <motion.div
+            className="h-full rounded-full relative overflow-hidden shadow-xs transition-all"
+            style={{
+              backgroundColor: theme.primary,
+              width: `${Math.max(4, progressPercent)}%`,
+            }}
+            animate={{ width: `${Math.max(4, progressPercent)}%` }}
+            transition={{ type: "spring", stiffness: 260, damping: 20 }}
+          >
+            {/* Gloss reflection line across top half (Duolingo signature shine) */}
+            <div className="absolute top-0.5 left-2 right-2 h-1 bg-white/45 rounded-full" />
+          </motion.div>
+        </div>
       </div>
     </div>
   );

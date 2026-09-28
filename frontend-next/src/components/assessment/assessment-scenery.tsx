@@ -4,6 +4,7 @@ import { useState } from "react";
 import { motion } from "framer-motion";
 import { AssessmentThemeId } from "@/lib/assessment-theme";
 import { MascotDirector } from "./mascot/mascot-director";
+import { RightMascotCompanion } from "./mascot/right-mascot-companion";
 
 interface AssessmentSceneryProps {
   themeId: AssessmentThemeId;
@@ -29,18 +30,22 @@ export function AssessmentScenery({
           1. THEME-ADAPTIVE AMBIENT BACKGROUND GRADIENT WASH
       ────────────────────────────────────────────────────────────── */}
       {themeId === "duo-green" && (
-        <div className="absolute inset-0 bg-gradient-to-b from-[#f2fcf2] via-background to-[#f0fbf0] opacity-80" />
+        <div className="absolute inset-0 bg-gradient-to-b from-[#f2fcf2] via-background to-[#f0fbf0] opacity-80 dark:hidden" />
       )}
       {themeId === "spark-blue" && (
-        <div className="absolute inset-0 bg-gradient-to-b from-[#f0f9ff] via-background to-[#eaf5fd] opacity-80" />
+        <div className="absolute inset-0 bg-gradient-to-b from-[#f0f9ff] via-background to-[#eaf5fd] opacity-80 dark:hidden" />
       )}
       {themeId === "sunny-amber" && (
-        <div className="absolute inset-0 bg-gradient-to-b from-[#fffbf0] via-background to-[#fff7e6] opacity-80" />
+        <div className="absolute inset-0 bg-gradient-to-b from-[#fffbf0] via-background to-[#fff7e6] opacity-80 dark:hidden" />
       )}
+
+      {/* Dark Mode: Sleek, deep twilight atmosphere without muddy pastel cast */}
+      <div className="hidden dark:block absolute inset-0 bg-gradient-to-b from-[#090d16] via-[#0b101c] to-[#070a12] pointer-events-none" />
+      <div className="hidden dark:block absolute inset-0 bg-[radial-gradient(ellipse_80%_60%_at_50%_0%,rgba(30,41,59,0.35),rgba(2,6,23,0))] pointer-events-none" />
 
       {/* Ambient background decorative floating color orbs */}
       <div
-        className={`absolute -top-32 -left-32 w-96 h-96 rounded-full blur-3xl opacity-30 transition-colors duration-700 ${
+        className={`absolute -top-32 -left-32 w-96 h-96 rounded-full blur-3xl opacity-30 dark:opacity-15 transition-colors duration-700 ${
           themeId === "duo-green"
             ? "bg-[#58cc02]"
             : themeId === "spark-blue"
@@ -49,7 +54,7 @@ export function AssessmentScenery({
         }`}
       />
       <div
-        className={`absolute -bottom-32 -right-32 w-96 h-96 rounded-full blur-3xl opacity-25 transition-colors duration-700 ${
+        className={`absolute -bottom-32 -right-32 w-96 h-96 rounded-full blur-3xl opacity-25 dark:opacity-12 transition-colors duration-700 ${
           themeId === "duo-green"
             ? "bg-[#8adf56]"
             : themeId === "spark-blue"
@@ -62,7 +67,7 @@ export function AssessmentScenery({
           2. UPPER FLOATING SKY SCENERY
       ────────────────────────────────────────────────────────────── */}
       <div className="hidden md:block absolute top-3 inset-x-0 h-24 pointer-events-none select-none">
-        {/* UPPER LEFT: One drifting cloud and two tiny sparkles */}
+        {/* UPPER LEFT: One drifting cloud */}
         <div className="absolute top-2 left-[6%] flex items-center pointer-events-none">
           {/* One drifting cloud */}
           <motion.div
@@ -77,24 +82,6 @@ export function AssessmentScenery({
                 className="dark:opacity-20"
               />
             </svg>
-          </motion.div>
-
-          {/* Sparkle 1 */}
-          <motion.div
-            animate={{ scale: [0.75, 1.25, 0.75], opacity: [0.35, 0.95, 0.35] }}
-            transition={{ duration: 3.2, repeat: Infinity, ease: "easeInOut" }}
-            className="ml-3 -mt-3 text-sm select-none"
-          >
-            ✨
-          </motion.div>
-
-          {/* Sparkle 2 */}
-          <motion.div
-            animate={{ scale: [1, 1.35, 1], opacity: [0.3, 0.85, 0.3] }}
-            transition={{ duration: 4.0, repeat: Infinity, ease: "easeInOut", delay: 1.2 }}
-            className="ml-4 mt-4 text-xs select-none"
-          >
-            ⭐
           </motion.div>
         </div>
 
@@ -202,7 +189,7 @@ export function AssessmentScenery({
           <img
             src="/images/botanical-foliage.png"
             alt="Botanical Foliage"
-            className="w-full h-auto max-h-[360px] object-contain object-bottom pointer-events-none select-none"
+            className="w-full h-auto max-h-[360px] object-contain object-bottom pointer-events-none select-none dark:brightness-[0.72] dark:contrast-[1.1] dark:saturate-[0.8] dark:opacity-85"
             draggable={false}
           />
         </motion.div>
@@ -295,10 +282,20 @@ export function AssessmentScenery({
           <img
             src="/images/botanical-foliage-right.png"
             alt="Botanical Foliage"
-            className="w-full h-auto max-h-[360px] object-contain object-bottom pointer-events-none select-none"
+            className="w-full h-auto max-h-[360px] object-contain object-bottom pointer-events-none select-none dark:brightness-[0.72] dark:contrast-[1.1] dark:saturate-[0.8] dark:opacity-85"
             draggable={false}
           />
         </motion.div>
+      </div>
+
+      {/* ─────────────────────────────────────────────────────────────
+          6. RIGHT SIDE COMPANION MASCOT (Peeks from behind grass, does handshake, and disappears)
+      ────────────────────────────────────────────────────────────── */}
+      <div className="hidden md:block">
+        <RightMascotCompanion
+          themeId={themeId}
+          questionIndex={questionIndex}
+        />
       </div>
     </div>
   );

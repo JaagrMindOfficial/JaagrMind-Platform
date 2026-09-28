@@ -173,7 +173,7 @@ func main() {
 			UPDATE assessments 
 			SET title = $1, description = $2, questions = $3, buckets = $4, custom_sections = $5, sections = $6, is_active = true
 			WHERE id = $7
-		`, "Jaagr Mind Student Assessment v4.0", "32-item, non-clinical reflection module designed to help students notice everyday patterns in attention, inner confidence, social interaction and digital choices.", questionsJSON, bucketsJSON, customSectionsJSON, sectionsJSON, existingID)
+		`, "Jaagr Mind Student Assessment", "32-item, non-clinical reflection module designed to help students notice everyday patterns in attention, inner confidence, social interaction and digital choices.", questionsJSON, bucketsJSON, customSectionsJSON, sectionsJSON, existingID)
 		if err != nil {
 			log.Fatalf("Failed to update default assessment: %v", err)
 		}
@@ -184,7 +184,7 @@ func main() {
 			INSERT INTO assessments (title, description, is_default, time_per_question, total_time, inactivity_alert_time, inactivity_end_time, questions, buckets, section_buckets, custom_sections, sections, is_active)
 			VALUES ($1, $2, true, 30, 15, 40, 120, $3, $4, true, $5, $6, true)
 			RETURNING id
-		`, "Jaagr Mind Student Assessment v4.0", "32-item, non-clinical reflection module designed to help students notice everyday patterns in attention, inner confidence, social interaction and digital choices.", questionsJSON, bucketsJSON, customSectionsJSON, sectionsJSON).Scan(&newID)
+		`, "Jaagr Mind Student Assessment", "32-item, non-clinical reflection module designed to help students notice everyday patterns in attention, inner confidence, social interaction and digital choices.", questionsJSON, bucketsJSON, customSectionsJSON, sectionsJSON).Scan(&newID)
 		if err != nil {
 			log.Fatalf("Failed to insert default assessment: %v", err)
 		}

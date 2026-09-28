@@ -130,7 +130,7 @@ func ensureDefaultV4Assessment(ctx context.Context, dbPool *pgxpool.Pool) {
 			inactivity_alert_time, inactivity_end_time, is_active, section_buckets
 		) VALUES (
 			'1dee0813-2269-478a-90e4-98ea6f031da4',
-			'Jaagr Mind Student Assessment v4.0',
+			'Jaagr Mind Student Assessment',
 			'32-item, non-clinical reflection module designed to help students notice everyday patterns in attention, inner confidence, social interaction and digital choices.',
 			true, 30, 15, 40, 120, true, true
 		) ON CONFLICT (id) DO UPDATE SET is_default = true, is_active = true
@@ -280,7 +280,7 @@ func main() {
 		}
 		return c.JSON(admins)
 	})
-	
+
 	// Delegate the rest to the AdminAPIHandler
 	handlers.SetupAdminAPIRoutes(adminAPI, schoolRepo, studentRepo, assessmentRepo, checkinLinkRepo, ticketRepo, analyticsRepo, userRepo, guideRepo, eventRepo, parentRepo, authService, emailService)
 

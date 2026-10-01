@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo, useRef } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams, notFound } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -20,6 +20,8 @@ import {
   ShieldCheck,
   Compass,
   Lightbulb,
+  Pause,
+  LogOut,
 } from "lucide-react";
 import { MindWeatherCheck, type MindWeatherState } from "@/components/assessment/mind-weather-check";
 import { CenteringBreath } from "@/components/assessment/centering-breath";
@@ -27,7 +29,7 @@ import { JourneyTimeline } from "@/components/assessment/journey-timeline";
 import { ScenarioCard, type ScenarioQuestion } from "@/components/assessment/scenario-card";
 import { ReflectionSnack } from "@/components/assessment/reflection-snack";
 import { AssessmentScenery } from "@/components/assessment/assessment-scenery";
-import { useAssessmentTheme } from "@/lib/assessment-theme";
+import { useAssessmentTheme, isValidThemeId } from "@/lib/assessment-theme";
 import { playCompletionSound, playSelectSound, playStepSound } from "@/lib/assessment-sound";
 
 interface ReflectionData {
@@ -54,13 +56,21 @@ interface ActivityData {
 
 export default function DynamicCheckinPage() {
   const params = useParams();
+  const searchParams = useSearchParams();
   const router = useRouter();
   const code = (params?.code as string) || "";
 
-  const { currentThemeId } = useAssessmentTheme();
+  // Strict theme validation: 404 if invalid/old theme parameter is provided
+  const themeParam = searchParams.get("theme");
+  if (themeParam && !isValidThemeId(themeParam)) {
+    notFound();
+  }
+
+  const { currentThemeId, theme } = useAssessmentTheme();
 
   // Stages: "loading" | "error" | "welcome" | "moodCheck" | "countdown" | "assessment" | "reflection"
   const [stage, setStage] = useState<"loading" | "error" | "welcome" | "moodCheck" | "countdown" | "assessment" | "reflection">("loading");
+  const [isPaused, setIsPaused] = useState(false);
   const [errorDetails, setErrorDetails] = useState<{ title: string; message: string; reason?: string }>({
     title: "",
     message: "",
@@ -288,23 +298,44 @@ export default function DynamicCheckinPage() {
   }
 
   return (
-    <div className="h-screen max-h-screen overflow-hidden flex flex-col justify-between bg-background relative selection:bg-primary/20">
+    <div
+      className="h-screen max-h-screen overflow-hidden flex flex-col justify-between relative selection:bg-teal-500/20 transition-colors duration-500 dark:bg-[#0B0F17]"
+      style={{ backgroundColor: theme.bgPage || "#FAF8F5" }}
+    >
       {/* Top Header Bar */}
-      <div className="shrink-0 z-40 px-5 sm:px-7 py-3 flex items-center justify-between">
+      <div className="shrink-0 z-40 px-5 sm:px-7 py-2.5 flex items-center justify-between">
         <div className="flex items-center gap-2 select-none">
           <img
-            src="/JM-Dark.svg"
+            src="/DarkColorLogo.svg"
             alt="JaagrMind"
-            className="h-8 sm:h-9 w-auto object-contain dark:hidden opacity-85 transition-opacity drop-shadow-xs"
+            className="h-8 sm:h-9 w-auto object-contain dark:hidden"
           />
           <img
-            src="/JM-White.svg"
+            src="/LightColorLogo.svg"
             alt="JaagrMind"
-            className="h-8 sm:h-9 w-auto object-contain hidden dark:block opacity-85 transition-opacity drop-shadow-[0_2px_12px_rgba(129,97,163,0.35)]"
+            className="h-8 sm:h-9 w-auto object-contain hidden dark:block"
           />
           <span className="text-xs font-semibold text-muted-foreground/80 hidden sm:inline ml-1.5">• Candidate Check-in</span>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2.5 sm:gap-3 text-xs sm:text-sm font-medium text-slate-600 dark:text-slate-300">
+          <button
+            type="button"
+            onClick={() => setIsPaused(true)}
+            className="flex items-center gap-1.5 hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer select-none"
+          >
+            <Pause className="h-3.5 w-3.5" />
+            <span>Pause Assessment</span>
+          </button>
+          <span className="text-slate-300 dark:text-slate-700 select-none">|</span>
+          <button
+            type="button"
+            onClick={() => router.push("/")}
+            className="flex items-center gap-1.5 hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer select-none"
+          >
+            <LogOut className="h-3.5 w-3.5" />
+            <span>Exit</span>
+          </button>
+          <span className="text-slate-300 dark:text-slate-700 select-none">|</span>
           <ThemeToggle />
         </div>
       </div>
@@ -318,7 +349,7 @@ export default function DynamicCheckinPage() {
         isCompleted={stage === "reflection"}
       />
 
-      <div className="flex-1 flex flex-col items-center justify-center p-2 sm:p-3 my-auto w-full relative z-20 overflow-hidden">
+      <div className="flex-1 flex flex-col items-center justify-center p-2 sm:p-4 my-auto w-full relative z-20 overflow-hidden">
         <AnimatePresence mode="wait">
 
           {/* STAGE 1: CANDIDATE WELCOME & INTAKE CARD */}
@@ -328,9 +359,9 @@ export default function DynamicCheckinPage() {
               initial={{ opacity: 0, y: 15 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -15 }}
-              className="w-full max-w-2xl lg:max-w-3xl mx-auto"
+              className="w-full max-w-2xl mx-auto"
             >
-              <Card className="border shadow-sm">
+              <Card data-assessment-card="true" className="border shadow-sm">
                 <CardContent className="p-6 sm:p-8 space-y-5">
                   <div className="flex items-center gap-3">
                     <div className="h-10 w-10 rounded-xl bg-slate-100 dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700/80 flex items-center justify-center p-2 shrink-0 shadow-xs">
@@ -405,13 +436,16 @@ export default function DynamicCheckinPage() {
                     </div>
                     {emailError && <p className="text-xs text-destructive">{emailError}</p>}
 
-                    <Button
+                    <button
                       type="submit"
-                      className="w-full h-11 text-xs font-semibold gap-2 mt-2 cursor-pointer"
+                      style={{
+                        backgroundColor: theme.primary || "#0B4F48",
+                        borderBottomColor: theme.primaryDark || "#083E38",
+                      }}
+                      className="w-full h-11 text-xs sm:text-sm font-bold text-white rounded-xl sm:rounded-full border-b-[5px] flex items-center justify-center gap-2 mt-2 active:translate-y-[2px] active:border-b-2 hover:brightness-105 transition-all cursor-pointer shadow-xs"
                     >
-                      <span>Begin Check-in</span>
-                      <ArrowRight className="h-4 w-4" />
-                    </Button>
+                      <span>LET’S CHECK IN →</span>
+                    </button>
                   </form>
                 </CardContent>
               </Card>
@@ -425,28 +459,16 @@ export default function DynamicCheckinPage() {
               initial={{ opacity: 0, y: 15 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -15 }}
-              className="w-full max-w-3xl lg:max-w-4xl mx-auto"
+              className="w-full max-w-xl mx-auto"
             >
-              <Card className="border shadow-sm">
-                <CardContent className="p-3.5 sm:p-4 space-y-3">
+              <Card data-assessment-card="true" className="border shadow-sm">
+                <CardContent className="p-4 sm:p-6">
                   <MindWeatherCheck
                     value={mindWeather}
                     onChange={setMindWeather}
+                    onComplete={() => setStage("countdown")}
+                    onBack={() => setStage("welcome")}
                   />
-
-                  <div className="flex gap-3 pt-2.5 border-t">
-                    <Button variant="outline" size="sm" onClick={() => setStage("welcome")} className="h-9 px-4">
-                      Back
-                    </Button>
-                    <Button
-                      size="sm"
-                      className="flex-1 shadow-sm h-9 cursor-pointer"
-                      disabled={!mindWeather.weather || !mindWeather.energyLevel || !mindWeather.sleepQuality}
-                      onClick={() => setStage("countdown")}
-                    >
-                      Continue to Centering Breath
-                    </Button>
-                  </div>
                 </CardContent>
               </Card>
             </motion.div>
@@ -459,9 +481,9 @@ export default function DynamicCheckinPage() {
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 1.05 }}
-              className="w-full max-w-md text-center mx-auto"
+              className="w-full max-w-xl text-center mx-auto"
             >
-              <Card className="border shadow-sm p-6 sm:p-8 bg-card">
+              <Card data-assessment-card="true" className="border shadow-sm p-6 sm:p-8 bg-card">
                 <CardContent className="p-0">
                   <CenteringBreath onComplete={() => setStage("assessment")} />
                 </CardContent>
@@ -475,7 +497,7 @@ export default function DynamicCheckinPage() {
               key="assessment"
               initial={{ opacity: 0, y: 15 }}
               animate={{ opacity: 1, y: 0 }}
-              className="w-full max-w-2xl lg:max-w-3xl mx-auto space-y-2"
+              className="w-full max-w-2xl mx-auto space-y-2"
             >
               {/* Journey Timeline Station Bar (Matching Preview) */}
               <JourneyTimeline
@@ -591,6 +613,52 @@ export default function DynamicCheckinPage() {
 
         </AnimatePresence>
       </div>
+
+      {/* Mindful Pause Modal */}
+      <AnimatePresence>
+        {isPaused && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="w-full max-w-md bg-white dark:bg-slate-900 rounded-3xl p-6 sm:p-8 shadow-2xl border border-slate-200 dark:border-slate-800 text-center space-y-5"
+            >
+              <div className="w-14 h-14 rounded-2xl bg-amber-500/10 text-amber-600 dark:text-amber-400 mx-auto flex items-center justify-center">
+                <Pause className="h-7 w-7" />
+              </div>
+              <div className="space-y-2">
+                <h3 className="text-xl font-bold text-slate-900 dark:text-white tracking-tight">
+                  Assessment Paused
+                </h3>
+                <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
+                  Take a moment to relax your eyes, stretch, and take a gentle breath. Your answers are completely safe.
+                </p>
+              </div>
+              <div className="pt-2 flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => router.push("/")}
+                  className="flex-1 rounded-xl sm:rounded-full h-11 border-2 border-slate-300 dark:border-slate-700 border-b-[4px] border-b-slate-400 dark:border-b-slate-800 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 font-bold text-sm active:translate-y-[2px] active:border-b-2 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all cursor-pointer shadow-xs"
+                >
+                  Exit Assessment
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsPaused(false)}
+                  style={{
+                    backgroundColor: theme.primary || "#0B4F48",
+                    borderBottomColor: theme.primaryDark || "#083E38",
+                  }}
+                  className="flex-1 rounded-xl sm:rounded-full h-11 border-b-[5px] text-white font-bold text-sm active:translate-y-[2px] active:border-b-2 hover:brightness-105 transition-all cursor-pointer shadow-xs"
+                >
+                  Resume Assessment
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

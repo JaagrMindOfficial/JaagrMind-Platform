@@ -1,28 +1,35 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams, notFound } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { useAuth } from "@/context/auth-context";
 import { api } from "@/lib/api";
-import { BookOpen, LogOut, CheckCircle2, Compass, ArrowRight } from "lucide-react";
+import { BookOpen, LogOut, CheckCircle2, Compass, ArrowRight, Pause } from "lucide-react";
 import { MindWeatherCheck, type MindWeatherState } from "@/components/assessment/mind-weather-check";
 import { CenteringBreath } from "@/components/assessment/centering-breath";
 import { JourneyTimeline } from "@/components/assessment/journey-timeline";
 import { ScenarioCard } from "@/components/assessment/scenario-card";
 import { ReflectionSnack } from "@/components/assessment/reflection-snack";
 import { AssessmentScenery } from "@/components/assessment/assessment-scenery";
-import { useAssessmentTheme } from "@/lib/assessment-theme";
+import { ThemeSelectorPill } from "@/components/assessment/theme-selector-pill";
+import { useAssessmentTheme, isValidThemeId } from "@/lib/assessment-theme";
 import { playCompletionSound, playSelectSound, playStepSound } from "@/lib/assessment-sound";
 
 export default function StudentAssessmentPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
+
+  // Strict theme validation: 404 if invalid/old theme parameter is provided
+  const themeParam = searchParams.get("theme");
+  if (themeParam && !isValidThemeId(themeParam)) {
+    notFound();
+  }
   const { user, logout, loading: authLoading } = useAuth();
-  const { currentThemeId } = useAssessmentTheme();
+  const { currentThemeId, theme } = useAssessmentTheme();
   
   // Steps: 'testSelect' | 'instructions' | 'moodCheck' | 'countdown' | 'assessment'
   const [flowStep, setFlowStep] = useState<"testSelect" | "instructions" | "moodCheck" | "countdown" | "assessment">("instructions");
@@ -44,6 +51,15 @@ export default function StudentAssessmentPage() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");
+  const [isPaused, setIsPaused] = useState(false);
+
+  const handleExit = () => {
+    if (user) {
+      router.push("/student/dashboard");
+    } else {
+      logout("/student/login");
+    }
+  };
 
   useEffect(() => {
     if (authLoading) return;
@@ -299,7 +315,10 @@ export default function StudentAssessmentPage() {
   const isAllAnswered = Object.keys(answers).length === questionsList.length;
 
   return (
-    <div className="h-screen max-h-screen overflow-hidden flex flex-col justify-between bg-background relative selection:bg-primary/20">
+    <div
+      className="h-screen max-h-screen overflow-hidden flex flex-col justify-between relative selection:bg-teal-500/20 transition-colors duration-500 dark:bg-[#0B0F17]"
+      style={{ backgroundColor: theme.bgPage || "#FAF8F5" }}
+    >
       {/* Dynamic Animated Scenery, Mascots & Ambient Foliage */}
       <AssessmentScenery
         themeId={currentThemeId}
@@ -309,34 +328,62 @@ export default function StudentAssessmentPage() {
         isCompleted={Boolean(selectedAssessment?.isCompleted || isAllAnswered)}
       />
 
-      {/* Upper Left JM Brand Logo - Submerged Brand Mark */}
-      <div className="absolute top-4 left-5 sm:left-7 z-40 flex items-center pointer-events-none select-none">
-        <img
-          src="/JM-Dark.svg"
-          alt="JaagrMind"
-          className="h-8 sm:h-9 w-auto object-contain dark:hidden opacity-85 transition-opacity drop-shadow-xs"
-        />
-        <img
-          src="/JM-White.svg"
-          alt="JaagrMind"
-          className="h-8 sm:h-9 w-auto object-contain hidden dark:block opacity-85 transition-opacity drop-shadow-[0_2px_12px_rgba(129,97,163,0.35)]"
-        />
+      {/* Upper Left Full JaagrMind Brand Logo */}
+      <div className="absolute top-6 sm:top-8 left-5 sm:left-8 z-40 flex items-center select-none">
+        {currentThemeId === "jm-crayon" ? (
+          <div className="flex items-center gap-1.5 select-none">
+            <span className="text-xl sm:text-2xl font-bold tracking-tight text-slate-800 dark:text-slate-100">
+              Jaagr<span className="font-extrabold text-slate-900 dark:text-white">Mind</span>
+            </span>
+            {/* 5 Crayon Sunburst Rays matching screenshot */}
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" className="-translate-y-1">
+              <path d="M12 2V6" stroke="#F5A623" strokeWidth="2.8" strokeLinecap="round" />
+              <path d="M18 5L15 8" stroke="#F8C846" strokeWidth="2.8" strokeLinecap="round" />
+              <path d="M22 12H18" stroke="#F5A623" strokeWidth="2.8" strokeLinecap="round" />
+              <path d="M18 19L15 16" stroke="#F8C846" strokeWidth="2.8" strokeLinecap="round" />
+              <path d="M6 5L9 8" stroke="#F8C846" strokeWidth="2.8" strokeLinecap="round" />
+            </svg>
+          </div>
+        ) : (
+          <div className="pointer-events-none">
+            <img
+              src="/DarkColorLogo.svg"
+              alt="JaagrMind"
+              className="h-8 sm:h-9 w-auto object-contain dark:hidden"
+            />
+            <img
+              src="/LightColorLogo.svg"
+              alt="JaagrMind"
+              className="h-8 sm:h-9 w-auto object-contain hidden dark:block"
+            />
+          </div>
+        )}
       </div>
 
-      <div className="absolute top-4 right-4 z-40 flex items-center gap-2">
-        <ThemeToggle />
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => logout("/student/login")}
-          className="text-xs text-muted-foreground hover:text-destructive gap-1.5 h-8 px-2.5 cursor-pointer"
+      <div className="absolute top-6 sm:top-8 right-5 sm:right-8 z-40 flex items-center gap-2.5 sm:gap-3 text-xs sm:text-sm font-medium text-slate-600 dark:text-slate-300">
+        <button
+          type="button"
+          onClick={() => setIsPaused(true)}
+          className="flex items-center gap-1.5 hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer select-none"
+        >
+          <Pause className="h-3.5 w-3.5" />
+          <span>Pause Assessment</span>
+        </button>
+        <span className="text-slate-300 dark:text-slate-700 select-none">|</span>
+        <button
+          type="button"
+          onClick={handleExit}
+          className="flex items-center gap-1.5 hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer select-none"
         >
           <LogOut className="h-3.5 w-3.5" />
           <span>Exit</span>
-        </Button>
+        </button>
+        <span className="text-slate-300 dark:text-slate-700 select-none">|</span>
+        <ThemeSelectorPill />
+        <ThemeToggle />
       </div>
 
-      <div className="flex-1 flex flex-col items-center justify-center p-2 sm:p-3 my-auto w-full relative z-20 overflow-hidden">
+      <div className="flex-1 flex flex-col items-center justify-center p-2 sm:p-4 my-auto w-full relative z-20 overflow-hidden">
         <AnimatePresence mode="wait">
           
           {/* STEP 1: INSTRUCTIONS */}
@@ -392,14 +439,18 @@ export default function StudentAssessmentPage() {
                     </span>
                   </label>
 
-                  <Button
-                    size="lg"
+                  <button
+                    type="button"
                     disabled={!consentChecked}
                     onClick={() => setFlowStep("moodCheck")}
-                    className="w-full h-10 text-sm font-medium"
+                    style={{
+                      backgroundColor: theme.primary || "#0B4F48",
+                      borderBottomColor: theme.primaryDark || "#083E38",
+                    }}
+                    className="w-full h-11 text-sm font-bold rounded-xl sm:rounded-full border-b-[5px] text-white active:translate-y-[2px] active:border-b-2 hover:brightness-105 transition-all shadow-xs disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
                   >
-                    Continue to Mood Check
-                  </Button>
+                    LET’S CHECK IN →
+                  </button>
                 </CardContent>
               </Card>
             </motion.div>
@@ -412,28 +463,16 @@ export default function StudentAssessmentPage() {
               initial={{ opacity: 0, y: 15 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -15 }}
-              className="w-full max-w-5xl xl:max-w-6xl mx-auto"
+              className="w-full max-w-xl mx-auto"
             >
               <Card className="border shadow-sm">
-                <CardContent className="p-5 sm:p-7 space-y-4">
+                <CardContent className="p-4 sm:p-6">
                   <MindWeatherCheck
                     value={mindWeather}
                     onChange={setMindWeather}
+                    onComplete={() => setFlowStep("countdown")}
+                    onBack={() => setFlowStep("instructions")}
                   />
-
-                  <div className="flex gap-3 pt-3 border-t">
-                    <Button variant="outline" size="sm" onClick={() => setFlowStep("instructions")} className="h-9 px-4">
-                      Back
-                    </Button>
-                    <Button
-                      size="sm"
-                      className="flex-1 shadow-sm h-9"
-                      disabled={!mindWeather.weather || !mindWeather.energyLevel || !mindWeather.sleepQuality}
-                      onClick={() => setFlowStep("countdown")}
-                    >
-                      Continue to Centering Breath
-                    </Button>
-                  </div>
                 </CardContent>
               </Card>
             </motion.div>
@@ -446,7 +485,7 @@ export default function StudentAssessmentPage() {
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 1.05 }}
-              className="w-full max-w-md text-center mx-auto"
+              className="w-full max-w-xl text-center mx-auto"
             >
               <Card className="border shadow-sm p-6 sm:p-8 bg-card">
                 <CardContent className="p-0">
@@ -501,6 +540,52 @@ export default function StudentAssessmentPage() {
 
         </AnimatePresence>
       </div>
+
+      {/* Mindful Pause Modal */}
+      <AnimatePresence>
+        {isPaused && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="w-full max-w-md bg-white dark:bg-slate-900 rounded-3xl p-6 sm:p-8 shadow-2xl border border-slate-200 dark:border-slate-800 text-center space-y-5"
+            >
+              <div className="w-14 h-14 rounded-2xl bg-amber-500/10 text-amber-600 dark:text-amber-400 mx-auto flex items-center justify-center">
+                <Pause className="h-7 w-7" />
+              </div>
+              <div className="space-y-2">
+                <h3 className="text-xl font-bold text-slate-900 dark:text-white tracking-tight">
+                  Assessment Paused
+                </h3>
+                <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
+                  Take a moment to relax your eyes, stretch, and take a gentle breath. Your answers are completely safe.
+                </p>
+              </div>
+              <div className="pt-2 flex gap-3">
+                <button
+                  type="button"
+                  onClick={handleExit}
+                  className="flex-1 rounded-xl sm:rounded-full h-11 border-2 border-slate-300 dark:border-slate-700 border-b-[4px] border-b-slate-400 dark:border-b-slate-800 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 font-bold text-sm active:translate-y-[2px] active:border-b-2 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all cursor-pointer shadow-xs"
+                >
+                  Exit Assessment
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsPaused(false)}
+                  style={{
+                    backgroundColor: theme.primary || "#0B4F48",
+                    borderBottomColor: theme.primaryDark || "#083E38",
+                  }}
+                  className="flex-1 rounded-xl sm:rounded-full h-11 border-b-[5px] text-white font-bold text-sm active:translate-y-[2px] active:border-b-2 hover:brightness-105 transition-all cursor-pointer shadow-xs"
+                >
+                  Resume Assessment
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

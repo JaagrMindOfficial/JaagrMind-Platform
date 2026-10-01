@@ -2,7 +2,6 @@ package repository
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"log"
 
@@ -573,10 +572,14 @@ func AutoMigrate(ctx context.Context, db *pgxpool.Pool) error {
 		-- Drop uq_student_active_result if present to allow longitudinal multi-attempt history and parent re-assessments
 		DROP INDEX IF EXISTS uq_student_active_result;
 
-		-- Assessment distribution channels: controls who sees what
+		-- Assessment distribution channels & grade targeting: controls who sees what
 		ALTER TABLE assessments ADD COLUMN IF NOT EXISTS publish_to_schools BOOLEAN DEFAULT true;
 		ALTER TABLE assessments ADD COLUMN IF NOT EXISTS publish_to_parents BOOLEAN DEFAULT true;
 		ALTER TABLE assessments ADD COLUMN IF NOT EXISTS auto_assign_schools BOOLEAN DEFAULT true;
+		ALTER TABLE assessments ADD COLUMN IF NOT EXISTS tier TEXT DEFAULT 'all';
+		ALTER TABLE assessments ADD COLUMN IF NOT EXISTS min_grade INT DEFAULT 1;
+		ALTER TABLE assessments ADD COLUMN IF NOT EXISTS max_grade INT DEFAULT 12;
+		ALTER TABLE assessments ADD COLUMN IF NOT EXISTS target_grades TEXT[] DEFAULT ARRAY['6','7','8','9','10','11','12'];
 
 		-- Prevent negative student count on scheduled promotions
 		DO $$
@@ -651,121 +654,14 @@ func AutoMigrate(ctx context.Context, db *pgxpool.Pool) error {
 		return fmt.Errorf("AutoMigrate error: %w", err)
 	}
 
-	// Auto-seed default 32-question wellness assessment if no assessments exist
-	seedDefaultAssessment(ctx, db)
+	// Auto-seed / update default 32-item assessment, tiered assessments, and link to active schools
+	seedOrUpdateAssessments(ctx, db)
 
 	log.Println("Database AutoMigrate verified successfully")
 	return nil
 }
 
+// seedDefaultAssessment maintains backward compatibility while delegating to seedOrUpdateAssessments
 func seedDefaultAssessment(ctx context.Context, db *pgxpool.Pool) {
-	var count int
-	_ = db.QueryRow(ctx, "SELECT COUNT(*) FROM assessments").Scan(&count)
-	if count > 0 {
-		return
-	}
-
-	standardNegativeOptions := []map[string]any{
-		{"label": "Not true for me", "marks": 1},
-		{"label": "Sometimes true", "marks": 2},
-		{"label": "Often true", "marks": 3},
-		{"label": "Almost always true", "marks": 4},
-	}
-	standardPositiveOptions := []map[string]any{
-		{"label": "Not true for me", "marks": 4},
-		{"label": "Sometimes true", "marks": 3},
-		{"label": "Often true", "marks": 2},
-		{"label": "Almost always true", "marks": 1},
-	}
-
-	type qDef struct {
-		Text        string           `json:"text"`
-		Section     string           `json:"section"`
-		SectionName string           `json:"sectionName"`
-		IsPositive  bool             `json:"isPositive"`
-		Options     []map[string]any `json:"options"`
-	}
-
-	questions := []qDef{
-		{Text: "I feel mentally tired before I begin my work", Section: "A", SectionName: "Focus & Attention", IsPositive: false, Options: standardNegativeOptions},
-		{Text: "I delay starting tasks that feel big or difficult.", Section: "A", SectionName: "Focus & Attention", IsPositive: false, Options: standardNegativeOptions},
-		{Text: "My mind keeps jumping between thoughts when I try to study.", Section: "A", SectionName: "Focus & Attention", IsPositive: false, Options: standardNegativeOptions},
-		{Text: "I feel pressure or stress when I need to concentrate.", Section: "A", SectionName: "Focus & Attention", IsPositive: false, Options: standardNegativeOptions},
-		{Text: "I feel overwhelmed when I have many things to do.", Section: "A", SectionName: "Focus & Attention", IsPositive: false, Options: standardNegativeOptions},
-		{Text: "Even simple work feels exhausting sometimes.", Section: "A", SectionName: "Focus & Attention", IsPositive: false, Options: standardNegativeOptions},
-		{Text: "I can stay focused once I begin a task.", Section: "A", SectionName: "Focus & Attention", IsPositive: true, Options: standardPositiveOptions},
-		{Text: "I feel calm and steady while working on something.", Section: "A", SectionName: "Focus & Attention", IsPositive: true, Options: standardPositiveOptions},
-
-		{Text: "I am very hard on myself when I make mistakes.", Section: "B", SectionName: "Self-Esteem & Inner Confidence", IsPositive: false, Options: standardNegativeOptions},
-		{Text: "I compare myself to others and feel less capable.", Section: "B", SectionName: "Self-Esteem & Inner Confidence", IsPositive: false, Options: standardNegativeOptions},
-		{Text: "I doubt my abilities even when I try sincerely.", Section: "B", SectionName: "Self-Esteem & Inner Confidence", IsPositive: false, Options: standardNegativeOptions},
-		{Text: "I feel disappointed in myself easily.", Section: "B", SectionName: "Self-Esteem & Inner Confidence", IsPositive: false, Options: standardNegativeOptions},
-		{Text: "I replay my mistakes in my mind for a long time.", Section: "B", SectionName: "Self-Esteem & Inner Confidence", IsPositive: false, Options: standardNegativeOptions},
-		{Text: "I judge myself more harshly than others judge me.", Section: "B", SectionName: "Self-Esteem & Inner Confidence", IsPositive: false, Options: standardNegativeOptions},
-		{Text: "I feel okay about myself even when I don't do well.", Section: "B", SectionName: "Self-Esteem & Inner Confidence", IsPositive: true, Options: standardPositiveOptions},
-		{Text: "I can encourage myself after making a mistake.", Section: "B", SectionName: "Self-Esteem & Inner Confidence", IsPositive: true, Options: standardPositiveOptions},
-
-		{Text: "I hesitate to speak up even when I know the answer.", Section: "C", SectionName: "Social Confidence & Interaction", IsPositive: false, Options: standardNegativeOptions},
-		{Text: "I worry about what others think of me.", Section: "C", SectionName: "Social Confidence & Interaction", IsPositive: false, Options: standardNegativeOptions},
-		{Text: "I feel awkward or uncomfortable in group situations.", Section: "C", SectionName: "Social Confidence & Interaction", IsPositive: false, Options: standardNegativeOptions},
-		{Text: "I avoid participating in class discussions.", Section: "C", SectionName: "Social Confidence & Interaction", IsPositive: false, Options: standardNegativeOptions},
-		{Text: "I stay quiet to avoid saying the wrong thing.", Section: "C", SectionName: "Social Confidence & Interaction", IsPositive: false, Options: standardNegativeOptions},
-		{Text: "I feel left out or invisible at school.", Section: "C", SectionName: "Social Confidence & Interaction", IsPositive: false, Options: standardNegativeOptions},
-		{Text: "I feel comfortable sharing my thoughts in groups.", Section: "C", SectionName: "Social Confidence & Interaction", IsPositive: true, Options: standardPositiveOptions},
-		{Text: "I feel confident interacting with classmates.", Section: "C", SectionName: "Social Confidence & Interaction", IsPositive: true, Options: standardPositiveOptions},
-
-		{Text: "I use my phone or screen when I feel bored or restless.", Section: "D", SectionName: "Digital Hygiene & Self-Control", IsPositive: false, Options: standardNegativeOptions},
-		{Text: "I lose track of time while scrolling or gaming.", Section: "D", SectionName: "Digital Hygiene & Self-Control", IsPositive: false, Options: standardNegativeOptions},
-		{Text: "I feel irritated when my screen time is limited.", Section: "D", SectionName: "Digital Hygiene & Self-Control", IsPositive: false, Options: standardNegativeOptions},
-		{Text: "I check my phone even when I know I should not.", Section: "D", SectionName: "Digital Hygiene & Self-Control", IsPositive: false, Options: standardNegativeOptions},
-		{Text: "I use screens to avoid uncomfortable feelings or tasks.", Section: "D", SectionName: "Digital Hygiene & Self-Control", IsPositive: false, Options: standardNegativeOptions},
-		{Text: "I find it hard to stop using screens once I start.", Section: "D", SectionName: "Digital Hygiene & Self-Control", IsPositive: false, Options: standardNegativeOptions},
-		{Text: "I can put my phone away when I decide to.", Section: "D", SectionName: "Digital Hygiene & Self-Control", IsPositive: true, Options: standardPositiveOptions},
-		{Text: "I feel comfortable being offline for some time.", Section: "D", SectionName: "Digital Hygiene & Self-Control", IsPositive: true, Options: standardPositiveOptions},
-	}
-
-	buckets := []map[string]any{
-		{"label": "Skill Stable", "minScore": 8, "maxScore": 14, "color": "#4CAF50"},
-		{"label": "Skill Emerging", "minScore": 15, "maxScore": 22, "color": "#FF9800"},
-		{"label": "Skill Support Needed", "minScore": 23, "maxScore": 32, "color": "#F44336"},
-	}
-
-	customSections := []map[string]any{
-		{"key": "A", "name": "Focus & Attention"},
-		{"key": "B", "name": "Self-Esteem & Inner Confidence"},
-		{"key": "C", "name": "Social Confidence & Interaction"},
-		{"key": "D", "name": "Digital Hygiene & Self-Control"},
-	}
-
-	type SectionObj struct {
-		Title     string `json:"title"`
-		Questions []qDef `json:"questions"`
-	}
-	var sections []SectionObj
-	sectionMap := make(map[string][]qDef)
-	for _, q := range questions {
-		sectionMap[q.SectionName] = append(sectionMap[q.SectionName], q)
-	}
-	for _, s := range customSections {
-		name := s["name"].(string)
-		sections = append(sections, SectionObj{
-			Title:     name,
-			Questions: sectionMap[name],
-		})
-	}
-
-	qJSON, _ := json.Marshal(questions)
-	bJSON, _ := json.Marshal(buckets)
-	csJSON, _ := json.Marshal(customSections)
-	sJSON, _ := json.Marshal(sections)
-
-	_, err := db.Exec(ctx, `
-		INSERT INTO assessments (title, description, is_default, time_per_question, total_time, inactivity_alert_time, inactivity_end_time, questions, buckets, section_buckets, custom_sections, sections, is_active)
-		VALUES ($1, $2, true, 30, 15, 40, 120, $3, $4, true, $5, $6, true)
-	`, "Student Wellness Assessment", "A comprehensive 32-question assessment to understand student mental wellness, emotional resilience, focus, and digital habits.", qJSON, bJSON, csJSON, sJSON)
-	if err != nil {
-		log.Printf("[Seeder] Failed to auto-seed default assessment: %v\n", err)
-	} else {
-		log.Println("[Seeder] Default 32-question wellness assessment auto-seeded successfully")
-	}
+	seedOrUpdateAssessments(ctx, db)
 }

@@ -1,11 +1,9 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Volume2, VolumeX, Check, Compass, Award, BookOpen, Layers } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Volume2, VolumeX } from "lucide-react";
 import { getSoundEnabled, setSoundEnabled } from "@/lib/assessment-sound";
 import { useState, useEffect } from "react";
-
 import { useAssessmentTheme, ASSESSMENT_THEMES } from "@/lib/assessment-theme";
 
 interface JourneyTimelineProps {
@@ -14,16 +12,10 @@ interface JourneyTimelineProps {
   currentPhase?: string;
 }
 
-const PHASES = [
-  { id: "notice", label: "Notice", subtitle: "Be aware of your actions", icon: Compass },
-  { id: "reflect", label: "Reflect", subtitle: "Explore what feels true", icon: Layers },
-  { id: "takeaway", label: "Takeaway", subtitle: "Insights & next steps", icon: Award },
-];
-
-export function JourneyTimeline({ currentIdx, totalCount, currentPhase }: JourneyTimelineProps) {
+export function JourneyTimeline({ currentIdx, totalCount }: JourneyTimelineProps) {
   const [soundOn, setSoundOn] = useState(false);
   const { currentThemeId } = useAssessmentTheme();
-  const theme = ASSESSMENT_THEMES[currentThemeId] || ASSESSMENT_THEMES["duo-green"];
+  const theme = ASSESSMENT_THEMES[currentThemeId] || ASSESSMENT_THEMES["jm-signature"];
 
   useEffect(() => {
     setSoundOn(getSoundEnabled());
@@ -36,101 +28,60 @@ export function JourneyTimeline({ currentIdx, totalCount, currentPhase }: Journe
   };
 
   const progressPercent = totalCount > 0 ? Math.round(((currentIdx + 1) / totalCount) * 100) : 0;
-  
-  // Phase 1 (Q1-11), Phase 2 (Q12-24), Phase 3 (Q25-32)
-  const activePhaseIdx = totalCount > 0 ? (currentIdx < 11 ? 0 : currentIdx < 24 ? 1 : 2) : 0;
 
   return (
-    <div className="w-full space-y-3">
-      {/* Top 3-Phase Stepper with Sound Toggle (Duolingo 3D Sticker Pills) */}
-      <div className="flex items-center justify-between gap-3 text-xs">
-        <div className="flex items-center gap-2 overflow-x-auto py-1">
-          {PHASES.map((p, idx) => {
-            const isActive = idx === activePhaseIdx;
-            const isDone = idx < activePhaseIdx;
-            return (
-              <motion.div
-                key={p.id}
-                whileHover={{ scale: 1.04 }}
-                whileTap={{ scale: 0.96 }}
-                className={`flex items-center gap-2 px-3.5 py-1.5 rounded-2xl text-xs transition-all border-2 border-b-4 ${
-                  isActive
-                    ? "bg-white dark:bg-slate-900 shadow-sm font-bold active:border-b-2 active:translate-y-[2px]"
-                    : isDone
-                    ? "bg-[#58cc02]/15 text-[#46a302] dark:text-[#58cc02] border-[#58cc02]/40 border-b-[#46a302] font-semibold"
-                    : "text-slate-600 dark:text-slate-300 bg-slate-100/90 dark:bg-slate-900/80 border-slate-200 dark:border-slate-800 border-b-slate-300 dark:border-b-slate-700 font-medium"
-                }`}
-                style={
-                  isActive
-                    ? {
-                        borderColor: theme.primaryDark,
-                        borderBottomColor: theme.primaryDark,
-                        color: theme.primary,
-                      }
-                    : {}
-                }
-              >
-                <div
-                  className={`h-4 w-4 rounded-full flex items-center justify-center text-[10px] font-bold ${
-                    isDone
-                      ? "bg-[#58cc02] text-white"
-                      : isActive
-                      ? "text-white"
-                      : "bg-slate-300 dark:bg-slate-700 text-slate-700 dark:text-slate-200"
-                  }`}
-                  style={isActive ? { backgroundColor: theme.primary } : {}}
-                >
-                  {isDone ? <Check className="h-2.5 w-2.5" /> : idx + 1}
-                </div>
-                <span>{p.label}</span>
-              </motion.div>
-            );
-          })}
-        </div>
-
-        <div className="flex items-center gap-2 shrink-0">
-          <Button
-            variant="ghost"
-            size="sm"
+    <div className="w-full max-w-2xl mx-auto space-y-1.5 mb-2.5 sm:mb-3 select-none">
+      {/* Top Labels: "Question X of Y" on left, "Z%" and sound on right */}
+      <div className="flex items-center justify-between text-xs sm:text-sm font-medium">
+        <span className={theme.id === "jm-crayon" ? "font-semibold text-[#1E3A2F] dark:text-emerald-300 text-xs sm:text-sm" : "font-semibold text-slate-700 dark:text-slate-200"}>
+          Question {currentIdx + 1} of {totalCount}
+        </span>
+        <div className="flex items-center gap-2.5">
+          <span className={theme.id === "jm-crayon" ? "font-semibold text-[#1E3A2F] dark:text-emerald-300 text-xs sm:text-sm" : "font-semibold text-slate-700 dark:text-slate-200"}>
+            {progressPercent}%
+          </span>
+          <button
             type="button"
             onClick={toggleSound}
-            className="h-8 px-2.5 text-xs text-slate-700 dark:text-slate-200 hover:text-slate-900 dark:hover:text-white cursor-pointer rounded-xl border border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600 bg-white/70 dark:bg-slate-900/80 font-semibold"
-            title={soundOn ? "Mute soothing sound" : "Enable soothing chime feedback"}
+            className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors p-1 rounded-md"
+            title={soundOn ? "Sound On (Click to mute)" : "Sound Off (Click to unmute)"}
+            aria-label="Toggle assessment sound"
           >
             {soundOn ? (
-              <Volume2 className="h-3.5 w-3.5 text-primary" />
+              <Volume2 className="h-3.5 w-3.5 text-slate-600 dark:text-slate-300" />
             ) : (
-              <VolumeX className="h-3.5 w-3.5 opacity-60" />
+              <VolumeX className="h-3.5 w-3.5 text-slate-400 dark:text-slate-500" />
             )}
-            <span className="hidden sm:inline ml-1.5 text-[11px] font-medium">
-              {soundOn ? "Sound On" : "Sound Off"}
-            </span>
-          </Button>
+          </button>
         </div>
       </div>
 
-      {/* Duolingo Capsule Progress Bar with Top Gloss Reflection */}
-      <div className="space-y-1.5">
-        <div className="flex justify-between items-center text-[11px] font-bold text-slate-800 dark:text-slate-100">
-          <span className="tracking-wide">Question {currentIdx + 1} of {totalCount}</span>
-          <span className="font-mono text-primary dark:text-[#58cc02] bg-primary/10 dark:bg-[#58cc02]/20 px-2.5 py-0.5 rounded-full border border-primary/20 dark:border-[#58cc02]/30 font-bold">
-            {progressPercent}% Complete
-          </span>
-        </div>
-        <div className="h-3.5 sm:h-4 w-full bg-slate-200/90 dark:bg-slate-900 rounded-full p-0.5 border-2 border-slate-300/80 dark:border-slate-800 shadow-inner overflow-hidden">
-          <motion.div
-            className="h-full rounded-full relative overflow-hidden shadow-xs transition-all"
-            style={{
-              backgroundColor: theme.primary,
-              width: `${Math.max(4, progressPercent)}%`,
-            }}
-            animate={{ width: `${Math.max(4, progressPercent)}%` }}
-            transition={{ type: "spring", stiffness: 260, damping: 20 }}
-          >
-            {/* Gloss reflection line across top half (Duolingo signature shine) */}
-            <div className="absolute top-0.5 left-2 right-2 h-1 bg-white/45 rounded-full" />
-          </motion.div>
-        </div>
+      {/* 3D Glass Score Progress Bar matching reference screenshot */}
+      <div
+        className="h-3.5 sm:h-4 w-full rounded-full p-[2px] overflow-hidden transition-all shadow-inner border border-slate-200/90 dark:border-slate-800 bg-[#E5E9EC] dark:bg-slate-800/90"
+        style={{
+          backgroundColor: theme.progressBarTrack || "#E5E9EC",
+        }}
+        role="progressbar"
+        aria-valuenow={progressPercent}
+        aria-valuemin={0}
+        aria-valuemax={100}
+      >
+        <motion.div
+          className="h-full rounded-full relative flex items-center overflow-hidden transition-all shadow-xs"
+          style={{
+            backgroundColor: theme.progressBarColor || theme.primary || "#1A5D3F",
+            width: `${Math.max(4, progressPercent)}%`,
+          }}
+          initial={false}
+          animate={{ width: `${Math.max(4, progressPercent)}%` }}
+          transition={{ duration: 0.35, ease: "easeOut" }}
+        >
+          {/* White Glass Shine Pill inside score bar */}
+          <div
+            className="w-full mx-1.5 sm:mx-2 h-[4px] sm:h-[4.5px] rounded-full bg-white/45 dark:bg-white/40 shadow-[0_1px_1px_rgba(255,255,255,0.4)]"
+          />
+        </motion.div>
       </div>
     </div>
   );

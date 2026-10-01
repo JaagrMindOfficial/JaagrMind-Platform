@@ -1,25 +1,16 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { useEffect, useState } from "react";
+import { motion } from "framer-motion";
 import {
-  CheckCircle2,
-  ChevronLeft,
-  ChevronRight,
-  Award,
-  Compass,
+  ArrowLeft,
+  ArrowRight,
   Loader2,
   AlertCircle,
-  Lightbulb,
-  Target,
-  Users,
-  Smartphone,
   MessageSquare,
-  ArrowRight,
+  Check,
 } from "lucide-react";
-import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { Card } from "@/components/ui/card";
 import { playSelectSound, playStepSound } from "@/lib/assessment-sound";
 import { useAssessmentTheme, ASSESSMENT_THEMES } from "@/lib/assessment-theme";
 
@@ -45,8 +36,8 @@ interface ScenarioCardProps {
   errorMessage?: string;
 }
 
-const OPTION_LETTERS = ["A", "B", "C", "D"];
-const OPTION_NUMBERS = ["1", "2", "3", "4"];
+const OPTION_KEYS = ["1", "2", "3", "4", "5"];
+const OPTION_LETTERS = ["A", "B", "C", "D", "E"];
 
 export function ScenarioCard({
   question,
@@ -60,90 +51,45 @@ export function ScenarioCard({
   isSubmitting,
   errorMessage,
 }: ScenarioCardProps) {
-  const [pressedKey, setPressedKey] = useState<string | null>(null);
   const [showNoteInput, setShowNoteInput] = useState(false);
   const [noteText, setNoteText] = useState("");
 
   const { currentThemeId } = useAssessmentTheme();
-  const theme = ASSESSMENT_THEMES[currentThemeId] || ASSESSMENT_THEMES["duo-green"];
+  const theme = ASSESSMENT_THEMES[currentThemeId] || ASSESSMENT_THEMES["jm-signature"];
 
+  // Default options match the exact 5-point wellness scale shown in the screenshot
   const options =
     question.options && question.options.length > 0
       ? question.options
       : [
-          { label: "Not like me", marks: 1 },
-          { label: "A little like me", marks: 2 },
-          { label: "Quite like me", marks: 3 },
-          { label: "Very much like me", marks: 4 },
+          { label: "Never", marks: 1 },
+          { label: "Rarely", marks: 2 },
+          { label: "Sometimes", marks: 3 },
+          { label: "Often", marks: 4 },
+          { label: "Almost always", marks: 5 },
         ];
 
-  // Domain theme helper (Design 2 & Document 2 v4.0 Spec)
-  const domainTheme = useMemo(() => {
-    const sec = (question.section || "").toUpperCase();
-    const name = (question.sectionName || question.category || "").toLowerCase();
-
-    if (sec === "A" || name.includes("focus") || name.includes("attention")) {
-      return {
-        label: "FOCUS & ATTENTION",
-        icon: Target,
-        badgeClass: "bg-sky-500/10 text-sky-600 dark:text-sky-300 border-sky-500/20 dark:border-sky-500/40 dark:bg-sky-950/40",
-        activeBorder: "border-sky-500 ring-2 ring-sky-500/20",
-        activeBg: "bg-sky-500/5 dark:bg-sky-500/10",
-        bubbleActive: "bg-sky-500 border-sky-500",
-        radioActive: "bg-sky-500 text-white",
-      };
-    } else if (sec === "B" || name.includes("confidence") || name.includes("grounding")) {
-      return {
-        label: "INNER CONFIDENCE",
-        icon: Award,
-        badgeClass: "bg-amber-500/10 text-amber-600 dark:text-amber-300 border-amber-500/20 dark:border-amber-500/40 dark:bg-amber-950/40",
-        activeBorder: "border-amber-500 ring-2 ring-amber-500/20",
-        activeBg: "bg-amber-500/5 dark:bg-amber-500/10",
-        bubbleActive: "bg-amber-500 border-amber-500",
-        radioActive: "bg-amber-500 text-white",
-      };
-    } else if (sec === "C" || name.includes("social") || name.includes("peer")) {
-      return {
-        label: "SOCIAL INTERACTION",
-        icon: Users,
-        badgeClass: "bg-rose-500/10 text-rose-600 dark:text-rose-300 border-rose-500/20 dark:border-rose-500/40 dark:bg-rose-950/40",
-        activeBorder: "border-rose-500 ring-2 ring-rose-500/20",
-        activeBg: "bg-rose-500/5 dark:bg-rose-500/10",
-        bubbleActive: "bg-rose-500 border-rose-500",
-        radioActive: "bg-rose-500 text-white",
-      };
-    } else {
-      return {
-        label: "HEALTHY DIGITAL HABITS",
-        icon: Smartphone,
-        badgeClass: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-300 border-emerald-500/20 dark:border-emerald-500/40 dark:bg-emerald-950/40",
-        activeBorder: "border-emerald-500 ring-2 ring-emerald-500/20",
-        activeBg: "bg-emerald-500/5 dark:bg-emerald-500/10",
-        bubbleActive: "bg-emerald-500 border-emerald-500",
-        radioActive: "bg-emerald-500 text-white",
-      };
-    }
-  }, [question]);
-
-  // Keyboard shortcut listener
+  // Keyboard shortcut listener for swift, accessible navigation
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (document.activeElement?.tagName === "INPUT" || document.activeElement?.tagName === "TEXTAREA") {
+      if (
+        document.activeElement?.tagName === "INPUT" ||
+        document.activeElement?.tagName === "TEXTAREA"
+      ) {
         return;
       }
 
       const key = e.key.toUpperCase();
       let pickedIdx = -1;
 
-      if (key === "A" || key === "1") pickedIdx = 0;
-      else if (key === "B" || key === "2") pickedIdx = 1;
-      else if (key === "C" || key === "3") pickedIdx = 2;
-      else if (key === "D" || key === "4") pickedIdx = 3;
+      if (key === "1" || key === "A") pickedIdx = 0;
+      else if (key === "2" || key === "B") pickedIdx = 1;
+      else if (key === "3" || key === "C") pickedIdx = 2;
+      else if (key === "4" || key === "D") pickedIdx = 3;
+      else if (key === "5" || key === "E") pickedIdx = 4;
 
       if (pickedIdx >= 0 && pickedIdx < options.length) {
         e.preventDefault();
-        setPressedKey(key);
-        setTimeout(() => setPressedKey(null), 200);
         playSelectSound(pickedIdx);
         onSelectOption(pickedIdx);
         return;
@@ -178,238 +124,224 @@ export function ScenarioCard({
   return (
     <motion.div
       key={questionIndex}
-      initial={{ opacity: 0, y: 12 }}
+      initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -12 }}
-      transition={{ duration: 0.22, ease: "easeOut" }}
-      className="w-full"
+      exit={{ opacity: 0, y: -8 }}
+      transition={{ duration: 0.2, ease: "easeOut" }}
+      className="w-full max-w-2xl mx-auto"
     >
-      {/* Duolingo-inspired chunky 3D sticker container */}
-      <Card id="assessment-main-card" data-assessment-main-card="true" className="border-2 border-b-[5px] border-slate-200 dark:border-slate-800 border-b-slate-300 dark:border-b-slate-700 rounded-3xl overflow-hidden flex flex-col justify-between bg-white dark:bg-slate-900/95 w-full shadow-lg transition-all">
-        <CardContent className="p-3.5 sm:p-4 space-y-2 sm:space-y-2.5 flex-1 flex flex-col justify-center">
-          {/* Header Metadata & Reassurance Tip */}
-          <div className="space-y-1.5 text-left">
-            <div className="flex flex-wrap items-center justify-between gap-1.5">
-              <div className="flex items-center gap-1.5">
-                <div className={`px-2.5 py-0.5 rounded-lg border-2 border-b-3 flex items-center gap-1.5 text-[11px] font-bold font-mono ${domainTheme.badgeClass}`}>
-                  <domainTheme.icon className="h-3 w-3" />
-                  <span>{domainTheme.label}</span>
-                </div>
-                {question.phase && (
-                  <Badge variant="outline" className="text-[10px] font-semibold bg-slate-100 dark:bg-slate-800 border-2 border-slate-200 dark:border-slate-700 rounded-lg px-2 py-0 text-slate-700 dark:text-slate-200">
-                    {question.phase}
-                  </Badge>
-                )}
-              </div>
-
-              <span className="text-[11px] font-mono font-bold text-slate-600 dark:text-slate-200 bg-slate-100 dark:bg-slate-800 px-2.5 py-1 rounded-md border border-slate-200 dark:border-slate-700">
-                Question {questionIndex + 1} of {totalQuestions}
-              </span>
+      {/* Pristine modern white card matching reference screenshot */}
+      <Card
+        id="assessment-main-card"
+        data-assessment-main-card="true"
+        data-assessment-card="true"
+        className={`px-5 sm:px-8 py-4 sm:py-5.5 overflow-hidden transition-all text-left ${
+          theme.id === "jm-crayon"
+            ? "rounded-[24px] sm:rounded-[28px] border border-[#E8E2D5] dark:border-slate-800 bg-[#FCFBF8]/95 dark:bg-[#15201A]/95 shadow-[0_12px_40px_rgba(30,45,35,0.06)] dark:shadow-none"
+            : "rounded-2xl sm:rounded-3xl border border-slate-100 dark:border-slate-800/80 bg-white dark:bg-slate-900 shadow-[0_4px_24px_rgba(0,0,0,0.03)] dark:shadow-none"
+        }`}
+      >
+        {/* Question Index Badge & Sparkle */}
+        {theme.id === "jm-crayon" ? (
+          <div className="flex items-center justify-between mb-2 sm:mb-2.5 select-none">
+            <div className="flex items-center gap-2 text-sm sm:text-base font-bold text-[#1A5D3F] dark:text-emerald-400">
+              <span>{String(questionIndex + 1).padStart(2, "0")}</span>
+              <span className="w-5 h-[2px] bg-[#1A5D3F] dark:bg-emerald-400 rounded-full inline-block" />
             </div>
-
-            {/* Reassurance Tip Callout - Compact Duolingo sticker banner */}
-            <div className="py-2 px-3.5 rounded-xl bg-amber-500/10 dark:bg-amber-950/40 border-2 border-b-3 border-amber-500/25 dark:border-amber-500/35 flex items-center gap-2 text-[11px] text-amber-900 dark:text-amber-200 font-medium">
-              <Lightbulb className="h-4 w-4 text-amber-500 dark:text-amber-400 shrink-0" />
-              <span>There are no right or wrong answers — just your honest experience.</span>
-            </div>
-
-            {/* Statement Text - 2 to 3 lines cleanly */}
-            <div className="pt-0.5">
-              <h2 className="text-base sm:text-lg font-bold tracking-tight text-slate-900 dark:text-white leading-snug line-clamp-3">
-                <span className="font-mono mr-2" style={{ color: theme.primary }}>{questionIndex + 1}.</span>
-                {question.text}
-              </h2>
+            {/* 3 Playful Yellow Crayon Sunbeams / Sparkle */}
+            <div className="text-amber-400 shrink-0">
+              <svg width="26" height="26" viewBox="0 0 34 34" fill="none">
+                <path d="M6 22 L16 16" stroke="#F5A623" strokeWidth="2.8" strokeLinecap="round" />
+                <path d="M12 10 L20 12" stroke="#F8C846" strokeWidth="3" strokeLinecap="round" />
+                <path d="M22 6 L22 16" stroke="#F5A623" strokeWidth="2.8" strokeLinecap="round" />
+              </svg>
             </div>
           </div>
-
-          {/* Friendly Guidance Hint - Tactile Buttony Capsule Box matching Theme Color */}
-          <div className="w-full pt-1 pb-0.5 flex items-center justify-center">
-            <div
-              className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border-2 border-b-[3px] shadow-xs select-none transition-all duration-300 bg-primary/10 dark:bg-slate-800/90"
-              style={{
-                borderColor: theme.primary,
-                borderBottomColor: theme.primaryDark,
-              }}
-            >
-              <Compass
-                className="h-4 w-4 shrink-0 transition-transform group-hover:scale-110"
-                style={{ color: theme.primary }}
-              />
-              <span className="text-xs sm:text-[13px] font-bold tracking-tight text-slate-900 dark:text-slate-100">
-                Choose what feels most true for you
-              </span>
-            </div>
+        ) : theme.id === "jm-serene" ? (
+          <div className="flex items-center gap-2 mb-2 text-xs sm:text-sm font-semibold select-none text-[#205A44] dark:text-emerald-400">
+            <span>{String(questionIndex + 1).padStart(2, "0")}</span>
+            <span className="w-5 h-[2px] bg-[#205A44] dark:bg-emerald-400 rounded-full inline-block" />
           </div>
+        ) : null}
 
-          {/* Duolingo Tactile 3D Circular Number Buttons with Press Depression */}
-          <div className="py-1.5 sm:py-2.5 w-full max-w-xl mx-auto">
-            <div className="flex items-start justify-between gap-2 sm:gap-3 w-full">
-              {options.map((opt, index) => {
-                const isSelected = selectedIndex === index;
-                const letter = OPTION_LETTERS[index] || String(index + 1);
-                const isKeyActive = pressedKey === letter || pressedKey === OPTION_NUMBERS[index];
+        {/* Question Statement */}
+        <div className="mb-3 sm:mb-4">
+          <h2 className="text-lg sm:text-[20px] font-bold tracking-tight text-slate-900 dark:text-slate-50 leading-snug">
+            {question.text}
+          </h2>
+        </div>
 
-                return (
-                  <div
-                    key={index}
-                    onClick={() => handleOptionClick(index)}
-                    className="flex-1 flex flex-col items-center text-center cursor-pointer group select-none"
-                  >
-                    <motion.button
-                      type="button"
-                      whileHover={{ scale: 1.06 }}
-                      whileTap={{ scale: 0.95 }}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleOptionClick(index);
-                      }}
-                      className={`w-11 h-11 sm:w-13 sm:h-13 rounded-full flex items-center justify-center text-sm sm:text-base font-extrabold transition-all cursor-pointer relative select-none ${
-                        isSelected
-                          ? `${theme.activeRadioClass} scale-105 active:translate-y-[2px] active:border-b-2`
-                          : "border-2 border-b-4 border-slate-200 dark:border-slate-700 border-b-slate-300 dark:border-b-slate-600 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-100 hover:border-slate-300 dark:hover:border-slate-500 hover:bg-slate-50 dark:hover:bg-slate-750 active:border-b-2 active:translate-y-[2px]"
-                      } ${isKeyActive ? `ring-4 ${theme.ringColor} scale-105` : ""}`}
-                    >
-                      {/* Top subtle shine bubble for 3D sticker look */}
-                      {isSelected && (
-                        <div className="absolute top-1 inset-x-2 h-1 rounded-full bg-white/40 pointer-events-none" />
-                      )}
-                      <span>{index + 1}</span>
-                    </motion.button>
+        {/* Vertical Options Stack with 3D Buttony Feel */}
+        <div className="space-y-2 sm:space-y-2.5" role="radiogroup" aria-label={question.text}>
+          {options.map((opt, index) => {
+            const isSelected = selectedIndex === index;
 
-                    {/* Psychology Today Under-Label (High contrast in light & dark mode) */}
-                    <div className="mt-1.5 space-y-0.5 max-w-[115px]">
-                      <p className={`text-[11px] sm:text-xs leading-tight transition-colors line-clamp-2 ${
-                        isSelected
-                          ? "font-bold text-slate-900 dark:text-white"
-                          : "font-semibold text-slate-700 dark:text-slate-200 group-hover:text-slate-900 dark:group-hover:text-white"
-                      }`}>
-                        {opt.label}
-                      </p>
-                      {index === 0 && (
-                        <span className="block text-[9px] text-slate-500 dark:text-slate-400 font-mono uppercase tracking-wider font-bold">
-                          Disagree
-                        </span>
-                      )}
-                      {index === options.length - 1 && (
-                        <span className="block text-[9px] text-slate-500 dark:text-slate-400 font-mono uppercase tracking-wider font-bold">
-                          Agree
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Optional Context Note (Duolingo sticker input toggle) */}
-          <div className="pt-0.5">
-            {!showNoteInput && !noteText ? (
+            return (
               <button
+                key={index}
                 type="button"
-                onClick={() => setShowNoteInput(true)}
-                className="text-[11px] text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white flex items-center gap-1.5 cursor-pointer font-semibold transition-colors px-2 py-0.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800"
+                role="radio"
+                aria-checked={isSelected}
+                onClick={() => handleOptionClick(index)}
+                className={`w-full flex items-center gap-3 sm:gap-3.5 px-4 sm:px-5 py-2.5 sm:py-3 rounded-xl sm:rounded-full text-left cursor-pointer group select-none transition-all duration-150 ${
+                  isSelected
+                    ? "bg-white dark:bg-slate-900 border-2 border-b-[5px] shadow-sm -translate-y-0.5"
+                    : "bg-white dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-800 border-b-[4px] border-b-slate-300 dark:border-b-slate-700/80 hover:border-slate-300 dark:hover:border-slate-700 hover:border-b-slate-400 dark:hover:border-b-slate-600 hover:bg-slate-50/60 dark:hover:bg-slate-800/40"
+                } active:translate-y-[2px] active:border-b-2`}
+                style={
+                  isSelected
+                    ? {
+                        borderColor: theme.primary || "#1A5D3F",
+                        borderBottomColor: theme.primaryDark || "#11402B",
+                        backgroundColor: theme.id === "jm-crayon" ? "#F5FBF7" : undefined,
+                      }
+                    : undefined
+                }
               >
-                <MessageSquare className="h-3 w-3 text-slate-500 dark:text-slate-400" />
-                <span>Want to add context?</span>
-                <span className="font-bold hover:underline" style={{ color: theme.primary }}>+ Add a note</span>
-              </button>
-            ) : (
-              <div className="p-2.5 rounded-xl border-2 border-b-3 border-slate-200 dark:border-slate-700 bg-card space-y-1.5">
-                <div className="flex items-center justify-between text-[10px] text-slate-600 dark:text-slate-300 font-semibold">
-                  <span className="flex items-center gap-1">
-                    <MessageSquare className="h-3 w-3" style={{ color: theme.primary }} />
-                    Optional Personal Note
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => setShowNoteInput(false)}
-                    className="text-slate-600 dark:text-slate-300 hover:text-foreground text-[10px] font-bold"
-                  >
-                    Hide
-                  </button>
+                {/* 3D Buttony Indicator Circle (no number, just buttony tactile icon) */}
+                <div
+                  className={`w-6 h-6 rounded-full shrink-0 flex items-center justify-center transition-all ${
+                    isSelected
+                      ? "shadow-xs"
+                      : "border-2 border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-800/70 group-hover:border-slate-400"
+                  }`}
+                  style={{
+                    backgroundColor: isSelected ? theme.primary || "#1A5D3F" : undefined,
+                  }}
+                >
+                  {isSelected && (
+                    <motion.div
+                      initial={{ scale: 0 }}
+                      animate={{ scale: 1 }}
+                      transition={{ type: "spring", stiffness: 500, damping: 30 }}
+                    >
+                      <Check className="h-3.5 w-3.5 text-white stroke-[3]" />
+                    </motion.div>
+                  )}
                 </div>
-                <textarea
-                  rows={2}
-                  placeholder="Jot down a quick thought (optional)..."
-                  value={noteText}
-                  onChange={(e) => setNoteText(e.target.value)}
-                  className="w-full text-xs p-2 rounded-lg border-2 border-border/80 bg-background focus:outline-none focus:border-primary font-medium text-foreground placeholder:text-muted-foreground/70"
-                />
+
+                {/* Option Text */}
+                <span
+                  className={`text-sm sm:text-base tracking-tight transition-colors ${
+                    isSelected
+                      ? "font-bold"
+                      : "font-semibold text-slate-700 dark:text-slate-200 group-hover:text-slate-900 dark:group-hover:text-white"
+                  }`}
+                  style={{
+                    color: isSelected ? theme.primary || "#1A5D3F" : undefined,
+                  }}
+                >
+                  {opt.label}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Optional Context Note Toggle */}
+        <div className="pt-3">
+          {!showNoteInput && !noteText ? (
+            <button
+              type="button"
+              onClick={() => setShowNoteInput(true)}
+              className="text-xs text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 inline-flex items-center gap-1.5 transition-colors cursor-pointer"
+            >
+              <MessageSquare className="h-3.5 w-3.5" />
+              <span>Add an optional reflection note</span>
+            </button>
+          ) : (
+            <div className="p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/60 space-y-2 mt-2">
+              <div className="flex items-center justify-between text-xs text-slate-500 font-medium">
+                <span className="flex items-center gap-1.5">
+                  <MessageSquare className="h-3.5 w-3.5 text-[#0B4F48] dark:text-emerald-400" />
+                  Personal Note (Optional)
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setShowNoteInput(false)}
+                  className="text-slate-400 hover:text-slate-600 text-xs"
+                >
+                  Close
+                </button>
               </div>
-            )}
-          </div>
-        </CardContent>
+              <textarea
+                rows={2}
+                placeholder="Jot down a quick personal thought or context..."
+                value={noteText}
+                onChange={(e) => setNoteText(e.target.value)}
+                className="w-full text-xs p-2.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 focus:outline-none focus:ring-1 focus:ring-[#0B4F48] text-slate-800 dark:text-slate-100 placeholder:text-slate-400"
+              />
+            </div>
+          )}
+        </div>
 
         {/* Error notification if submission failed */}
         {errorMessage && (
-          <div className="mx-4 mb-2 p-2.5 text-xs bg-destructive/10 text-destructive rounded-xl border-2 border-b-3 border-destructive/30 flex items-center gap-2 font-medium">
-            <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+          <div className="mt-4 p-3 text-xs bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 rounded-xl border border-rose-200 dark:border-rose-900 flex items-center gap-2 font-medium">
+            <AlertCircle className="h-4 w-4 shrink-0" />
             <span>{errorMessage}</span>
           </div>
         )}
 
-        {/* Footer Navigation with Duolingo 3D Pressable Buttons */}
-        <div className="border-t-2 border-slate-200/80 dark:border-slate-800 py-2.5 px-4 sm:px-6 flex justify-between items-center bg-slate-50/80 dark:bg-slate-950/70">
-          <Button
-            variant="outline"
-            size="sm"
+        {/* Bottom Navigation matching screenshot */}
+        <div className="mt-3.5 sm:mt-4 pt-3 sm:pt-3.5 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between">
+          {/* Previous Button (Clean 3D Buttony Outline) */}
+          <button
+            type="button"
             disabled={questionIndex === 0 || isSubmitting}
             onClick={() => {
               playStepSound();
               onPrev();
             }}
-            className="text-xs h-9 px-4 rounded-xl border-2 border-b-4 border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 active:border-b-2 active:translate-y-[2px] font-bold cursor-pointer transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+            className="px-5 sm:px-6 h-9 sm:h-10 rounded-xl sm:rounded-full border-2 border-slate-300 dark:border-slate-700 border-b-[4px] border-b-slate-400 dark:border-b-slate-800 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 hover:border-slate-400 text-xs sm:text-sm font-bold transition-all shadow-xs flex items-center gap-2 cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed select-none active:translate-y-[2px] active:border-b-2"
           >
-            <ChevronLeft className="h-4 w-4 mr-1" /> Previous
-          </Button>
+            <ArrowLeft className="h-3.5 w-3.5 stroke-[2.5]" />
+            <span>Previous</span>
+          </button>
 
-          <div className="hidden sm:flex items-center gap-2 text-[10px] text-slate-600 dark:text-slate-300 font-mono font-medium">
-            <span>Press</span>
-            <kbd className="px-1.5 py-0.5 rounded bg-white dark:bg-slate-800 border-2 border-b-3 border-slate-300 dark:border-slate-600 text-[9px] font-bold text-slate-800 dark:text-slate-100">Enter</kbd>
-            <span>{isLastQuestion ? "to finish & submit" : "to continue"} • Or press 1–4</span>
-          </div>
-
+          {/* Next / Submit Button (Rich Solid 3D Buttony Fill) */}
           {isLastQuestion ? (
             <button
+              type="button"
               disabled={selectedIndex === undefined || isSubmitting}
               onClick={() => {
                 playStepSound();
                 onNext();
               }}
-              className={`h-9 px-5 text-xs font-bold rounded-xl min-w-[150px] transition-all uppercase tracking-wider flex items-center justify-center gap-2 ${
-                selectedIndex === undefined || isSubmitting
-                  ? "cursor-not-allowed bg-slate-200/90 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border-2 border-b-4 border-slate-300 dark:border-slate-700"
-                  : `${theme.buttonClass} cursor-pointer`
-              }`}
+              style={{
+                backgroundColor: theme.primary || "#0B4F48",
+                borderBottomColor: theme.primaryDark || "#083E38",
+              }}
+              className="px-7 sm:px-9 h-9 sm:h-10 rounded-xl sm:rounded-full border-b-[5px] text-white text-xs sm:text-sm font-bold transition-all shadow-xs flex items-center gap-2 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed select-none hover:brightness-105 active:translate-y-[2px] active:border-b-2"
             >
               {isSubmitting ? (
-                <span className="flex items-center gap-1.5">
+                <>
                   <Loader2 className="h-3.5 w-3.5 animate-spin" />
                   <span>Submitting...</span>
-                </span>
+                </>
               ) : (
-                <span className="flex items-center gap-1.5">
-                  <span>Finish &amp; View Reflection</span>
-                  <Award className="h-3.5 w-3.5" />
-                </span>
+                <>
+                  <span>Submit</span>
+                  <ArrowRight className="h-3.5 w-3.5 stroke-[2.5]" />
+                </>
               )}
             </button>
           ) : (
             <button
+              type="button"
               disabled={selectedIndex === undefined || isSubmitting}
               onClick={() => {
                 playStepSound();
                 onNext();
               }}
-              className={`h-9 px-5 text-xs font-bold rounded-xl min-w-[120px] transition-all uppercase tracking-wider flex items-center justify-center gap-2 ${
-                selectedIndex === undefined || isSubmitting
-                  ? "cursor-not-allowed bg-slate-200/90 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border-2 border-b-4 border-slate-300 dark:border-slate-700"
-                  : `${theme.buttonClass} cursor-pointer`
-              }`}
+              style={{
+                backgroundColor: theme.primary || "#0B4F48",
+                borderBottomColor: theme.primaryDark || "#083E38",
+              }}
+              className="px-7 sm:px-9 h-9 sm:h-10 rounded-xl sm:rounded-full border-b-[5px] text-white text-xs sm:text-sm font-bold transition-all shadow-xs flex items-center gap-2 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed select-none hover:brightness-105 active:translate-y-[2px] active:border-b-2"
             >
-              <span>Continue</span>
-              <ArrowRight className="h-3.5 w-3.5" />
+              <span>Next</span>
+              <ArrowRight className="h-3.5 w-3.5 stroke-[2.5]" />
             </button>
           )}
         </div>

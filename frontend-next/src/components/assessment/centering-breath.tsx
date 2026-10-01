@@ -1,40 +1,77 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { motion } from "framer-motion";
-import { ArrowRight } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { playStepSound } from "@/lib/assessment-sound";
+import { motion, AnimatePresence } from "framer-motion";
+import { Eye, Volume2, Heart, Sparkles, Settings, Check } from "lucide-react";
+import { playStepSound, playSelectSound } from "@/lib/assessment-sound";
+import { useAssessmentTheme } from "@/lib/assessment-theme";
 
 interface CenteringBreathProps {
   onComplete: () => void;
 }
 
+const groundingActions = [
+  {
+    id: "see",
+    label: "See one thing.",
+    cue: "Look around your space and notice any object, shape, or light.",
+    icon: Eye,
+    activeColor: "text-emerald-600 dark:text-emerald-400",
+    bgActive: "bg-emerald-500/10 border-emerald-500/40 text-emerald-900 dark:text-emerald-200",
+    ringColor: "border-emerald-500/30",
+  },
+  {
+    id: "hear",
+    label: "Hear one thing.",
+    cue: "Listen for a nearby sound, gentle hum, or the room's quiet.",
+    icon: Volume2,
+    activeColor: "text-sky-600 dark:text-sky-400",
+    bgActive: "bg-sky-500/10 border-sky-500/40 text-sky-900 dark:text-sky-200",
+    ringColor: "border-sky-500/30",
+  },
+  {
+    id: "feel",
+    label: "Feel one thing.",
+    cue: "Notice the chair supporting you, your feet, or your natural breath.",
+    icon: Heart,
+    activeColor: "text-rose-500 dark:text-rose-400",
+    bgActive: "bg-rose-500/10 border-rose-500/40 text-rose-900 dark:text-rose-200",
+    ringColor: "border-rose-500/30",
+  },
+  {
+    id: "done",
+    label: "That’s it.",
+    cue: "You’ve arrived in this moment. Steady, grounded, and ready.",
+    icon: Sparkles,
+    activeColor: "text-amber-500 dark:text-amber-400",
+    bgActive: "bg-amber-500/10 border-amber-500/40 text-amber-900 dark:text-amber-200",
+    ringColor: "border-amber-500/30",
+  },
+];
+
 export function CenteringBreath({ onComplete }: CenteringBreathProps) {
-  const [phase, setPhase] = useState<"inhale" | "exhale" | "ready">("inhale");
+  const { theme } = useAssessmentTheme();
+  // Stage: "lookAround" (Screen 5) | "transition" (Screen 6)
+  const [stage, setStage] = useState<"lookAround" | "transition">("lookAround");
+  const [activeIdx, setActiveIdx] = useState(0);
 
   useEffect(() => {
-    // 0s to 2s: inhale
-    const t1 = setTimeout(() => {
-      setPhase("exhale");
-    }, 2000);
+    if (stage !== "lookAround") return;
 
-    // 2s to 3.8s: exhale
-    const t2 = setTimeout(() => {
-      setPhase("ready");
-    }, 3800);
-
-    // 4.2s: auto complete
-    const t3 = setTimeout(() => {
-      playStepSound();
-      onComplete();
-    }, 4400);
+    // Smoothly step through the 4 actions across ~10 seconds
+    const t1 = setTimeout(() => setActiveIdx(1), 2500);
+    const t2 = setTimeout(() => setActiveIdx(2), 5200);
+    const t3 = setTimeout(() => setActiveIdx(3), 7800);
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.code === "Space" || e.key === "Enter") {
         e.preventDefault();
         playStepSound();
-        onComplete();
+        if (stage === "lookAround") {
+          setStage("transition");
+        } else {
+          onComplete();
+        }
       }
     };
 
@@ -46,85 +83,229 @@ export function CenteringBreath({ onComplete }: CenteringBreathProps) {
       clearTimeout(t3);
       window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [onComplete]);
+  }, [stage, onComplete]);
 
   return (
-    <div className="w-full max-w-md mx-auto text-center space-y-8 py-6">
-      {/* Visual Breathing Orb */}
-      <div className="relative h-44 w-44 mx-auto flex items-center justify-center">
-        {/* Outer Ripple Wave */}
-        <motion.div
-          animate={{
-            scale: phase === "inhale" ? [1, 1.45] : [1.45, 1],
-            opacity: phase === "inhale" ? [0.2, 0.6] : [0.6, 0.2],
-          }}
-          transition={{ duration: 2, ease: "easeInOut" }}
-          className="absolute inset-0 rounded-full border border-primary/30 bg-primary/5 filter blur-xs"
-        />
-
-        {/* Middle Pulse Ring */}
-        <motion.div
-          animate={{
-            scale: phase === "inhale" ? [0.9, 1.25] : [1.25, 0.9],
-            opacity: phase === "inhale" ? [0.35, 0.75] : [0.75, 0.35],
-          }}
-          transition={{ duration: 2, ease: "easeInOut" }}
-          className="absolute inset-4 rounded-full border-2 border-primary/40 bg-gradient-to-tr from-primary/15 via-sky-400/10 to-transparent"
-        />
-
-        {/* Inner Breathing Core */}
-        <motion.div
-          animate={{
-            scale: phase === "inhale" ? [0.75, 1.15] : [1.15, 0.75],
-            opacity: phase === "inhale" ? [0.6, 0.95] : [0.95, 0.6],
-          }}
-          transition={{ duration: 2, ease: "easeInOut" }}
-          className="relative h-20 w-20 rounded-full bg-primary/25 backdrop-blur-md flex items-center justify-center shadow-inner border border-primary/40"
-        >
-          {/* Subtle center glowing droplet */}
+    <div className="w-full max-w-md mx-auto text-center select-none py-1">
+      <AnimatePresence mode="wait">
+        {/* ─────────────────────────────────────────────────────────────
+            SCREEN 5: Look Around | 10-Second Grounding
+        ────────────────────────────────────────────────────────────── */}
+        {stage === "lookAround" && (
           <motion.div
-            animate={{
-              scale: phase === "inhale" ? [0.8, 1.3] : [1.3, 0.8],
-            }}
-            transition={{ duration: 2, ease: "easeInOut" }}
-            className="h-4 w-4 rounded-full bg-primary shadow-sm shadow-primary/50"
-          />
-        </motion.div>
-      </div>
+            key="screen-5-grounding"
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.96 }}
+            transition={{ duration: 0.25 }}
+            className="space-y-4"
+          >
+            {/* Header Badge & Title */}
+            <div className="space-y-1">
+              <span className="text-[10px] sm:text-[11px] font-mono font-bold tracking-wider uppercase text-primary inline-flex items-center gap-1.5">
+                <Settings className="h-3 w-3" />
+                <span>BEFORE WE JUMP IN…</span>
+              </span>
+              <h2 className="text-base sm:text-lg font-bold text-foreground tracking-tight">
+                Look up from your screen for a second.
+              </h2>
+            </div>
 
-      <div className="space-y-2">
-        <motion.h3
-          key={phase}
-          initial={{ opacity: 0, y: 5 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="text-xl font-semibold tracking-tight text-foreground"
-        >
-          {phase === "inhale" && "Take a gentle breath in..."}
-          {phase === "exhale" && "Release... and soften your shoulders."}
-          {phase === "ready" && "You are ready."}
-        </motion.h3>
+            {/* 4 Grounding Actions Stack with Rich Micro-Animations */}
+            <div className="space-y-2 text-left">
+              {groundingActions.map((action, index) => {
+                const Icon = action.icon;
+                const isActive = activeIdx === index;
+                const isPast = activeIdx > index;
 
-        <p className="text-xs text-muted-foreground max-w-xs mx-auto leading-relaxed">
-          No scores, no timer stress. Just an honest reflection of your everyday rhythm.
-        </p>
-      </div>
+                return (
+                  <motion.div
+                    key={action.id}
+                    onClick={() => {
+                      playSelectSound(index);
+                      setActiveIdx(index);
+                    }}
+                    animate={{
+                      scale: isActive ? 1.015 : 1,
+                      opacity: isActive ? 1 : isPast ? 0.85 : 0.6,
+                    }}
+                    className={`p-2.5 sm:p-3 rounded-xl sm:rounded-2xl border transition-all cursor-pointer relative overflow-hidden flex items-center justify-between ${
+                      isActive
+                        ? `${action.bgActive} shadow-xs ring-1 ring-primary/20`
+                        : "border-border/70 bg-card/60 hover:bg-card/90 text-foreground"
+                    }`}
+                  >
+                    <div className="flex items-center gap-3 min-w-0 flex-1">
+                      {/* Animated Icon Container */}
+                      <div className="relative h-8 w-8 rounded-xl bg-background/80 border border-border/60 shrink-0 flex items-center justify-center">
+                        {/* Action 1 Specific Animation: Expanding Vision Radar / Iris Pulse */}
+                        {action.id === "see" && isActive && (
+                          <motion.span
+                            animate={{
+                              scale: [1, 1.45, 1],
+                              opacity: [0.6, 0.1, 0.6],
+                            }}
+                            transition={{
+                              duration: 2.2,
+                              repeat: Infinity,
+                              ease: "easeInOut",
+                            }}
+                            className="absolute inset-0 rounded-xl border-2 border-emerald-500/50 pointer-events-none"
+                          />
+                        )}
 
-      <div className="pt-2">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => {
-            playStepSound();
-            onComplete();
-          }}
-          className="text-xs text-muted-foreground hover:text-foreground border-border/80"
-        >
-          Skip & Start Now <ArrowRight className="h-3.5 w-3.5 ml-1.5" />
-        </Button>
-        <span className="block text-[10px] text-muted-foreground/60 font-mono mt-1.5">
-          Press Spacebar to jump in
-        </span>
-      </div>
+                        {/* Action 2 Specific Animation: Concentric Sound Wave Acoustic Ripple */}
+                        {action.id === "hear" && isActive && (
+                          <motion.span
+                            animate={{
+                              scale: [0.9, 1.5],
+                              opacity: [0.75, 0],
+                            }}
+                            transition={{
+                              duration: 1.8,
+                              repeat: Infinity,
+                              ease: "easeOut",
+                            }}
+                            className="absolute inset-0 rounded-xl border border-sky-500/60 pointer-events-none"
+                          />
+                        )}
+
+                        {/* Action 3 Specific Animation: Warm Grounding Heartbeat Rhythm */}
+                        {action.id === "feel" && isActive && (
+                          <motion.span
+                            animate={{
+                              scale: [1, 1.15, 1, 1.1, 1],
+                              opacity: [0.5, 0.9, 0.5],
+                            }}
+                            transition={{
+                              duration: 1.9,
+                              repeat: Infinity,
+                              ease: "easeInOut",
+                            }}
+                            className="absolute inset-0 rounded-xl border border-rose-500/50 bg-rose-500/10 pointer-events-none"
+                          />
+                        )}
+
+                        {/* Action 4 Specific Animation: Soft Twinkling Sparkle Shimmer */}
+                        {action.id === "done" && isActive && (
+                          <motion.span
+                            animate={{
+                              rotate: [0, 18, -18, 0],
+                              scale: [1, 1.15, 1],
+                            }}
+                            transition={{
+                              duration: 2.2,
+                              repeat: Infinity,
+                              ease: "easeInOut",
+                            }}
+                            className="absolute inset-0 rounded-xl border border-amber-500/50 bg-amber-500/10 pointer-events-none"
+                          />
+                        )}
+
+                        <Icon className={`h-4 w-4 ${isActive ? action.activeColor : "text-muted-foreground"}`} />
+                      </div>
+
+                      {/* Action Copy */}
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs sm:text-sm font-bold tracking-tight text-foreground">
+                            {action.label}
+                          </span>
+                        </div>
+                        <p className="text-[10px] text-muted-foreground leading-tight truncate">
+                          {action.cue}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Checkmark or Active Indicator */}
+                    <div className="shrink-0 ml-2">
+                      {isPast ? (
+                        <div className="h-5 w-5 rounded-full bg-primary/20 text-primary flex items-center justify-center">
+                          <Check className="h-3 w-3 stroke-[3]" />
+                        </div>
+                      ) : isActive ? (
+                        <motion.div
+                          animate={{ scale: [0.9, 1.15, 0.9] }}
+                          transition={{ duration: 1.6, repeat: Infinity }}
+                          className="h-2.5 w-2.5 rounded-full bg-primary"
+                        />
+                      ) : (
+                        <div className="h-2 w-2 rounded-full bg-border" />
+                      )}
+                    </div>
+                  </motion.div>
+                );
+              })}
+            </div>
+
+            {/* CTA Button: I'M READY → */}
+            <div className="pt-1">
+              <button
+                type="button"
+                onClick={() => {
+                  playStepSound();
+                  setStage("transition");
+                }}
+                style={{
+                  backgroundColor: theme.primary || "#0B4F48",
+                  borderBottomColor: theme.primaryDark || "#083E38",
+                }}
+                className="w-full h-10 px-6 rounded-xl sm:rounded-full border-b-[5px] text-white font-bold text-xs sm:text-sm active:translate-y-[2px] active:border-b-2 hover:brightness-105 transition-all cursor-pointer shadow-xs select-none"
+              >
+                I&apos;M READY →
+              </button>
+            </div>
+          </motion.div>
+        )}
+
+        {/* ─────────────────────────────────────────────────────────────
+            SCREEN 6: Transition to Assessment
+        ────────────────────────────────────────────────────────────── */}
+        {stage === "transition" && (
+          <motion.div
+            key="screen-6-transition"
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 1.05 }}
+            transition={{ duration: 0.25 }}
+            className="space-y-4 py-2"
+          >
+            {/* Clean Transition Heading */}
+            <div className="space-y-1">
+              <h2 className="text-lg sm:text-xl font-bold text-foreground tracking-tight">
+                Nothing to fix. Nothing to change.
+              </h2>
+              <p className="text-xs sm:text-sm font-medium text-slate-700 dark:text-slate-300">
+                Just notice where you’re starting from.
+              </p>
+            </div>
+
+            {/* Supporting Text Card */}
+            <div className="p-3.5 rounded-2xl bg-muted/40 border border-border/80 text-xs text-muted-foreground leading-relaxed max-w-sm mx-auto">
+              The next few questions are just about you. There are no right or wrong answers.
+            </div>
+
+            {/* CTA: READY? LET’S GO → */}
+            <div className="pt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  playStepSound();
+                  onComplete();
+                }}
+                style={{
+                  backgroundColor: theme.primary || "#0B4F48",
+                  borderBottomColor: theme.primaryDark || "#083E38",
+                }}
+                className="w-full h-11 px-8 rounded-xl sm:rounded-full border-b-[5px] text-white font-bold text-sm active:translate-y-[2px] active:border-b-2 hover:brightness-105 transition-all cursor-pointer shadow-xs select-none"
+              >
+                READY? LET’S GO →
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

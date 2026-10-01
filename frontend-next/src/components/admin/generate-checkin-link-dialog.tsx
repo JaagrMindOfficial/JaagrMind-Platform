@@ -30,10 +30,12 @@ import {
   Leaf,
   Wind,
   Sun,
+  Sparkles,
 } from "lucide-react"
 import QRCode from "qrcode"
 import { api } from "@/lib/api"
 import { ADMIN_AVAILABLE_THEMES, useAssessmentTheme, AssessmentThemeId } from "@/lib/assessment-theme"
+import { CrayonIcon } from "@/components/icons/crayon-icon"
 
 export interface CheckinLinkItem {
   id: string
@@ -570,12 +572,12 @@ export function GenerateCheckinLinkDialog({
                         >
                           <div>
                             <div className="flex items-center gap-2">
-                              {th.id === "duo-green" ? (
-                                <Leaf className="h-4 w-4 text-[#58cc02] shrink-0" />
-                              ) : th.id === "spark-blue" ? (
-                                <Wind className="h-4 w-4 text-[#1cb0f6] shrink-0" />
+                              {th.id === "jm-signature" ? (
+                                <Sparkles className="h-4 w-4 text-[#8161A3] shrink-0" />
+                              ) : th.id === "jm-crayon" ? (
+                                <CrayonIcon className="h-4 w-4 text-[#F59E0B] shrink-0" />
                               ) : (
-                                <Sun className="h-4 w-4 text-[#ff9600] shrink-0" />
+                                <Leaf className="h-4 w-4 text-[#205A44] shrink-0" />
                               )}
                               <span className="text-xs font-bold text-foreground">{th.name}</span>
                             </div>

@@ -81,37 +81,37 @@ export interface MascotThemeColors {
 }
 
 export const MASCOT_THEME_COLORS: Record<AssessmentThemeId, MascotThemeColors> = {
-  "duo-green": {
-    bodyFill: "#58cc02",
+  "jm-signature": {
+    bodyFill: "#8161A3",
     bodyStroke: "#000437",
-    bellyFill: "#d7ffb8",
-    wingFill: "#46a302",
+    bellyFill: "#EDE8F5",
+    wingFill: "#674987",
+    beakFill: "#ffc800",
+    feetFill: "#ffc800",
+    cheekFill: "#ff7f7f",
+    sproutLeft: "#A8D2C6",
+    sproutRight: "#8BB9A9",
+  },
+  "jm-serene": {
+    bodyFill: "#205A44",
+    bodyStroke: "#000437",
+    bellyFill: "#EDF3EE",
+    wingFill: "#174332",
     beakFill: "#ffc800",
     feetFill: "#ffc800",
     cheekFill: "#ff7f7f",
     sproutLeft: "#7ce539",
     sproutRight: "#a5ed6e",
   },
-  "spark-blue": {
-    bodyFill: "#1cb0f6",
+  "jm-crayon": {
+    bodyFill: "#1A5D3F",
     bodyStroke: "#000437",
-    bellyFill: "#d5f2ff",
-    wingFill: "#1899d6",
+    bellyFill: "#F2F7F4",
+    wingFill: "#144931",
     beakFill: "#ffc800",
     feetFill: "#ffc800",
     cheekFill: "#ff7f7f",
-    sproutLeft: "#38c2ff",
-    sproutRight: "#70d5ff",
-  },
-  "sunny-amber": {
-    bodyFill: "#ff9600",
-    bodyStroke: "#000437",
-    bellyFill: "#ffeed5",
-    wingFill: "#d97e00",
-    beakFill: "#ffc800",
-    feetFill: "#ffb300",
-    cheekFill: "#ff7f7f",
-    sproutLeft: "#ffa726",
-    sproutRight: "#ffca28",
+    sproutLeft: "#7ce539",
+    sproutRight: "#a5ed6e",
   },
 };

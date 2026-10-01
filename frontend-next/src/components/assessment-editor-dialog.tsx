@@ -28,8 +28,10 @@ import {
   Leaf,
   Wind,
   Sun,
+  Sparkles,
 } from "lucide-react"
 import { ADMIN_AVAILABLE_THEMES, AssessmentThemeId, useAssessmentTheme } from "@/lib/assessment-theme"
+import { CrayonIcon } from "@/components/icons/crayon-icon"
 
 export interface QuestionOption {
   label: string
@@ -130,7 +132,7 @@ export function AssessmentEditorDialog({
     publish_to_schools: true,
     publish_to_parents: true,
     auto_assign_schools: true,
-    theme: "duo-green",
+    theme: "jm-signature",
   })
 
   const [jsonText, setJsonText] = useState("")
@@ -202,7 +204,7 @@ export function AssessmentEditorDialog({
       publish_to_parents: initialData?.publish_to_parents ?? true,
       auto_assign_schools: initialData?.auto_assign_schools ?? true,
       custom_sections: initialData?.custom_sections,
-      theme: (initialData?.theme || initialData?.custom_sections?.theme || currentThemeId || "duo-green") as AssessmentThemeId,
+      theme: (initialData?.theme || initialData?.custom_sections?.theme || currentThemeId || "jm-signature") as AssessmentThemeId,
     }
 
     setFormData(data)
@@ -256,7 +258,7 @@ export function AssessmentEditorDialog({
         publish_to_parents: parsed.publish_to_parents ?? formData.publish_to_parents,
         auto_assign_schools: parsed.auto_assign_schools ?? formData.auto_assign_schools,
         custom_sections: parsed.custom_sections || formData.custom_sections,
-        theme: (parsed.theme || parsed.custom_sections?.theme || formData.theme || "duo-green") as AssessmentThemeId,
+        theme: (parsed.theme || parsed.custom_sections?.theme || formData.theme || "jm-signature") as AssessmentThemeId,
       })
       setJsonError(null)
       setMode("visual")
@@ -478,7 +480,7 @@ export function AssessmentEditorDialog({
       return
     }
 
-    const finalTheme = currentData.theme || "duo-green"
+    const finalTheme = currentData.theme || "jm-signature"
     const payload: AssessmentFormData = {
       ...currentData,
       theme: finalTheme,
@@ -542,14 +544,14 @@ export function AssessmentEditorDialog({
               className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-xs bg-muted/40 hover:bg-muted/80 border-border/80 transition-colors cursor-pointer"
             >
               <Palette className="h-3 w-3 text-muted-foreground" />
-              {formData.theme === "duo-green" ? (
-                <Leaf className="h-3.5 w-3.5 text-[#58cc02] shrink-0" />
-              ) : formData.theme === "spark-blue" ? (
-                <Wind className="h-3.5 w-3.5 text-[#1cb0f6] shrink-0" />
+              {formData.theme === "jm-signature" ? (
+                <Sparkles className="h-3.5 w-3.5 text-[#8161A3] shrink-0" />
+              ) : formData.theme === "jm-crayon" ? (
+                <CrayonIcon className="h-3.5 w-3.5 text-[#F59E0B] shrink-0" />
               ) : (
-                <Sun className="h-3.5 w-3.5 text-[#ff9600] shrink-0" />
+                <Leaf className="h-3.5 w-3.5 text-[#205A44] shrink-0" />
               )}
-              <span className="font-medium text-foreground">{ADMIN_AVAILABLE_THEMES.find(t => t.id === formData.theme)?.name || "Nature Garden"}</span>
+              <span className="font-medium text-foreground">{ADMIN_AVAILABLE_THEMES.find(t => t.id === formData.theme)?.name || "JM Signature"}</span>
             </button>
 
             <div className="flex items-center p-0.5 rounded-lg border bg-muted/40">
@@ -913,7 +915,7 @@ export function AssessmentEditorDialog({
                         size="sm"
                         className="text-[11px] h-7 gap-1 border-emerald-500/30 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/10 cursor-pointer"
                         onClick={() => {
-                          window.open(`/preview/assessment/${formData.id || "default"}?theme=${formData.theme || "duo-green"}`, "_blank")
+                          window.open(`/preview/assessment/${formData.id || "default"}?theme=${formData.theme || "jm-signature"}`, "_blank")
                         }}
                       >
                         <ExternalLink className="h-3 w-3" />
@@ -923,7 +925,7 @@ export function AssessmentEditorDialog({
 
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                       {ADMIN_AVAILABLE_THEMES.map((th) => {
-                        const isSelected = (formData.theme || "duo-green") === th.id
+                        const isSelected = (formData.theme || "jm-signature") === th.id
                         return (
                           <div
                             key={th.id}
@@ -946,12 +948,12 @@ export function AssessmentEditorDialog({
                           >
                             <div className="flex items-start justify-between gap-2">
                               <div className="p-2 rounded-lg bg-muted/60 border">
-                                {th.id === "duo-green" ? (
-                                  <Leaf className="h-5 w-5 text-[#58cc02]" />
-                                ) : th.id === "spark-blue" ? (
-                                  <Wind className="h-5 w-5 text-[#1cb0f6]" />
+                                {th.id === "jm-signature" ? (
+                                  <Sparkles className="h-5 w-5 text-[#8161A3]" />
+                                ) : th.id === "jm-crayon" ? (
+                                  <CrayonIcon className="h-5 w-5 text-[#F59E0B]" />
                                 ) : (
-                                  <Sun className="h-5 w-5 text-[#ff9600]" />
+                                  <Leaf className="h-5 w-5 text-[#205A44]" />
                                 )}
                               </div>
                               <div className={`w-5 h-5 rounded-full border flex items-center justify-center ${

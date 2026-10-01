@@ -21,7 +21,7 @@ export function MascotCharacterRig({
   size = 120,
   className = "",
 }: MascotCharacterRigProps) {
-  const colors = MASCOT_THEME_COLORS[themeId] || MASCOT_THEME_COLORS["duo-green"];
+  const colors = MASCOT_THEME_COLORS[themeId] || MASCOT_THEME_COLORS["jm-signature"];
 
   // Eyelid path calculations for smooth blinking
   // Eye centers are at (44, 54) and (76, 54), radius 13

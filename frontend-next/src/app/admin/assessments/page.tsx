@@ -29,6 +29,7 @@ import {
   Leaf,
   Wind,
   Sun,
+  Sparkles,
 } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
@@ -36,6 +37,7 @@ import { AssessmentEditorDialog, AssessmentFormData } from "@/components/assessm
 import { AssignSchoolsDialog } from "@/components/assign-schools-dialog"
 import { GenerateCheckinLinkDialog } from "@/components/admin/generate-checkin-link-dialog"
 import { ADMIN_AVAILABLE_THEMES, useAssessmentTheme, AssessmentThemeId } from "@/lib/assessment-theme"
+import { CrayonIcon } from "@/components/icons/crayon-icon"
 import { api } from "@/lib/api"
 
 interface Assessment {
@@ -280,12 +282,12 @@ export default function AdminAssessmentsPage() {
             onClick={() => setIsThemeSettingsOpen(true)}
             className="text-xs gap-1.5 border-emerald-500/40 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-500/10 cursor-pointer"
           >
-            {theme.id === "duo-green" ? (
-              <Leaf className="h-3.5 w-3.5 text-[#58cc02] shrink-0" />
-            ) : theme.id === "spark-blue" ? (
-              <Wind className="h-3.5 w-3.5 text-[#1cb0f6] shrink-0" />
+            {theme.id === "jm-signature" ? (
+              <Sparkles className="h-3.5 w-3.5 text-[#8161A3] shrink-0" />
+            ) : theme.id === "jm-crayon" ? (
+              <CrayonIcon className="h-3.5 w-3.5 text-[#F59E0B] shrink-0" />
             ) : (
-              <Sun className="h-3.5 w-3.5 text-[#ff9600] shrink-0" />
+              <Leaf className="h-3.5 w-3.5 text-[#205A44] shrink-0" />
             )}
             <span>Theme: {theme.name}</span>
           </Button>
@@ -659,12 +661,12 @@ export default function AdminAssessmentsPage() {
                 >
                   <div className="flex items-center gap-3">
                     <div className="p-2 rounded-lg bg-muted/60 border shrink-0">
-                      {th.id === "duo-green" ? (
-                        <Leaf className="h-5 w-5 text-[#58cc02]" />
-                      ) : th.id === "spark-blue" ? (
-                        <Wind className="h-5 w-5 text-[#1cb0f6]" />
+                      {th.id === "jm-signature" ? (
+                        <Sparkles className="h-5 w-5 text-[#8161A3]" />
+                      ) : th.id === "jm-crayon" ? (
+                        <CrayonIcon className="h-5 w-5 text-[#F59E0B]" />
                       ) : (
-                        <Sun className="h-5 w-5 text-[#ff9600]" />
+                        <Leaf className="h-5 w-5 text-[#205A44]" />
                       )}
                     </div>
                     <div>

@@ -40,10 +40,10 @@ func SetupStudentAPIRoutes(app *fiber.App, schoolRepo domain.SchoolRepository, s
 		conclusionEngine: assessment_engine.NewConclusionEngine(nil, nil),
 	}
 
-	// Public routes for student login, direct check-in & public preview
+	// Public routes for student login & direct check-in
 	app.Get("/api/student/school-info", handler.GetSchoolInfo)
 	app.Post("/api/auth/student/login", middleware.AuthLoginRateLimiter(), handler.StudentLogin)
-	app.Get("/api/preview/assessment/:id", handler.GetPreviewAssessment)
+	app.Get("/api/preview/assessment/:id", middleware.RoleGuard(jwtSecret, "superadmin", "admin", "school_admin", "counselor", "school_counselor", "teacher", "parent"), handler.GetPreviewAssessment)
 	app.Get("/api/public/checkin-links/:code", handler.GetPublicCheckinLink)
 	app.Get("/api/public/activities", handler.GetPublicActivities)
 	app.Post("/api/public/assessment/direct-submit", middleware.AssessmentSubmissionRateLimiter(), handler.DirectSubmitAssessment)
